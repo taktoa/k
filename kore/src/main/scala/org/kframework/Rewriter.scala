@@ -1,7 +1,7 @@
 package org.kframework
 
-import org.kframework.definition.Module
-import org.kframework.kore.K
+import org.kframework.definition.{Rule, Module}
+import org.kframework.kore.{KVariable, K}
 
 trait RewriterConstructor extends (Module => Rewriter)
 
@@ -19,5 +19,13 @@ trait Rewriter {
    * - for search, it returns an Or with multiple ground terms as children
    */
 
-  def execute(k: kore.K): kore.K
+  def convert(k: K): K = k
+
+  def `match`(k: K, trace: Boolean, rule: Rule): java.util.List[_ <: java.util.Map[_ <: KVariable, _ <: K]]
+
+  def substitute(substitution: java.util.Map[_ <: KVariable, _ <: K], rule: Rule): K
+
+  def execute(k: K): K
+
+  def rules : java.util.List[_ <: Rule]
 }
