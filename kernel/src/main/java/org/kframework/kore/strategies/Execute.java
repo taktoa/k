@@ -1,3 +1,4 @@
+// Copyright (c) 2015 K Team. All Rights Reserved.
 package org.kframework.kore.strategies;
 
 import com.google.common.base.Stopwatch;
