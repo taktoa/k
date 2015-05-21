@@ -108,7 +108,7 @@ public class GenerateSentencesFromConfigDecl {
                 //is a cell bag, and thus represents the multiple children of its parent cell
                 if (ensures != null) {
                     //top level cell, therefore, should be the children of the generatedTop cell
-                    KToken cellLabel = KToken(Sort("#CellName"), "generatedTop");
+                    KToken cellLabel = KToken("generatedTop", Sort("#CellName"));
                     K generatedTop = KApply(KLabel("#configCell"), cellLabel, KApply(KLabel("#cellPropertyListTerminator")), term, cellLabel);
                     return genInternal(generatedTop, ensures, cfgAtt, m);
                 }
@@ -309,7 +309,7 @@ public class GenerateSentencesFromConfigDecl {
         if (ensures != null) {
             att = att.add("topcell");
         }
-        att = att.add("cell").add("#klabel", "<" + cellName + ">");
+        att = att.add("cell").add("klabel", "<" + cellName + ">");
         return att.addAll(getCellPropertiesAsAtt(k));
     }
 

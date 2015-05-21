@@ -62,7 +62,7 @@ public class KOREtoBackendKIL extends org.kframework.kore.AbstractConstructors<o
     }
 
     @Override
-    public Token KToken(org.kframework.kore.Sort sort, String s, Att att) {
+    public Token KToken(String s, org.kframework.kore.Sort sort, Att att) {
         return !sort.name().equals("KBoolean") ? Token.of(Sort(sort.name()), s) : Token.of(Sort("Bool"), s);
     }
 
@@ -106,8 +106,8 @@ public class KOREtoBackendKIL extends org.kframework.kore.AbstractConstructors<o
     }
 
     public Term convertInternal(org.kframework.kore.K k) {
-        if (k instanceof org.kframework.kore.KToken)
-            return KToken(((org.kframework.kore.KToken) k).sort(), ((org.kframework.kore.KToken) k).s(), k.att());
+        else if (k instanceof org.kframework.kore.KToken)
+            return KToken(((org.kframework.kore.KToken) k).s(), ((org.kframework.kore.KToken) k).sort(), k.att());
         else if (k instanceof org.kframework.kore.KApply)
             return KApply1(((KApply) k).klabel(), ((KApply) k).klist(), k.att());
         else if (k instanceof org.kframework.kore.KSequence)
