@@ -22,7 +22,7 @@ import org.kframework.definition.Rule;
 import org.kframework.kil.Attribute;
 import org.kframework.kil.Definition;
 import org.kframework.kompile.CompiledDefinition;
-import org.kframework.kompile.KompileOption;
+import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
@@ -38,7 +38,7 @@ import org.kframework.kore.compile.GenerateSortPredicates;
 import org.kframework.kore.compile.LiftToKSequence;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
-import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
+//import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
 import org.kframework.krun.KRun;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.BinaryLoader;
@@ -50,6 +50,7 @@ import org.kframework.utils.file.FileUtil;
 import scala.Function1;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,12 +87,14 @@ public class OcamlBackendTest {
         BinaryLoader loader = null;
         Provider<RuleIndex> rix = null;
         Provider<KILtoBackendJavaKILTransformer> xfrm = null;
-        Path tmpdir = java.nio.file.Files.createTempDirectory("k-ocaml-tmp-", null);
-        Path defdir = java.nio.file.Files.createTempDirectory("k-ocaml-def-", null);
+        Path tmpdir = Files.createTempDirectory("k-ocaml-tmp-", null);
+        Path defdir = Files.createTempDirectory("k-ocaml-def-", null);
         FileUtil futil = new FileUtil(tmpdir, defdir, workdir, kompdir, null, null);
         Provider<DefinitionLoader> dfl = new DefinitionLoader(sw, loader, kem, outer, true, futil, sdf);
         Context ctx = new Context();
-        Definition javaDef = dfl.loadDefinition(defFile, defModule, ctx);
+        String defModule = "IMP";
+        
+        Definition javaDef = dfl.loadDefinition(kdef, defModule, ctx);
         Backend backend = new JavaSymbolicBackend(sw, ctx, kopts, loader, rix, xfrm, futil, kem);
         CompilerSteps<Definition> steps = backend.getCompilationSteps();
         String step = backend.getDefaultStep();
@@ -137,7 +140,7 @@ public class OcamlBackendTest {
     @Test
     public void testOcaml() {
         KExceptionManager kem = new KExceptionManager(new GlobalOptions());
-        String kfile = "/home/remy/Documents/ResearchWork/KHaskell/k/kernel/src/test/resources/kore_imp_tiny.k";
+        String kfile = "kore_imp_tiny.k";
         CompiledDefinition def = kompile(kem, new File(kfile));
 
         BiFunction<String, Source, K> programParser = def.getProgramParser(kem);
