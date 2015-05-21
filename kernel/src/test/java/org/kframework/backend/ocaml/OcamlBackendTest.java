@@ -12,6 +12,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import com.google.inject.Provider;
+import com.google.inject.util.Providers;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
@@ -23,6 +24,7 @@ import org.kframework.kil.Attribute;
 import org.kframework.kil.Definition;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
+import org.kframework.kompile.Kompile;
 import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
@@ -38,8 +40,6 @@ import org.kframework.kore.compile.GenerateSortPredicates;
 import org.kframework.kore.compile.LiftToKSequence;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
-//import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
-import org.kframework.backend.java.indexing.RuleIndex;
 import org.kframework.krun.KRun;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.BinaryLoader;
@@ -52,7 +52,9 @@ import org.kframework.utils.file.FileUtil;
 import scala.Function1;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -83,68 +85,75 @@ import com.google.common.collect.Maps;
 @RunWith(MockitoJUnitRunner.class)
 public class OcamlBackendTest {
 
+    private GlobalOptions gopts;
+    private FileUtil futil;
+    private File kfile;
+    private CompiledDefinition cdef;
+    private KExceptionManager kem;
+    
+    // FIXME
+    private void tempFileUtil(File kdef) throws IOException {
+        Path p = Files.createTempDirectory("k-ocaml-tmp-");
+        File f = p.toFile();
+        kfile = new File(p.toString() + File.separator + kdef.getName());
+        System.out.format("Source: %s\nDest: %s\n", kdef.toString(), kfile.toString());
+        Files.copy(kdef.toPath(), kfile.toPath());
+        kfile.deleteOnExit();
+        Provider<File> pf = Providers.of(f);
+        futil = new FileUtil(f, pf, f, pf, gopts, System.getenv());
+    }
+    
     // TODO: get this working
-    private CompiledDefinition kompile(KExceptionManager kem, File kdef) {
+    private void kompile() {
         KompileOptions kopts = new KompileOptions();
-        Stopwatch sw = null;
-        BinaryLoader loader = null;
-        Path tmpdir = Files.createTempDirectory("k-ocaml-tmp-", null);
-        Path defdir = Files.createTempDirectory("k-ocaml-def-", null);
-        FileUtil futil = new FileUtil(tmpdir, defdir, workdir, kompdir, null, null);
-        Provider<DefinitionLoader> dfl = new DefinitionLoader(sw, loader, kem, outer, true, futil, sdf);
-        Context ctx = new Context();
-        String defModule = "IMP";
+
+        String definitionFilename = kfile.getName();
+//        String mainModuleName = futil.getMainModule(definitionFilename);
+//        String programModuleName = mainModuleName; // FIXME
+        String mainModuleName    = "TEST";          // FIXME
+        String programModuleName = "TEST"; // FIXME
+
+        System.out.format("DefFN: %s\n", definitionFilename);
+        System.out.format("MnMdN: %s\n", mainModuleName);
+        System.out.format("PgmMN: %s\n", programModuleName);
         
-        Definition javaDef = dfl.loadDefinition(kdef, defModule, ctx);
-        Backend backend = null;
-        CompilerSteps<Definition> steps = backend.getCompilationSteps();
-        String step = backend.getDefaultStep();
-
-        try {
-            javaDef = steps.compile(javaDef, step);
-        } catch(CompilerStepDone e) {
-            javaDef = (Definition) e.getResult();
-        }
+        Kompile komp = new Kompile(kopts, futil, kem, false);
         
-        // loader.saveOrDie(files.resolveKompiled("definition-concrete.bin"), javaDef);
-
-        // loader.saveOrDie(files.resolveKompiled("configuration.bin"),
-        //         MetaK.getConfiguration(javaDef, context));
-
-        // b.run(javaDef);
-        
-        // yeah yeah refactor these names later
-        Object pd  = null; // parsed definition
-        Object kd  = null; // kompiled definition
-        Object pss = null; // program start symbol
-        Object tci = null; // top cell initializer
-
-        return CompiledDefinition(kopts, pd, kd, pss, tci);
+        cdef = komp.run(kfile, mainModuleName, programModuleName, Sorts.K());
     }
 
     // The test program
-    private K testProgram(BiFunction<String, Source, K> programParser) {
-        String tpgm = "int s, n, .Ids; n = 10; while(0<=n) { s = s + n; n = n + -1; }";
+    private K testProgram() {
+        //        String tpgm = "int s, n; n = 10; while(0 <= n) { s = s + n; n = n + -1; }";
+        String tpgm = "int n, .Ids; n = 10; while(0 <= n) { n = n + -1; }";
         String tsrc = "generated by DefinitionToOcaml";
-        return programParser.apply(tpgm, Source.apply(tsrc));
+        return cdef.getProgramParser(kem).apply(tpgm, Source.apply(tsrc));
     } 
 
+
+    private void testInit() throws IOException {
+        gopts = new GlobalOptions();
+        kem = new KExceptionManager(gopts);
+        tempFileUtil(new File("src/test/resources/kore_imp_tiny.k"));
+        kompile();
+    }
     
     // This should just print out the OCaml corresponding to the test program
     @Test
-    public void testOcaml() {
-        KExceptionManager kem = new KExceptionManager(new GlobalOptions());
-        File kfile = "kore_imp_tiny.k";
-        CompiledDefinition def = kompile(kem, new File(kfile));
+    public void testOcaml() throws IOException {
+        testInit();
+        K program = testProgram();
+        System.out.println(program.toString());
+        Map initMap = Collections.singletonMap(KToken(Sorts.KConfigVar(), "$PGM"), program);
+        K runpgm = (new KRun(kem, futil)).plugConfigVars(cdef, initMap);
 
-        K program = testProgram(def.getProgramParser(kem));
-
-        DefinitionToOcaml convert = new DefinitionToOcaml();
-        String ocaml = convert.convert(def);
+        DefinitionToOcaml conv = new DefinitionToOcaml();
+        String ocaml = conv.convert(cdef);
         System.out.println(ocaml);
-        String pgm = convert.convert(new KRun(kem, FileUtil.testFileUtil()).plugConfigVars(def, Collections.singletonMap(KToken(Sorts.KConfigVar(), "$PGM"), program)));
+        String pgm = conv.convert(runpgm);
         System.out.println(pgm);
 
         assertEquals(true, true); // TODO: replace with actual unit test.
+        
     }
 }
