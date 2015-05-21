@@ -11,6 +11,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
+import com.google.inject.Provider;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
@@ -19,7 +20,9 @@ import org.kframework.definition.ModuleTransformer;
 import org.kframework.definition.Production;
 import org.kframework.definition.Rule;
 import org.kframework.kil.Attribute;
+import org.kframework.kil.Definition;
 import org.kframework.kompile.CompiledDefinition;
+import org.kframework.kompile.KompileOption;
 import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
@@ -79,20 +82,22 @@ public class OcamlBackendTest {
 
     private CompiledDefinition kompile(KExceptionManager kem, File kdef) {
         KompileOptions kopts = new KompileOptions();
-
         Stopwatch sw = null;
-        Loader loader = null;
+        BinaryLoader loader = null;
         Provider<RuleIndex> rix = null;
         Provider<KILtoBackendJavaKILTransformer> xfrm = null;
-        Provider<DefinitionLoader> dfl = null;
-        FileUtil futil = null;
+        Path tmpdir = java.nio.file.Files.createTempDirectory("k-ocaml-tmp-", null);
+        Path defdir = java.nio.file.Files.createTempDirectory("k-ocaml-def-", null);
+        FileUtil futil = new FileUtil(tmpdir, defdir, workdir, kompdir, null, null);
+        Provider<DefinitionLoader> dfl = new DefinitionLoader(sw, loader, kem, outer, true, futil, sdf);
         Context ctx = new Context();
         Definition javaDef = dfl.loadDefinition(defFile, defModule, ctx);
         Backend backend = new JavaSymbolicBackend(sw, ctx, kopts, loader, rix, xfrm, futil, kem);
-        CompilerSteps<Definition> steps = b.getCompilationSteps();
+        CompilerSteps<Definition> steps = backend.getCompilationSteps();
+        String step = backend.getDefaultStep();
 
         try {
-            javaDef = steps.compile(javaDef, backend.getDefaultStep());
+            javaDef = steps.compile(javaDef, step);
         } catch(CompilerStepDone e) {
             javaDef = (Definition) e.getResult();
         }
@@ -120,8 +125,11 @@ public class OcamlBackendTest {
         //         MetaK.getConfiguration(javaDef, context));
 
         // b.run(javaDef);
-
-        
+        Object options = kopts;
+        Object parsedDef = null;
+        Object kompiledDef = null;
+        Object programStartSymbol = null;
+        Object topCellInitializer = null;
 
         return CompiledDefinition(options, parsedDef, kompiledDef, programStartSymbol, topCellInitializer);
     }
