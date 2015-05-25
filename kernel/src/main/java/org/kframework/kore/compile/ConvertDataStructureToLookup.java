@@ -12,6 +12,7 @@ import org.kframework.kil.Attribute;
 import org.kframework.kore.Assoc;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
+import org.kframework.kore.KLabel;
 import org.kframework.kore.KRewrite;
 import org.kframework.kore.KVariable;
 import org.kframework.utils.errorsystem.KEMException;
@@ -101,62 +102,91 @@ public class ConvertDataStructureToLookup {
         return newLabel;
     }
 
+    private KEMException unsupportedSetCollectionError(KApply k) {
+        return KEMException.internalError("Unsupported collection type: Set", k);
+    }
+
+    private KEMException unsupportedListCollectionError(KApply k) {
+        return KEMException.internalError("Unsupported collection type: List", k);
+    }
+    
+    private KEMException associativeMapMatchingError(K component, KVariable frame, KApply k) {
+        return KEMException.internalError("Unsupported associative matching on Map. Found variables " + component + " and " + frame, k);
+    }
+
+    private KEMException unexpectedMapElementArityError(KApply kapp) {
+        return KEMException.internalError("Unexpected arity of map element: " + kapp.klist().size(), kapp);
+    }
+
+    private KEMException unexpectedMapTermError(KApply kapp) {
+        return KEMException.internalError("Unexpected term in map, not a map element.", kapp);
+    }
+    
+    void checkIfList(Att att, KApply k) {
+        if(! att.contains(Attribute.COMMUTATIVE_KEY))
+            throw unsupportedListCollectionError(k);
+    }
+
+    void checkIfSet(Att att, KApply k) {
+        if(att.contains(Attribute.IDEMPOTENT_KEY))
+            throw unsupportedSetCollectionError(k);
+    }
+
+    void checkMapTerm(KApply kapp, KApply k) {
+        KLabel a = kapp.klabel();
+        KLabel b = KLabel(m.attributesFor().apply(k.klabel()).<String>get("element").get());
+        if(! a.equals(b))
+            throw unexpectedMapTermError(kapp);
+    }
+
+    void checkMapArity(KApply kapp) {
+        if(kapp.klist().size() != 2)
+            throw unexpectedMapElementArityError(kapp);
+    }
+
+    void checkAssocMap(K component, KVariable frame, KApply k) {
+        if(frame != null)
+            throw associativeMapMatchingError(component, frame, k);
+    }
+    
     K transform(K term) {
         return new TransformKORE() {
             @Override
             public K apply(KApply k) {
                 Att att = m.attributesFor().apply(k.klabel());
-                if (att.contains(Attribute.ASSOCIATIVE_KEY)) {
-                    List<K> components = Assoc.flatten(k.klabel(), k.klist().items(), m);
-                    if (att.contains(Attribute.COMMUTATIVE_KEY)) {
-                        if (att.contains(Attribute.IDEMPOTENT_KEY)) {
-                            // Set
-                            throw KEMException.internalError("Unsupported collection type: Set", k);
-                        } else {
-                            //TODO(dwightguth): differentiate Map and Bag
-                            if (rhsOf == null) {
-                                //left hand side
-                                KVariable frame = null;
-                                Map<K, K> elements = new LinkedHashMap<>();
-                                for (K component : components) {
-                                    if (component instanceof KVariable) {
-                                        if (frame != null) {
-                                            throw KEMException.internalError("Unsupported associative matching on Map. Found variables " + component + " and " + frame, k);
-                                        }
-                                        frame = (KVariable) component;
-                                    } else if (component instanceof KApply) {
-                                        KApply kapp = (KApply) component;
-                                        if (kapp.klabel().equals(KLabel(m.attributesFor().apply(k.klabel()).<String>get("element").get()))) {
-                                            if (kapp.klist().size() != 2) {
-                                                throw KEMException.internalError("Unexpected arity of map element: " + kapp.klist().size(), kapp);
-                                            }
-                                            elements.put(kapp.klist().items().get(0), kapp.klist().items().get(1));
-                                        } else {
-                                            throw KEMException.internalError("Unexpected term in map, not a map element.", kapp);
-                                        }
-                                    }
-                                }
-                                KVariable map = newDotVariable();
-                                if (frame != null) {
-                                    state.add(KApply(KLabel("#match"), frame, elements.keySet().stream().reduce(map, (a1, a2) -> KApply(KLabel("_[_<-undef]"), a1, a2))));
-                                }
-                                for (Map.Entry<K, K> element : elements.entrySet()) {
-                                    state.add(KApply(KLabel("#match"), RewriteToTop.toLeft(element.getValue()), KApply(KLabel("Map:lookup"), map, element.getKey())));
-                                }
-                                if (lhsOf == null) {
-                                    return KRewrite(map, RewriteToTop.toRight(k));
-                                } else {
-                                    return map;
-                                }
-                            } else {
-                                return super.apply(k);
-                            }
-                        }
-                    } else {
-                        throw KEMException.internalError("Unsupported collection type: List", k);
-                    }
-                } else {
+                if(! att.contains(Attribute.ASSOCIATIVE_KEY))
                     return super.apply(k);
+                List<K> components = Assoc.flatten(k.klabel(), k.klist().items(), m);
+                checkIfList(att, k);
+                checkIfSet(att, k);
+                //TODO(dwightguth): differentiate Map and Bag
+                if(rhsOf != null)
+                    return super.apply(k);
+                KVariable frame = null;
+                Map<K, K> elements = new LinkedHashMap<>();
+                for (K component : components) {
+                    if (component instanceof KVariable) {
+                        checkAssocMap(component, frame, k);
+                        frame = (KVariable) component;
+                    } else if (component instanceof KApply) {
+                        KApply kapp = (KApply) component;
+                        checkMapTerm(kapp, k);
+                        checkMapArity(kapp);
+                        elements.put(kapp.klist().items().get(0), kapp.klist().items().get(1));
+                    }
+                    // Shouldn't there be an else here???
+                }
+                KVariable map = newDotVariable();
+                if (frame != null) {
+                    state.add(KApply(KLabel("#match"), frame, elements.keySet().stream().reduce(map, (a1, a2) -> KApply(KLabel("_[_<-undef]"), a1, a2))));
+                }
+                for (Map.Entry<K, K> element : elements.entrySet()) {
+                    state.add(KApply(KLabel("#match"), RewriteToTop.toLeft(element.getValue()), KApply(KLabel("Map:lookup"), map, element.getKey())));
+                }
+                if (lhsOf == null) {
+                    return KRewrite(map, RewriteToTop.toRight(k));
+                } else {
+                    return map;
                 }
             }
 
