@@ -25,71 +25,17 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 
 public class FuncBackend extends BasicBackend {
-
-    private final FileUtil files;
-    private final Provider<ProcessBuilder> pb;
-
     @Inject
-    public FuncBackend(Stopwatch sw, Context context, KompileOptions options, Provider<ProcessBuilder> pb, FileUtil files) {
+    public FuncBackend(Stopwatch sw, Context context, KompileOptions options) {
         super(sw, context, options);
-        this.pb = pb;
-        this.files = files;
     }
 
     @Override
     public void run(Definition definition) {
-        final String labelFile = FilenameUtils.removeExtension(options.mainDefinitionFile().getName()) + ".labeled_rules";
-        final String langName = definition.getMainModule().toLowerCase();
-        final String domainFile = langName+"_domains.v";
-        final String ruleFile = langName+"_rules.v";
-
-        FuncLabelUnparser unparser = new FuncLabelUnparser(context);
-        unparser.visitNode(definition);
-        String unparsedText = unparser.getResult();
-
-        files.saveToDefinitionDirectory(labelFile, unparsedText);
-
-        final String kfunc = OS.current().getNativeExecutable("kfunc");
-        File directory = definition.getMainFile().getParentFile();
-
-        try {
-            Process p = pb.get().command(kfunc,"syntax","--recursive",
-                    definition.getMainFile().getAbsolutePath(),domainFile)
-              .inheritIO().directory(directory).start();
-            int result;
-            try {
-                result = p.waitFor();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                p.destroy();
-                return;
-            }
-            if (result != 0) {
-                throw KEMException.criticalError("Error generating Func syntax definition");
-            }
-        } catch (IOException e) {
-            throw KEMException.criticalError("Error generating Func syntax definition", e);
-        }
-        try {
-            Process p = pb.get().command(kfunc,"rules","--lang-name",langName,"--recursive",
-                    definition.getMainFile().getAbsolutePath(),"--rules-from",labelFile,ruleFile)
-              .inheritIO().directory(directory).start();
-            int result;
-            try {
-                result = p.waitFor();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                p.destroy();
-                return;
-            }
-            if (result != 0) {
-                throw KEMException.criticalError("Error generating Func rules definition");
-            }
-        } catch (IOException e) {
-            throw KEMException.criticalError("Error generating Func rules definition", e);
-        }
+        System.out.println("nothing implemented yet");
+        System.out.println(definition);
+        System.out.println("nothing implemented yet");
     }
-
 
     @Override
     public String getDefaultStep() {
@@ -111,6 +57,7 @@ public class FuncBackend extends BasicBackend {
     public String autoincludedFile() {
         return Backends.AUTOINCLUDE_JAVA;
     }
+
     @Override
     public boolean generatesDefinition() {
         return false;
