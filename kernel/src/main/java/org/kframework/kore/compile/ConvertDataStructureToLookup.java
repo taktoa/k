@@ -31,8 +31,6 @@ import static org.kframework.kore.KORE.*;
  * Created by dwightguth on 5/12/15.
  */
 public class ConvertDataStructureToLookup {
-
-
     private Set<KApply> state = new HashSet<>();
     private Set<KVariable> vars = new HashSet<>();
 
@@ -71,7 +69,7 @@ public class ConvertDataStructureToLookup {
                 context.att());
     }
 
-    void gatherVars(K term) {
+    public void gatherVars(K term) {
         new VisitKORE() {
             @Override
             public Void apply(KVariable v) {
@@ -81,7 +79,7 @@ public class ConvertDataStructureToLookup {
         }.apply(term);
     }
 
-    K addSideCondition(K requires) {
+    public K addSideCondition(K requires) {
         Optional<KApply> sideCondition = state.stream().reduce(BooleanUtils::and);
         if (!sideCondition.isPresent()) {
             return requires;
@@ -93,7 +91,7 @@ public class ConvertDataStructureToLookup {
     }
 
     private int counter = 0;
-    KVariable newDotVariable() {
+    public KVariable newDotVariable() {
         KVariable newLabel;
         do {
             newLabel = KVariable("_" + (counter++));
@@ -102,6 +100,7 @@ public class ConvertDataStructureToLookup {
         return newLabel;
     }
 
+    //TODO(taktoa): abstract out into separate class? fix line lengths
     private KEMException unsupportedSetCollectionError(KApply k) {
         return KEMException.internalError("Unsupported collection type: Set", k);
     }
@@ -122,34 +121,39 @@ public class ConvertDataStructureToLookup {
         return KEMException.internalError("Unexpected term in map, not a map element.", kapp);
     }
     
-    void checkIfList(Att att, KApply k) {
+    private void checkIfList(Att att, KApply k) {
         if(! att.contains(Attribute.COMMUTATIVE_KEY))
             throw unsupportedListCollectionError(k);
     }
 
-    void checkIfSet(Att att, KApply k) {
+    private void checkIfSet(Att att, KApply k) {
         if(att.contains(Attribute.IDEMPOTENT_KEY))
             throw unsupportedSetCollectionError(k);
     }
 
-    void checkMapTerm(KApply kapp, KApply k) {
+    private void checkMapTerm(KApply kapp, KApply k) {
         KLabel a = kapp.klabel();
         KLabel b = KLabel(m.attributesFor().apply(k.klabel()).<String>get("element").get());
         if(! a.equals(b))
             throw unexpectedMapTermError(kapp);
     }
 
-    void checkMapArity(KApply kapp) {
+    private void checkMapArity(KApply kapp) {
         if(kapp.klist().size() != 2)
             throw unexpectedMapElementArityError(kapp);
     }
 
-    void checkAssocMap(K component, KVariable frame, KApply k) {
+    private void checkAssocMap(K component, KVariable frame, KApply k) {
         if(frame != null)
             throw associativeMapMatchingError(component, frame, k);
     }
+
+    //TODO(taktoa): rename a and b to sane names
+    private void addStateMatchLabel(K a, K b) {
+        state.add(KApply(KLabel("#match"), a, b));
+    }    
     
-    K transform(K term) {
+    public K transform(K term) {
         return new TransformKORE() {
             @Override
             public K apply(KApply k) {
@@ -172,22 +176,17 @@ public class ConvertDataStructureToLookup {
                         KApply kapp = (KApply) component;
                         checkMapTerm(kapp, k);
                         checkMapArity(kapp);
-                        elements.put(kapp.klist().items().get(0), kapp.klist().items().get(1));
+                        List<K> kitems = kapp.klist().items();
+                        elements.put(kitems.get(0), kitems.get(1));
                     }
-                    // Shouldn't there be an else here???
+                    //FIXME: Shouldn't there be an else here???
                 }
                 KVariable map = newDotVariable();
-                if (frame != null) {
-                    state.add(KApply(KLabel("#match"), frame, elements.keySet().stream().reduce(map, (a1, a2) -> KApply(KLabel("_[_<-undef]"), a1, a2))));
-                }
-                for (Map.Entry<K, K> element : elements.entrySet()) {
-                    state.add(KApply(KLabel("#match"), RewriteToTop.toLeft(element.getValue()), KApply(KLabel("Map:lookup"), map, element.getKey())));
-                }
-                if (lhsOf == null) {
-                    return KRewrite(map, RewriteToTop.toRight(k));
-                } else {
-                    return map;
-                }
+                if (frame != null)
+                    addStateMatchLabel(frame, elements.keySet().stream().reduce(map, (a1, a2) -> KApply(KLabel("_[_<-undef]"), a1, a2)));
+                for (Map.Entry<K, K> element : elements.entrySet())
+                    addStateMatchLabel(RewriteToTop.toLeft(element.getValue()), KApply(KLabel("Map:lookup"), map, element.getKey()));
+                return (lhsOf == null ? KRewrite(map, RewriteToTop.toRight(k)) : map);
             }
 
             private K lhsOf;
