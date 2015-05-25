@@ -242,14 +242,44 @@ public class DefinitionToOcaml {
     private Module mainModule;
 
     public String convert(CompiledDefinition def) {
-        ModuleTransformer convertLookups = ModuleTransformer.fromSentenceTransformer(new ConvertDataStructureToLookup(def.executionModule())::convert, "convert data structures to lookups");
-        Function1<Module, Module> generatePredicates = func(new GenerateSortPredicates(def.kompiledDefinition)::gen);
-        ModuleTransformer liftToKSequence = ModuleTransformer.fromSentenceTransformer(new LiftToKSequence()::convert, "lift K into KSequence");
-        Function1<Module, Module> pipeline = convertLookups
-                .andThen(generatePredicates)
-                .andThen(liftToKSequence);
-        mainModule = pipeline.apply(def.executionModule());
+        ConvertDataStructureToLookup cdstl;
+        ModuleTransformer convertLookups, liftToKSequence;
+        Function1<Module, Module> pipeline;
+        LiftToKSequence ltks;
+        GenerateSortPredicates gsp;
+        String clDs, ltksDs;
+        
+        clDs   = "convert data structures to lookups";
+        ltksDs = "lift K into KSequence";
+        
+        cdstl = new ConvertDataStructureToLookup(def.executionModule());
+        gsp   = new GenerateSortPredicates(def.kompiledDefinition);
+        ltks  = new LiftToKSequence();
+        
+        convertLookups  = ModuleTransformer.fromSentenceTransformer(cdstl::convert, clDs);
+        liftToKSequence = ModuleTransformer.fromSentenceTransformer(ltks::convert,  ltksDs);
+
+        //        pipeline = convertLookups.andThen(func(gsp::gen)).andThen(liftToKSequence);
+        //        mainModule = pipeline.apply(def.executionModule());
+        Module a = def.executionModule();
+        System.out.println(a.toString());
+        Module b = convertLookups.apply(a);
+        System.out.println(b.toString());
+        Module c = func(gsp::gen).apply(b);
+        System.out.println(c.toString());
+        Module d = liftToKSequence.apply(c);
+        System.out.println(d.toString());
+        mainModule = d;
         return convert();
+
+        // ModuleTransformer convertLookups = ModuleTransformer.fromSentenceTransformer(new ConvertDataStructureToLookup(def.executionModule())::convert, "convert data structures to lookups");
+        // Function1<Module, Module> generatePredicates = func(new GenerateSortPredicates(def.kompiledDefinition)::gen);
+        // ModuleTransformer liftToKSequence = ModuleTransformer.fromSentenceTransformer(new LiftToKSequence()::convert, "lift K into KSequence");
+        // Function1<Module, Module> pipeline = convertLookups
+        //         .andThen(generatePredicates)
+        //         .andThen(liftToKSequence);
+        // mainModule = pipeline.apply(def.executionModule());
+        // return convert();
     }
 
     Set<KLabel> functions;
