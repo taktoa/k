@@ -50,7 +50,7 @@ public class KompileOptions implements Serializable {
     @Parameter(names={"--directory", "-d"}, description="Path to the directory in which the output resides. An output can be either a kompiled K definition or a document which depends on the type of backend. The default is the directory containing the main definition file.")
     public String directory;
 
-    @Parameter(names="--backend", description="Choose a backend. <backend> is one of [coq|java]. Each creates the kompiled K definition.")
+    @Parameter(names="--backend", description="Choose a backend. <backend> is one of [coq|func|java]. Each creates the kompiled K definition.")
     public String backend = Backends.JAVA;
 
     @Parameter(names="--doc-style", description="Specify a style option for the package 'k.sty' (when '--backend [pdf|latex]' is used) or path to an alternative .css file (when '--backend html' is used).")

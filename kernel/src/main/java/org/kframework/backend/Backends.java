@@ -10,6 +10,7 @@ public class Backends {
     public static final String UNPARSE = "unparse";
     public static final String UNFLATTEN = "unflatten";
     public static final String COQ = "coq";
+    public static final String FUNC = "func";
     public static final String JAVA = "java";
 
     public static final String AUTOINCLUDE_JAVA = "autoinclude-java.k";
