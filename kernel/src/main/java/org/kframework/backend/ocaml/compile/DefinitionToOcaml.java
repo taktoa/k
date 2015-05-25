@@ -259,27 +259,10 @@ public class DefinitionToOcaml {
         convertLookups  = ModuleTransformer.fromSentenceTransformer(cdstl::convert, clDs);
         liftToKSequence = ModuleTransformer.fromSentenceTransformer(ltks::convert,  ltksDs);
 
-        //        pipeline = convertLookups.andThen(func(gsp::gen)).andThen(liftToKSequence);
-        //        mainModule = pipeline.apply(def.executionModule());
-        Module a = def.executionModule();
-        System.out.println(a.toString());
-        Module b = convertLookups.apply(a);
-        System.out.println(b.toString());
-        Module c = func(gsp::gen).apply(b);
-        System.out.println(c.toString());
-        Module d = liftToKSequence.apply(c);
-        System.out.println(d.toString());
-        mainModule = d;
-        return convert();
+        pipeline = convertLookups.andThen(func(gsp::gen)).andThen(liftToKSequence);
+        mainModule = pipeline.apply(def.executionModule());
 
-        // ModuleTransformer convertLookups = ModuleTransformer.fromSentenceTransformer(new ConvertDataStructureToLookup(def.executionModule())::convert, "convert data structures to lookups");
-        // Function1<Module, Module> generatePredicates = func(new GenerateSortPredicates(def.kompiledDefinition)::gen);
-        // ModuleTransformer liftToKSequence = ModuleTransformer.fromSentenceTransformer(new LiftToKSequence()::convert, "lift K into KSequence");
-        // Function1<Module, Module> pipeline = convertLookups
-        //         .andThen(generatePredicates)
-        //         .andThen(liftToKSequence);
-        // mainModule = pipeline.apply(def.executionModule());
-        // return convert();
+        return convert();
     }
 
     Set<KLabel> functions;
