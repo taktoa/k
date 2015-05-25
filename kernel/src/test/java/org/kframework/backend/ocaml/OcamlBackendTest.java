@@ -153,10 +153,10 @@ public class OcamlBackendTest {
 
         DefinitionToOcaml conv = new DefinitionToOcaml();
 
-        String ocaml = conv.convert(cdef);
-        System.out.println(ocaml);
-        String pgm = conv.convert(runpgm);
-        System.out.println(pgm);
+//        String ocaml = conv.convert(cdef);
+//        System.out.println(ocaml);
+//        String pgm = conv.convert(runpgm);
+//        System.out.println(pgm);
 
         assertEquals(true, true); // TODO(taktoa): replace with actual unit test.
 

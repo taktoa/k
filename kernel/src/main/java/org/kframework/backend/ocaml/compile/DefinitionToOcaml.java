@@ -248,14 +248,14 @@ public class DefinitionToOcaml {
         LiftToKSequence ltks;
         GenerateSortPredicates gsp;
         String clDs, ltksDs;
-        
+
         clDs   = "convert data structures to lookups";
         ltksDs = "lift K into KSequence";
-        
+
         cdstl = new ConvertDataStructureToLookup(def.executionModule());
         gsp   = new GenerateSortPredicates(def.kompiledDefinition);
         ltks  = new LiftToKSequence();
-        
+
         convertLookups  = ModuleTransformer.fromSentenceTransformer(cdstl::convert, clDs);
         liftToKSequence = ModuleTransformer.fromSentenceTransformer(ltks::convert,  ltksDs);
 

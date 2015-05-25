@@ -108,7 +108,7 @@ public class ConvertDataStructureToLookup {
     private KEMException unsupportedListCollectionError(KApply k) {
         return KEMException.internalError("Unsupported collection type: List", k);
     }
-    
+
     private KEMException associativeMapMatchingError(K component, KVariable frame, KApply k) {
         return KEMException.internalError("Unsupported associative matching on Map. Found variables " + component + " and " + frame, k);
     }
@@ -120,7 +120,7 @@ public class ConvertDataStructureToLookup {
     private KEMException unexpectedMapTermError(KApply kapp) {
         return KEMException.internalError("Unexpected term in map, not a map element.", kapp);
     }
-    
+
     private void checkIfList(Att att, KApply k) {
         if(! att.contains(Attribute.COMMUTATIVE_KEY))
             throw unsupportedListCollectionError(k);
@@ -151,8 +151,8 @@ public class ConvertDataStructureToLookup {
     //TODO(taktoa): rename a and b to sane names
     private void addStateMatchLabel(K a, K b) {
         state.add(KApply(KLabel("#match"), a, b));
-    }    
-    
+    }
+
     public K transform(K term) {
         return new TransformKORE() {
             @Override
