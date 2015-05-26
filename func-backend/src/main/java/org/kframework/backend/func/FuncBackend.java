@@ -9,6 +9,7 @@ import org.kframework.backend.Backends;
 import org.kframework.backend.BasicBackend;
 import org.kframework.backend.FirstStep;
 import org.kframework.backend.LastStep;
+import org.kframework.compile.FlattenModules;
 import org.kframework.compile.transformers.AddHeatingConditions;
 import org.kframework.compile.transformers.ContextsToHeating;
 import org.kframework.compile.transformers.StrictnessToContexts;
@@ -20,6 +21,9 @@ import org.kframework.utils.OS;
 import org.kframework.utils.Stopwatch;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.file.FileUtil;
+
+import org.kframework.main.GlobalOptions;
+import org.kframework.utils.errorsystem.KExceptionManager;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -44,11 +48,14 @@ public class FuncBackend extends BasicBackend {
 
     @Override
     public CompilerSteps<Definition> getCompilationSteps() {
+        GlobalOptions gopts = new GlobalOptions();
+        KExceptionManager kem = new KExceptionManager(gopts);
         CompilerSteps<Definition> steps = new CompilerSteps<Definition>(context);
         steps.add(new FirstStep(this, context));
         steps.add(new StrictnessToContexts(context));
         steps.add(new ContextsToHeating(context));
         steps.add(new AddHeatingConditions(context));
+        steps.add(new FlattenModules(context, kem));
         steps.add(new LastStep(this, context));
         return steps;
     }
