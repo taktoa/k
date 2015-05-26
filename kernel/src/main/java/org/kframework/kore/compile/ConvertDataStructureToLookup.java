@@ -122,25 +122,29 @@ public class ConvertDataStructureToLookup {
     }
 
     private void checkIfList(Att att, KApply k) {
-        if(! att.contains(Attribute.COMMUTATIVE_KEY))
+        if(! att.contains(Attribute.COMMUTATIVE_KEY)) {
             throw unsupportedListCollectionError(k);
+        }
     }
 
     private void checkIfSet(Att att, KApply k) {
-        if(att.contains(Attribute.IDEMPOTENT_KEY))
+        if(att.contains(Attribute.IDEMPOTENT_KEY)) {
             throw unsupportedSetCollectionError(k);
+        }
     }
 
     private void checkMapTerm(KApply kapp, KApply k) {
         KLabel a = kapp.klabel();
         KLabel b = KLabel(m.attributesFor().apply(k.klabel()).<String>get("element").get());
-        if(! a.equals(b))
+        if(! a.equals(b)) {
             throw unexpectedMapTermError(kapp);
+        }
     }
 
     private void checkMapArity(KApply kapp) {
-        if(kapp.klist().size() != 2)
+        if(kapp.klist().size() != 2) {
             throw unexpectedMapElementArityError(kapp);
+        }
     }
 
     private void checkAssocMap(K component, KVariable frame, KApply k) {
@@ -158,14 +162,16 @@ public class ConvertDataStructureToLookup {
             @Override
             public K apply(KApply k) {
                 Att att = m.attributesFor().apply(k.klabel());
-                if(! att.contains(Attribute.ASSOCIATIVE_KEY))
+                if(! att.contains(Attribute.ASSOCIATIVE_KEY)) {
                     return super.apply(k);
+                }
                 List<K> components = Assoc.flatten(k.klabel(), k.klist().items(), m);
                 checkIfList(att, k);
                 checkIfSet(att, k);
                 //TODO(dwightguth): differentiate Map and Bag
-                if(rhsOf != null)
+                if(rhsOf != null) {
                     return super.apply(k);
+                }
                 KVariable frame = null;
                 Map<K, K> elements = new LinkedHashMap<>();
                 for (K component : components) {
@@ -182,10 +188,12 @@ public class ConvertDataStructureToLookup {
                     //FIXME: Shouldn't there be an else here???
                 }
                 KVariable map = newDotVariable();
-                if (frame != null)
+                if (frame != null) {
                     addStateMatchLabel(frame, elements.keySet().stream().reduce(map, (a1, a2) -> KApply(KLabel("_[_<-undef]"), a1, a2)));
-                for (Map.Entry<K, K> element : elements.entrySet())
+                }
+                for (Map.Entry<K, K> element : elements.entrySet()) {
                     addStateMatchLabel(RewriteToTop.toLeft(element.getValue()), KApply(KLabel("Map:lookup"), map, element.getKey()));
+                }
                 return (lhsOf == null ? KRewrite(map, RewriteToTop.toRight(k)) : map);
             }
 
@@ -200,11 +208,7 @@ public class ConvertDataStructureToLookup {
                 rhsOf = k;
                 K r = apply(k.right());
                 rhsOf = null;
-                if (l != k.left() || r != k.right()) {
-                    return KRewrite(l, r, k.att());
-                } else {
-                    return k;
-                }
+                return ((l != k.left() || r != k.right()) ? KRewrite(l, r, k.att()) : k);
             }
         }.apply(term);
     }
