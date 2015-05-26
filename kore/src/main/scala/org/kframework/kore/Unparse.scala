@@ -10,7 +10,7 @@ import collection.JavaConverters._
 
 object Unparse extends {
   def apply(k: K): String = k match {
-    case KToken(sort, s) => "#token(" + sort + ",\"" + StringEscapeUtils.escapeJava(s) + "\")"
+    case KToken(s, sort) => "#token(\"" + StringEscapeUtils.escapeJava(s) + "\"," + sort + ")"
     // TODO: Radu: fix string escaping above; see issue #1359
     case KSequence(l) =>
       if (l.isEmpty)
@@ -39,7 +39,8 @@ object ToKast {
   def escape(s: String): String = StringEscapeUtils.escapeJava(s)
 
   def unparse(inParen: Boolean, l: KLabel) : String = {
-    if (l.name.matches("[#a-z][a-zA-Z0-9]*")) {
+    if (l.name.matches("[#a-z][a-zA-Z0-9]*")
+        && l.name != "#token" && l.name != "#klabel") {
       l.name
     } else if (inParen) {
       " `"+l.name+'`'
@@ -71,7 +72,7 @@ object ToKast {
    * @param k The term to print
    */
   def unparse(b:StringBuilder, inParen: Boolean, prec: Int, k: K): Unit = k match {
-    case KToken(sort, s) => b ++= "#token(\"" + escape(sort.name) + "\",\"" + escape(s) + "\")"
+    case KToken(s, sort) => b ++= "#token(\"" + escape(s) + "\",\"" + escape(sort.name) + "\")"
     case InjectedKLabel(l) => b ++= "#klabel("+apply(l)+")"
     case KVariable(v) => b ++= v.toString
     case KApply(l, List()) => b ++= unparse(inParen,l)+"(.KList)"
