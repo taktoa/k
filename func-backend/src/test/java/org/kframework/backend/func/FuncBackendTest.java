@@ -68,7 +68,7 @@ public class FuncBackendTest {
                     try {
                         FileUtils.deleteDirectory(kdir);
                     } catch(IOException e) {
-                        System.out.println("Failed to delete tmp dir: " + f);
+                        System.out.println("Failed to delete tmp dir: " + kdir);
                         System.out.println(e);
                     }
                 }
@@ -77,23 +77,23 @@ public class FuncBackendTest {
 
     // Initialize all the member variables
     private void testInit() throws IOException {
-        kdefCreateTmp(new File("src/test/resources/kore_imp_tiny.k"));
-        testPgm = "int n, .Ids; n = 10; while(0 <= n) { n = n + -1; }";
-        kompArgs = [ "-kompile"
-                   , "--backend"
-                   , "func"
-                   , "-d"
-                   , kdir.toAbsolutePath()
-                   , "-v"
-                   , "--debug"
-                   , kfile.toAbsolutePath()
-                   ];
+        kdefCreateTmp(new File("src/test/resources/calc.k"));
+        // testPgm = "int n, .Ids; n = 10; while(0 <= n) { n = n + -1; }";
+        kompArgs = new String[] { "-kompile"
+                                , "--backend"
+                                , "func"
+                                , "-d"
+                                , kdir.getAbsolutePath()
+                                , "-v"
+                                , "--debug"
+                                , kfile.getAbsolutePath()
+                                };
     }
 
     @Test
     public void testFuncBackend() throws IOException {
         testInit();
         Main.main(kompArgs);
-        assertEquals(true, true); // TODO(taktoa): replace with actual unit test.
+        assertEquals(true, false); // TODO(taktoa): replace with actual unit test.
     }
 }
