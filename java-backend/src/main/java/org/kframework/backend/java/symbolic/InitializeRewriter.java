@@ -95,7 +95,7 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
     public static class SymbolicRewriterGlue implements Rewriter {
 
         private final SymbolicRewriter rewriter;
-        private final GlobalContext rewritingContext;
+        public final GlobalContext rewritingContext;
         private final KExceptionManager kem;
         private final Module module;
 
