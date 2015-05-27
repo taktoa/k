@@ -4,6 +4,11 @@ MAVEN-NAME = mvn
 
 MAVEN = $(MAVEN-NAME) $(FLAGS)
 
+JAVA = java
+JAVA-OPTIONS = -Djava.awt.headless=true -Xms64m -Xmx1024m -Xss32m -XX:+TieredCompilation -ea
+JAVA-CP = -cp "k-distribution/target/release/k/lib/java/*"
+JAVA-RUN = $(JAVA) $(JAVA-OPTIONS) $(JAVA-CP)
+
 PACKAGE = package
 PACKAGE-FLAGS = -DskipKTest -Dtest.skip=true -Dtests.skip=true -DskipTests
 TEST = verify
@@ -15,8 +20,10 @@ MDIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 K = $(MDIR)/k-distribution/target/release/k/lib/k
 
-KOMPILE-FLAGS = --backend func --debug -v
+KOMPILE-FLAGS = --debug -v --kore
 KOMPILE = $(K) -kompile $(KOMPILE-FLAGS)
+
+FUNC-TEST-DIR = $(MDIR)/k-distribution/tests/regression/func-backend
 
 all:
 	echo "Doing nothing."
@@ -27,10 +34,14 @@ build:
 test:
 	$(MAVEN) $(TEST) $(TEST-FLAGS)
 
-calc:
-	cd k-distribution/tests/regression/func-backend/calc; \
-	$(KOMPILE) calc.k; \
-	rm -rf calc-kompiled .kompile-*
+# run-ocaml:
+#  	$(JAVA-RUN) org.kframework.backend.ocaml.compile.DefinitionToOcaml ${ARGS}
+#  
+#  
+# ktest:
+#  	cd $(FUNC-TEST-DIR)/${TEST_NAME}; $(KOMPILE) ${TEST_NAME}.k ${KARGS}; rm -rf .kompile-*
+#  	make run-ocaml ARGS="$(FUNC-TEST-DIR)/${TEST_NAME}/${TEST_NAME}-kompiled/compile.bin"
+#  	rm -rf $(FUNC-TEST-DIR)/${TEST_NAME}/${TEST_NAME}-kompiled
 
 doc:
 	$(MAVEN) $(DOC) $(DOC-FLAGS)
