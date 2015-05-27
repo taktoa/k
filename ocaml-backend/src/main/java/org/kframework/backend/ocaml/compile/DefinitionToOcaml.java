@@ -79,7 +79,13 @@ public class DefinitionToOcaml {
 
     public static void main(String[] args) {
         KExceptionManager kem = new KExceptionManager(new GlobalOptions());
-        CompiledDefinition def = new BinaryLoader(kem).loadOrDie(CompiledDefinition.class, new File("/home/dwightguth/k/k-distribution/tutorial/2_languages/1_simple/1_untyped/simple-untyped-kompiled/compiled.bin"));
+        String fileName = "";
+        if(args.length == 1) {
+            fileName = args[0];
+        } else {
+            throw KEMException.criticalError("No compiled file specified e.g.: ./imp-kompiled/compiled.bin");
+        }
+        CompiledDefinition def = new BinaryLoader(kem).loadOrDie(CompiledDefinition.class, new File(fileName));
         BiFunction<String, Source, K> programParser = def.getProgramParser(kem);
 
         K program = programParser.apply("function factorial(y, .Ids) {\n" +
