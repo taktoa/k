@@ -119,7 +119,7 @@ class Rewriter(module: definition.Module, index: K => Option[String] = KIndex) e
   }
 
   def execute(k: kore.K): kore.K = execute(cons.convert(k))
-  val rules: java.util.List[_ <: definition.Rule] = throw new UnsupportedOperationException
+  lazy val rules: java.util.List[_ <: definition.Rule] = throw new UnsupportedOperationException
   def `match`(k: kore.K, trace: Boolean, rule: definition.Rule) = throw new UnsupportedOperationException
   def substitute(substitution: java.util.Map[_ <: kore.KVariable, _ <: kore.K], rule: definition.Rule) = throw new UnsupportedOperationException
   
