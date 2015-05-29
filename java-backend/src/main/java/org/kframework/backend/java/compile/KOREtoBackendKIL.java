@@ -18,6 +18,7 @@ import org.kframework.backend.java.kil.Variable;
 import org.kframework.kil.Attribute;
 import org.kframework.kore.KApply;
 import org.kframework.kore.KLabel;
+import org.kframework.kore.convertors.KOREtoKIL;
 
 import java.util.List;
 import java.util.stream.Collectors;

@@ -72,7 +72,7 @@ public class ExpandMacros {
 
     public K expand(K term) {
         TermContext tc = TermContext.of(rewriter.rewritingContext);
-        Term t = new MacroExpander(tc, kem).processTerm(new KOREtoBackendKIL(tc).convertInternal(term));
+        Term t = new MacroExpander(tc, kem).processTerm(new KOREtoBackendKIL(tc).convert(term));
         return new TransformKORE() {
             @Override
             public K apply(KApply k) {

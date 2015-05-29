@@ -80,7 +80,7 @@ public class ResolveStrict {
             items.set(strictnessPositions.get(i) - 1, HOLE);
 
             // is seqstrict the elements before the argument should be KResult
-            Optional<KApply> sideCondition = strictnessPositions.subList(0, i).stream().map(j -> KApply(KLabel("isKResult"), KVariable("K" + j))).reduce(BooleanUtils::and);
+            Optional<KApply> sideCondition = strictnessPositions.subList(0, i).stream().map(j -> KApply(KLabel("isKResult"), KVariable("K" + (j - 1)))).reduce(BooleanUtils::and);
             K requires;
             if (!sideCondition.isPresent() || !sequential) {
                 requires = BooleanUtils.TRUE;

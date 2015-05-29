@@ -22,6 +22,7 @@ import org.kframework.kore.KApply;
 import org.kframework.kore.Sort;
 import org.kframework.kore.compile.ConcretizeCells;
 import org.kframework.kore.compile.GenerateSentencesFromConfigDecl;
+import org.kframework.kore.compile.GenerateSortPredicateSyntax;
 import org.kframework.kore.compile.ResolveAnonVar;
 import org.kframework.kore.compile.ResolveContexts;
 import org.kframework.kore.compile.ResolveFreshConstants;
@@ -113,12 +114,14 @@ public class Kompile {
         DefinitionTransformer resolveAnonVars = DefinitionTransformer.fromSentenceTransformer(new ResolveAnonVar()::resolve, "resolving \"_\" vars");
         DefinitionTransformer resolveSemanticCasts =
                 DefinitionTransformer.fromSentenceTransformer(new ResolveSemanticCasts()::resolve, "resolving semantic casts");
+        DefinitionTransformer generateSortPredicateSyntax = DefinitionTransformer.from(new GenerateSortPredicateSyntax()::gen, "adding sort predicate productions");
 
         Function1<Definition, Definition> pipeline = resolveStrict
                 .andThen(resolveAnonVars)
                 .andThen(resolveContexts)
                 .andThen(resolveHeatCoolAttribute)
                 .andThen(resolveSemanticCasts)
+                .andThen(generateSortPredicateSyntax)
                 .andThen(func(this::resolveFreshConstants))
                 .andThen(func(this::concretizeTransformer))
                 .andThen(func(this::addSemanticsModule))

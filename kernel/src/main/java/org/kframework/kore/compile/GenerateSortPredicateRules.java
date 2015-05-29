@@ -38,12 +38,12 @@ import static org.kframework.kore.KORE.*;
  *
  * plus one sort membership function for each builtin-hooked sort.
  */
-public class GenerateSortPredicates {
+public class GenerateSortPredicateRules {
 
     private final Definition def;
     private Module mod;
 
-    public GenerateSortPredicates(Definition def) {
+    public GenerateSortPredicateRules(Definition def) {
         this.def = def;
     }
 

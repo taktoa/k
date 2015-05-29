@@ -33,10 +33,10 @@ public class ResolveContexts {
 
 
     public Module resolve(Module input) {
-        Set<Sentence> rulesToAdd = stream(input.localSentences())
+        Set<Sentence> rulesToAdd = Stream.concat(stream(input.localSentences())
                 .filter(s -> s instanceof Context)
                 .map(s -> (Context) s)
-                .flatMap(c -> this.resolve(c, input)).collect(Collectors.toSet());
+                .flatMap(c -> this.resolve(c, input)), Stream.of(SyntaxSort(Sort("K")))).collect(Collectors.toSet());
         return Module(input.name(), input.imports(), (scala.collection.immutable.Set<Sentence>) stream(input.localSentences()).filter(s -> !(s instanceof Context)).collect(Collections.toSet()).$bar(immutable(rulesToAdd)), input.att());
     }
 

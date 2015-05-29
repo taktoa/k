@@ -105,7 +105,11 @@ public class KSequence extends KCollection implements org.kframework.kore.KSeque
 
     @Override
     public List<K> items() {
-        return ListUtils.union(super.items(), kSequenceVariables);
+        if (frame != null) {
+            return ListUtils.union(super.items(), Collections.singletonList(frame));
+        } else {
+            return super.items();
+        }
     }
 
     @Override
