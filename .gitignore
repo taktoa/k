@@ -16,6 +16,7 @@
 .settings/
 java-backend/.project
 k-distribution/.project
+k-distribution/cache.bin
 *~
 junit-reports
 target/
