@@ -13,11 +13,6 @@ DOC-FLAGS = -Dmaven.javadoc.failOnError=false
 
 MDIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-K = $(MDIR)/k-distribution/target/release/k/lib/k
-
-KOMPILE-FLAGS = --backend func --debug -v
-KOMPILE = $(K) -kompile $(KOMPILE-FLAGS)
-
 all:
 	echo "Doing nothing."
 
@@ -26,11 +21,6 @@ build:
 
 test:
 	$(MAVEN) $(TEST) $(TEST-FLAGS)
-
-calc:
-	cd k-distribution/tests/regression/func-backend/calc; \
-	$(KOMPILE) calc.k; \
-	rm -rf calc-kompiled .kompile-*
 
 doc:
 	$(MAVEN) $(DOC) $(DOC-FLAGS)
