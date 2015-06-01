@@ -24,3 +24,25 @@ test:
 
 doc:
 	$(MAVEN) $(DOC) $(DOC-FLAGS)
+
+TEST_FILE_NAME = kore_imp
+TEST_FILE_DIR = $(MDIR)/k-distribution/src/test/resources/convertor-tests
+TEST_FILE = $(TEST_FILE_DIR)/$(TEST_FILE_NAME).k
+
+TEST_MODULE = IMP
+
+
+KROOT = $(MDIR)/k-distribution/target/release/k
+KOMPILE = $(KROOT)/lib/k -kompile 
+
+func-test:
+	export TMPDIR=$$(mktemp -d); \
+	export OLDDIR=$$(pwd); \
+	cp $(TEST_FILE) $$TMPDIR/; \
+	cd $$TMPDIR; \
+	$(KOMPILE) $(TEST_FILE_NAME).k \
+	           --main-module $(TEST_MODULE) \
+	           --kore --backend ocaml; \
+	cat $(TEST_FILE_NAME)-kompiled/def.ml; \
+	cd $$OLDDIR; \
+	rm -rf $$TMPDIR
