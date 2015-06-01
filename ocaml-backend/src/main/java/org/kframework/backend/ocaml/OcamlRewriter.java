@@ -54,9 +54,13 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                 String ocaml = converter.convert(k, depth.orElse(-1));
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
-                    Process p = files.getProcessBuilder()
-                            .command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml")
-                            .directory(files.resolveTemp("."))
+                    ProcessBuilder pb = files.getProcessBuilder();
+                    if (DefinitionToOcaml.fastCompilation) {
+                        pb = pb.command("ocamlc.opt", "nums.cma", files.resolveKompiled("def.cmo").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
+                    } else {
+                        pb = pb.command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
+                    }
+                    Process p = pb.directory(files.resolveTemp("."))
                             .redirectError(files.resolveTemp("compile.err"))
                             .redirectOutput(files.resolveTemp("compile.out"))
                             .start();

@@ -29,14 +29,13 @@ public class OcamlBackend implements Consumer<CompiledDefinition> {
         this.kompileOptions = kompileOptions;
     }
 
-
     @Override
     public void accept(CompiledDefinition compiledDefinition) {
         String ocaml = new DefinitionToOcaml(kem, files, globalOptions, kompileOptions).convert(compiledDefinition);
         files.saveToKompiled("def.ml", ocaml);
         try {
             Process ocamlopt = files.getProcessBuilder()
-                    .command("ocamlopt.opt", "-c", "def.ml")
+                    .command((DefinitionToOcaml.fastCompilation ? "ocamlc.opt" : "ocamlopt.opt"), "-c", "def.ml")
                     .directory(files.resolveKompiled("."))
                     .inheritIO()
                     .start();

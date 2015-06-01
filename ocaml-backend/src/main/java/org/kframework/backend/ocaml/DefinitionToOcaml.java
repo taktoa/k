@@ -74,7 +74,8 @@ public class DefinitionToOcaml {
         this.kompileOptions = kompileOptions;
     }
 
-    private static final boolean fastCompilation = false;
+    public static final boolean fastCompilation = true;
+    public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     public static final String kType = "t = kitem list\n" +
             " and kitem = KApply of klabel * t list\n" +
@@ -162,6 +163,9 @@ public class DefinitionToOcaml {
             "module Guard = Set.Make(GuardElt)\n";
 
     public static final String TRUE = "(Bool true)";
+    public static final String BOOL = encodeStringToIdentifier(Sort("Bool"));
+    public static final String STRING = encodeStringToIdentifier(Sort("String"));
+    public static final String INT = encodeStringToIdentifier(Sort("Int"));
 
     public static final String midlude = "let eq k1 k2 = k1 = k2\n" +
             "let isTrue(c: k) : bool = match c with\n" +
@@ -184,9 +188,9 @@ public class DefinitionToOcaml {
             "| KApply(klabel, klist) -> print_klabel(klabel) ^ \"(\" ^ print_klist(klist) ^ \")\"\n" +
             "| KToken(sort, s) -> \"#token(\\\"\" ^ s ^ \"\\\", \" ^ print_sort_string(sort) ^ \")\"\n" +
             "| InjectedKLabel(klabel) -> \"#klabel(\" ^ print_klabel(klabel) ^ \")\"\n" +
-            "| Bool(b) -> print_kitem(KToken(SortBool, string_of_bool(b)))\n" +
-            "| String(s) -> print_kitem(KToken(SortString, \"\\\"\" ^ s ^ \"\\\"\"))\n" +
-            "| Int(i) -> print_kitem(KToken(SortInt, string_of_big_int(i)))\n" +
+            "| Bool(b) -> print_kitem(KToken(" + BOOL + ", string_of_bool(b)))\n" +
+            "| String(s) -> print_kitem(KToken(" + STRING + ", \"\\\"\" ^ s ^ \"\\\"\"))\n" +
+            "| Int(i) -> print_kitem(KToken(" + INT + ", string_of_big_int(i)))\n" +
             "| Bottom -> \"`#Bottom`(.KList)\"\n" +
             "| List(l) -> List.fold_left (fun s k -> \"`_List_`(`ListItem`(\" ^ print_k(k) ^ \"),\" ^ s ^ \")\") \"`.List`(.KList)\" l\n" +
             "| Set(s) -> KSet.fold (fun k s -> \"`_Set_`(`SetItem`(\" ^ print_k(k) ^ \"), \" ^ s ^ \")\") s \"`.Set`(.KList)\"\n" +
@@ -290,14 +294,18 @@ public class DefinitionToOcaml {
 
     private String convert() {
         StringBuilder sb = new StringBuilder();
-        sb.append("type sort = ");
-        for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, s);
-            sb.append("\n");
-        }
-        if (!mainModule.definedSorts().contains(Sorts.String())) {
-            sb.append("|SortString\n");
+        sb.append("type sort = \n");
+        if (fastCompilation) {
+            sb.append("Sort of string\n");
+        } else {
+            for (Sort s : iterable(mainModule.definedSorts())) {
+                sb.append("|");
+                encodeStringToIdentifier(sb, s);
+                sb.append("\n");
+            }
+            if (!mainModule.definedSorts().contains(Sorts.String())) {
+                sb.append("|SortString\n");
+            }
         }
         sb.append("let order_sort(s: sort) = match s with \n");
         int i = 0;
@@ -306,11 +314,15 @@ public class DefinitionToOcaml {
             encodeStringToIdentifier(sb, s);
             sb.append(" -> ").append(i++).append("\n");
         }
-        sb.append("type klabel = ");
-        for (KLabel label : iterable(mainModule.definedKLabels())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, label);
-            sb.append("\n");
+        sb.append("type klabel = \n");
+        if (fastCompilation) {
+            sb.append("KLabel of string\n");
+        } else {
+            for (KLabel label : iterable(mainModule.definedKLabels())) {
+                sb.append("|");
+                encodeStringToIdentifier(sb, label);
+                sb.append("\n");
+            }
         }
         i = 0;
         sb.append("let order_klabel(l: klabel) = match l with \n");
@@ -490,14 +502,29 @@ public class DefinitionToOcaml {
     }
 
     private static void encodeStringToIdentifier(StringBuilder sb, KLabel name) {
-        sb.append("Lbl");
-        encodeStringToAlphanumeric(sb, name.name());
+        if (fastCompilation) {
+            sb.append("KLabel(\"").append(name.name().replace("\"", "\\\"")).append("\")");
+        } else {
+            sb.append("Lbl");
+            encodeStringToAlphanumeric(sb, name.name());
+        }
     }
 
     private static void encodeStringToIdentifier(StringBuilder sb, Sort name) {
-        sb.append("Sort");
-        encodeStringToAlphanumeric(sb, name.name());
+        if (fastCompilation) {
+            sb.append("Sort(\"").append(name.name().replace("\"", "\\\"")).append("\")");
+        } else {
+            sb.append("Sort");
+            encodeStringToAlphanumeric(sb, name.name());
+        }
     }
+
+    private static String encodeStringToIdentifier(Sort name) {
+        StringBuilder sb = new StringBuilder();
+        encodeStringToIdentifier(sb, name);
+        return sb.toString();
+    }
+
 
     private static String encodeStringToFunction(StringBuilder sb, String name) {
         StringBuilder sb2 = new StringBuilder();
@@ -517,7 +544,6 @@ public class DefinitionToOcaml {
         sb2.append(counter++);
         return sb2.toString();
     }
-    public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     private static void encodeStringToAlphanumeric(StringBuilder sb, String name) {
         boolean inIdent = true;

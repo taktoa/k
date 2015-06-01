@@ -10,6 +10,7 @@ import org.kframework.definition.Context;
 import org.kframework.definition.Module;
 import org.kframework.definition.Rule;
 import org.kframework.definition.Sentence;
+import org.kframework.kil.Attribute;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
@@ -28,7 +29,11 @@ import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import static org.kframework.Collections.*;
 import static org.kframework.definition.Constructors.*;
 import static org.kframework.kore.KORE.*;
 
@@ -52,7 +57,16 @@ public class ExpandMacros {
                 kompileOptions,
                 new KRunOptions(),
                 files,
-                new InitializeRewriter.InitializeDefinition()).apply(mod);
+                new InitializeRewriter.InitializeDefinition()).apply(getMacroModule(mod));
+    }
+
+    private static Module getMacroModule(Module mod) {
+        Set<Sentence> sentences = new HashSet<>();
+        sentences.addAll(mutable(mod.productions()));
+        sentences.addAll(mutable(mod.sortDeclarations()));
+        Set<Rule> macroRules = stream(mod.rules()).filter(r -> r.att().contains(Attribute.MACRO_KEY)).collect(Collectors.toSet());
+        sentences.addAll(macroRules);
+        return Module(mod.name(), Set(), immutable(sentences), mod.att());
     }
 
     private Rule expand(Rule rule) {
@@ -72,6 +86,7 @@ public class ExpandMacros {
 
     public K expand(K term) {
         TermContext tc = TermContext.of(rewriter.rewritingContext);
+        //Term t = new KOREtoBackendKIL(tc).convert(term).evaluate(tc);
         Term t = new MacroExpander(tc, kem).processTerm(new KOREtoBackendKIL(tc).convert(term));
         return new TransformKORE() {
             @Override
