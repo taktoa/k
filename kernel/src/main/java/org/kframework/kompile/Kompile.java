@@ -116,17 +116,27 @@ public class Kompile {
         DefinitionTransformer resolveSemanticCasts =
                 DefinitionTransformer.fromSentenceTransformer(new ResolveSemanticCasts()::resolve, "resolving semantic casts");
 
-        Function1<Definition, Definition> pipeline = resolveStrict
-                .andThen(resolveAnonVars)
-                .andThen(resolveContexts)
-                .andThen(resolveHeatCoolAttribute)
-                .andThen(resolveSemanticCasts)
-                .andThen(func(this::resolveFreshConstants))
-                .andThen(func(this::concretizeTransformer))
-                .andThen(func(this::addSemanticsModule))
-                .andThen(func(this::addProgramModule));
+//        Function1<Definition, Definition> pipeline = resolveStrict
+//                .andThen(resolveAnonVars)
+//                .andThen(resolveContexts)
+//                .andThen(resolveHeatCoolAttribute)
+//                .andThen(resolveSemanticCasts)
+//                .andThen(func(this::resolveFreshConstants))
+//                .andThen(func(this::concretizeTransformer))
+//                .andThen(func(this::addSemanticsModule))
+//                .andThen(func(this::addProgramModule));
+// 
+//        Definition kompiledDefinition = pipeline.apply(parsedDef);
 
-        Definition kompiledDefinition = pipeline.apply(parsedDef);
+        Definition pipeline1 = resolveStrict.apply(parsedDef);
+        Definition pipeline2 = resolveAnonVars.apply(pipeline1);
+        Definition pipeline3 = resolveContexts.apply(pipeline2);
+        Definition pipeline4 = resolveHeatCoolAttribute.apply(pipeline3);
+        Definition pipeline5 = resolveSemanticCasts.apply(pipeline4);
+        Definition pipeline6 = func(this::resolveFreshConstants).apply(pipeline5);
+        Definition pipeline7 = func(this::concretizeTransformer).apply(pipeline6);
+        Definition pipeline8 = func(this::addSemanticsModule).apply(pipeline7);
+        Definition kompiledDefinition = func(this::addProgramModule).apply(pipeline8);
 
         ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(kompiledDefinition.mainModule());
 
