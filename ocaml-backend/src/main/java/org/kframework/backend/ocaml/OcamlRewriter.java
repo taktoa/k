@@ -52,6 +52,7 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
             @Override
             public K execute(K k, Optional<Integer> depth) {
                 String ocaml = converter.convert(k, depth.orElse(-1));
+                System.out.println(ocaml);
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
                     ProcessBuilder pb = files.getProcessBuilder();
