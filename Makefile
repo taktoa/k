@@ -29,11 +29,11 @@ KROOT = $(MDIR)/k-distribution/target/release/k
 
 TEST_FILE_NAME = kore_imp
 TEST_MODULE = IMP
-TEST_FILE_DIR = $(MDIR)/k-distribution/tests/regression/ocaml-backend
+TEST_FILE_DIR = $(MDIR)/k-distribution/tests/regression/func-backend
 TEST_FILE = $(TEST_FILE_DIR)/$(TEST_FILE_NAME).k
 TEST_INPUT = $(TEST_FILE_DIR)/$(TEST_FILE_NAME)_1.imp
 
-ocaml-test:
+func-test:
 	export TMPDIR=$$(mktemp -d); \
 	export OLDDIR=$$(pwd); \
 	export PATH=$$PATH:$(KROOT)/bin; \
@@ -41,7 +41,7 @@ ocaml-test:
 	cd $$TMPDIR; \
 	kompile $(TEST_FILE_NAME).k \
 	        --main-module $(TEST_MODULE) \
-	        --kore --backend ocaml; \
+	        --kore --backend func; \
 	krun $(TEST_INPUT) --kore; \
 	cd $$OLDDIR; \
 	rm -rf $$TMPDIR

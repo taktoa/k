@@ -1,4 +1,4 @@
-package org.kframework.backend.ocaml;
+package org.kframework.backend.func;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Module;
@@ -16,7 +16,7 @@ import java.util.function.Function;
 /**
  * Created by dwightguth on 5/27/15.
  */
-public class OcamlBackendKModule extends AbstractKModule {
+public class FuncBackendKModule extends AbstractKModule {
 
     @Override
     public List<Module> getKompileModules() {
@@ -26,7 +26,7 @@ public class OcamlBackendKModule extends AbstractKModule {
 
                 MapBinder<String, Consumer<CompiledDefinition>> mapBinder = MapBinder.newMapBinder(
                         binder(), TypeLiteral.get(String.class), new TypeLiteral<Consumer<CompiledDefinition>>() {});
-                mapBinder.addBinding("ocaml").to(OcamlBackend.class);
+                mapBinder.addBinding("func").to(FuncBackend.class);
             }
         });
     }
@@ -40,7 +40,7 @@ public class OcamlBackendKModule extends AbstractKModule {
                 MapBinder<String, Function<org.kframework.definition.Module, Rewriter>> rewriterBinder = MapBinder.newMapBinder(
                         binder(), TypeLiteral.get(String.class), new TypeLiteral<Function<org.kframework.definition.Module, Rewriter>>() {
                         });
-                rewriterBinder.addBinding("ocaml").to(OcamlRewriter.class);
+                rewriterBinder.addBinding("func").to(FuncRewriter.class);
             }
         });
     }

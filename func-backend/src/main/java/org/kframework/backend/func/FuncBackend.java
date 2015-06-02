@@ -1,4 +1,4 @@
-package org.kframework.backend.ocaml;
+package org.kframework.backend.func;
 
 import com.google.inject.Inject;
 import org.kframework.kompile.CompiledDefinition;
@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 /**
  * Created by dwightguth on 5/27/15.
  */
-public class OcamlBackend implements Consumer<CompiledDefinition> {
+public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -22,7 +22,7 @@ public class OcamlBackend implements Consumer<CompiledDefinition> {
     private final KompileOptions kompileOptions;
 
     @Inject
-    public OcamlBackend(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
+    public FuncBackend(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
         this.kem = kem;
         this.files = files;
         this.globalOptions = globalOptions;
@@ -31,11 +31,11 @@ public class OcamlBackend implements Consumer<CompiledDefinition> {
 
     @Override
     public void accept(CompiledDefinition compiledDefinition) {
-        String ocaml = new DefinitionToOcaml(kem, files, globalOptions, kompileOptions).convert(compiledDefinition);
+        String ocaml = new DefinitionToFunc(kem, files, globalOptions, kompileOptions).convert(compiledDefinition);
         files.saveToKompiled("def.ml", ocaml);
         try {
             Process ocamlopt = files.getProcessBuilder()
-                    .command((DefinitionToOcaml.fastCompilation ? "ocamlc.opt" : "ocamlopt.opt"), "-c", "def.ml")
+                    .command((DefinitionToFunc.fastCompilation ? "ocamlc.opt" : "ocamlopt.opt"), "-c", "def.ml")
                     .directory(files.resolveKompiled("."))
                     .inheritIO()
                     .start();

@@ -8,10 +8,10 @@
     <artifactId>parent</artifactId>
     <version>3.6-SNAPSHOT</version>
   </parent>
-  <artifactId>ocaml-backend</artifactId>
+  <artifactId>func-backend</artifactId>
   <packaging>jar</packaging>
 
-  <name>K Framework Ocaml Backend</name>
+  <name>K Framework Functional Backend</name>
 
   <dependencies>
     <dependency>

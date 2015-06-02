@@ -1,4 +1,4 @@
-package org.kframework.backend.ocaml;
+package org.kframework.backend.func;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -59,7 +59,7 @@ import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 
-public class DefinitionToOcaml {
+public class DefinitionToFunc {
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -67,7 +67,7 @@ public class DefinitionToOcaml {
     private final KompileOptions kompileOptions;
     private ExpandMacros expandMacros;
 
-    public DefinitionToOcaml(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
+    public DefinitionToFunc(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
         this.kem = kem;
         this.files = files;
         this.globalOptions = globalOptions;

@@ -1,4 +1,4 @@
-package org.kframework.backend.ocaml;
+package org.kframework.backend.func;
 
 import com.google.inject.Inject;
 import org.kframework.Rewriter;
@@ -22,30 +22,30 @@ import java.util.function.Function;
  * Created by dwightguth on 5/27/15.
  */
 @DefinitionScoped
-public class OcamlRewriter implements Function<Module, Rewriter> {
+public class FuncRewriter implements Function<Module, Rewriter> {
 
     private final KExceptionManager kem;
     private final FileUtil files;
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
     private final CompiledDefinition def;
-    private final DefinitionToOcaml converter;
+    private final DefinitionToFunc converter;
 
     @Inject
-    public OcamlRewriter(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions, CompiledDefinition def) {
+    public FuncRewriter(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions, CompiledDefinition def) {
         this.kem = kem;
         this.files = files;
         this.globalOptions = globalOptions;
         this.kompileOptions = kompileOptions;
         this.def = def;
-        this.converter = new DefinitionToOcaml(kem, files, globalOptions, kompileOptions);
+        this.converter = new DefinitionToFunc(kem, files, globalOptions, kompileOptions);
         converter.convert(def);
     }
 
     @Override
     public Rewriter apply(Module module) {
         if (!module.equals(def.executionModule())) {
-            throw KEMException.criticalError("Invalid module specified for rewriting. Ocaml backend only supports rewriting over" +
+            throw KEMException.criticalError("Invalid module specified for rewriting. Functional backend only supports rewriting over" +
                     " the definition's main module.");
         }
         return new Rewriter() {
@@ -56,7 +56,7 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
                     ProcessBuilder pb = files.getProcessBuilder();
-                    if (DefinitionToOcaml.fastCompilation) {
+                    if (DefinitionToFunc.fastCompilation) {
                         pb = pb.command("ocamlc.opt", "nums.cma", files.resolveKompiled("def.cmo").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
                     } else {
                         pb = pb.command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
