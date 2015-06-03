@@ -269,9 +269,9 @@ public class DefinitionToFunc {
         builder.put("isList", "[List _] :: [] -> [Bool true]");
         predicateRules = builder.build();
     }
-    
+
     private Module mainModule;
-    
+
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
         sb.append("open Def\nopen K\nopen Big_int\n");
@@ -296,8 +296,10 @@ public class DefinitionToFunc {
         return runtimeCodeToFunc(k, depth).render();
     }
 
-    Set<KLabel> functions;
-
+    private void addNewline(StringBuilder sb) {
+        sb.append("\n");
+    }
+    
     private void addPrelude(StringBuilder sb) {
         sb.append(prelude);
     }
@@ -306,154 +308,291 @@ public class DefinitionToFunc {
         sb.append(midlude);
     }
 
-    private String oldConvert() {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append("type sort = \n");
-        
+    private void addPostlude(StringBuilder sb) {
+        sb.append(postlude);
+    }
+    
+    private void beginTypeStatement(StringBuilder sb, String typename) {
+        sb.append("type ");
+        sb.append(typename);
+        sb.append(" = ");
+    }
+
+    private void beginTypeExpression(StringBuilder sb) {
+        sb.append("|");
+    }
+    
+    private void addSortType(StringBuilder sb) {
+        beginTypeStatement(sb, "sort");
+        addNewline(sb);
+
         for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
+            beginTypeExpression(sb);
             encodeStringToIdentifier(sb, s);
-            sb.append("\n");
+            addNewline(sb);
         }
         if (!mainModule.definedSorts().contains(Sorts.String())) {
-            sb.append("|SortString\n");
+            beginTypeExpression(sb);
+            sb.append("SortString");
+            addNewline(sb);
         }
-        
-        sb.append("let order_sort(s: sort) = match s with \n");
-        
+    }
+
+    private void addSortOrderFunc(StringBuilder sb) {
+        sb.append("let order_sort(s: sort) = ");
+        beginMatchStatement(sb, "s");
+        addNewline(sb);
+
         int i = 0;
-        
+
         for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
+            beginMatchExpression(sb);
             encodeStringToIdentifier(sb, s);
-            sb.append(" -> ").append(i++).append("\n");
+            addMatchSeparator(sb);
+            sb.append(i++);
+            addNewline(sb);
         }
-        
-        sb.append("type klabel = \n");
-        
+    }
+
+    private void addKLabelType(StringBuilder sb) {
+        beginTypeStatement(sb, "klabel");
+        addNewline(sb);
+
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            sb.append("|");
+            beginTypeExpression(sb);
             encodeStringToIdentifier(sb, label);
-            sb.append("\n");
+            addNewline(sb);
         }
-        
-        i = 0;
-        
-        sb.append("let order_klabel(l: klabel) = match l with \n");
-        
+    }
+
+    private void addKLabelOrderFunc(StringBuilder sb) {
+        sb.append("let order_klabel(l: klabel) = ");
+        beginMatchStatement(sb, "l");
+        addNewline(sb);
+
+        int i = 0;
+
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            sb.append("|");
+            beginMatchExpression(sb);
             encodeStringToIdentifier(sb, label);
-            sb.append(" -> ").append(i++).append("\n");
+            addMatchSeparator(sb);
+            sb.append(i++);
+            addNewline(sb);
         }
-        
-        addPrelude(sb);
-        
-        sb.append("let print_sort_string(c: sort) : string = match c with \n");
-        
+    }
+
+    private void addPrintSortString(StringBuilder sb) {
+        sb.append("let print_sort_string(c: sort) : string = ");
+        beginMatchStatement(sb, "c");
+        addNewline(sb);
+
         for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
+            beginMatchExpression(sb);
             encodeStringToIdentifier(sb, s);
-            sb.append(" -> ");
+            addMatchSeparator(sb);
             sb.append(StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
-            sb.append("\n");
+            addNewline(sb);
         }
-        
-        sb.append("let print_sort(c: sort) : string = match c with \n");
-        
+    }
+
+    private void addPrintSort(StringBuilder sb) {
+        sb.append("let print_sort(c: sort) : string = ");
+        beginMatchStatement(sb, "c");
+        addNewline(sb);
+
         for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
+            beginMatchExpression(sb);
             encodeStringToIdentifier(sb, s);
-            sb.append(" -> ");
+            addMatchSeparator(sb);
             sb.append(StringUtil.enquoteCString(s.name()));
-            sb.append("\n");
+            addNewline(sb);
         }
-        
-        sb.append("let print_klabel(c: klabel) : string = match c with \n");
-        
+    }
+    
+    private void addPrintKLabel(StringBuilder sb) {
+        sb.append("let print_klabel(c: klabel) : string = ");
+        beginMatchStatement(sb, "c");
+        addNewline(sb);
+
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            sb.append("|");
+            beginMatchExpression(sb);
             encodeStringToIdentifier(sb, label);
-            sb.append(" -> ");
+            addMatchSeparator(sb);
             sb.append(StringUtil.enquoteCString(ToKast.apply(label)));
-            sb.append("\n");
+            addNewline(sb);
         }
-        
-        addMidlude(sb);
-        
-        SetMultimap<KLabel, Rule> functionRules = HashMultimap.create();
-        
-        for (Rule r : iterable(mainModule.rules())) {
+    }
+    
+    private void beginMatchStatement(StringBuilder sb, String varname) {
+        sb.append("match ");
+        sb.append(varname);
+        sb.append(" with ");
+    }
+
+    private void beginMatchExpression(StringBuilder sb) {
+        sb.append("|");
+    }
+
+    private void addMatchSeparator(StringBuilder sb) {
+        sb.append(" -> ");
+    }
+
+    Set<KLabel> functionSet;
+    SetMultimap<KLabel, Rule> functionRules;
+    List<List<KLabel>> functionOrder;
+
+    private void initializeFunctionRules() {
+        functionRules = HashMultimap.create();
+
+        for(Rule r : iterable(mainModule.rules())) {
             K left = RewriteToTop.toLeft(r.body());
-            if (left instanceof KSequence) {
+            if(left instanceof KSequence) {
                 KSequence kseq = (KSequence) left;
-                if (kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
+                if(kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
                     KApply kapp = (KApply) kseq.items().get(0);
-                    if (mainModule.attributesFor().apply(kapp.klabel()).contains(Attribute.FUNCTION_KEY)) {
+                    if(mainModule.attributesFor().apply(kapp.klabel()).contains(Attribute.FUNCTION_KEY)) {
                         functionRules.put(kapp.klabel(), r);
                     }
                 }
             }
         }
-        
-        functions = new HashSet<>(functionRules.keySet());
-        
-        for (Production p : iterable(mainModule.productions())) {
-            if (p.att().contains(Attribute.FUNCTION_KEY)) {
-                functions.add(p.klabel().get());
+    }
+
+    private void initializeFunctionSet() {
+        functionSet = new HashSet<>(functionRules.keySet());
+
+        for(Production p : iterable(mainModule.productions())) {
+            if(p.att().contains(Attribute.FUNCTION_KEY)) {
+                functionSet.add(p.klabel().get());
+            }
+        }
+    }
+
+    private void initializeFunctionOrder() {
+        BiMap<KLabel, Integer> mapping = HashBiMap.create();
+        int counter = 0;
+        for(KLabel lbl : functionSet) {
+            mapping.put(lbl, counter++);
+        }
+        List<Integer>[] predecessors = new List[functionSet.size()];
+        for(int i = 0; i < predecessors.length; i++) {
+            predecessors[i] = new ArrayList<>();
+        }
+
+        class GetPredecessors extends VisitKORE {
+            private final KLabel current;
+
+            public GetPredecessors(KLabel current) {
+                this.current = current;
+            }
+
+            @Override
+            public Void apply(KApply k) {
+                if (functionSet.contains(k.klabel())) {
+                    predecessors[mapping.get(current)].add(mapping.get(k.klabel()));
+                }
+                return super.apply(k);
             }
         }
 
-        List<List<KLabel>> functionOrder = sortFunctions(functionRules);
+        for (Map.Entry<KLabel, Rule> entry : functionRules.entries()) {
+            GetPredecessors visitor = new GetPredecessors(entry.getKey());
+            visitor.apply(entry.getValue().body());
+            visitor.apply(entry.getValue().requires());
+        }
 
+        List<List<Integer>> components = new SCCTarjan().scc(predecessors);
+
+        functionOrder = components
+                        .stream()
+                        .map(l -> l.stream()
+                                   .map(i -> mapping.inverse().get(i))
+                                   .collect(Collectors.toList()))
+                        .collect(Collectors.toList());
+    }
+
+    private int sortFunctionRules(Rule a1, Rule a2) {
+        return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
+    }
+
+    private void addRules(StringBuilder sb) {
+        int i = 0;
         for (List<KLabel> component : functionOrder) {
             String conn = "let rec ";
             for (KLabel functionLabel : component) {
                 sb.append(conn);
                 String functionName = encodeStringToFunction(sb, functionLabel.name());
-                sb.append(" (c: k list) (guards: Guard.t) : k = let lbl = \n");
+                sb.append(" (c: k list) (guards: Guard.t) : k = let lbl = ");
+                addNewline(sb);
                 encodeStringToIdentifier(sb, functionLabel);
-                sb.append(" in match c with \n");
+                sb.append(" in ");
+                beginMatchStatement(sb, "c");
+                addNewline(sb);
                 String hook = mainModule.attributesFor().apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
                 if (hooks.containsKey(hook)) {
                     sb.append("| ");
                     sb.append(hooks.get(hook));
-                    sb.append("\n");
+                    addNewline(sb);
                 }
                 if (predicateRules.containsKey(functionLabel.name())) {
                     sb.append("| ");
                     sb.append(predicateRules.get(functionLabel.name()));
-                    sb.append("\n");
+                    addNewline(sb);
                 }
 
                 i = 0;
                 for (Rule r : functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
                     oldConvert(r, sb, true, i++, functionName);
                 }
-                sb.append("| _ -> raise (Stuck [KApply(lbl, c)])\n");
+                sb.append("| _ -> raise (Stuck [KApply(lbl, c)])");
+                addNewline(sb);
                 conn = "and ";
             }
         }
 
         boolean hasLookups = false;
         Map<Boolean, List<Rule>> sortedRules = stream(mainModule.rules()).collect(Collectors.groupingBy(this::hasLookups));
-        sb.append("let rec lookups_step (c: k) (guards: Guard.t) : k = match c with \n");
+
+        sb.append("let rec lookups_step (c: k) (guards: Guard.t) : k = ");
+        beginMatchStatement(sb, "c");
+        addNewline(sb);
         i = 0;
         for (Rule r : sortedRules.get(true)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "lookups_step");
             }
         }
-        sb.append("| _ -> raise (Stuck c)\n");
-        sb.append("let step (c: k) : k = match c with \n");
+        sb.append("| _ -> raise (Stuck c)");
+        addNewline(sb);
+        sb.append("let step (c: k) : k = ");
+        beginMatchStatement(sb, "c");
+        addNewline(sb);
         for (Rule r : sortedRules.get(false)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "step");
             }
         }
-        sb.append("| _ -> lookups_step c Guard.empty\n");
-        sb.append(postlude);
+        sb.append("| _ -> lookups_step c Guard.empty");
+        addNewline(sb);
+    }
+
+    private String oldConvert() {
+        StringBuilder sb = new StringBuilder();
+
+        addSortType(sb);
+        addSortOrderFunc(sb);
+        addKLabelType(sb);
+        addKLabelOrderFunc(sb);
+        addPrelude(sb);
+        addPrintSortString(sb);
+        addPrintKLabel(sb);
+        addMidlude(sb);
+        initializeFunctionRules();
+        initializeFunctionSet();
+        initializeFunctionOrder();
+        addRules(sb);
+        addPostlude(sb);
+
         return sb.toString();
     }
 
@@ -470,49 +609,7 @@ public class DefinitionToFunc {
         return h.b;
     }
 
-    private int sortFunctionRules(Rule a1, Rule a2) {
-        return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
-    }
 
-    private List<List<KLabel>> sortFunctions(SetMultimap<KLabel, Rule> functionRules) {
-        BiMap<KLabel, Integer> mapping = HashBiMap.create();
-        int counter = 0;
-        for (KLabel lbl : functions) {
-            mapping.put(lbl, counter++);
-        }
-        List<Integer>[] predecessors = new List[functions.size()];
-        for (int i = 0; i < predecessors.length; i++) {
-            predecessors[i] = new ArrayList<>();
-        }
-
-        class GetPredecessors extends VisitKORE {
-            private final KLabel current;
-
-            public GetPredecessors(KLabel current) {
-                this.current = current;
-            }
-
-            @Override
-            public Void apply(KApply k) {
-                if (functions.contains(k.klabel())) {
-                    predecessors[mapping.get(current)].add(mapping.get(k.klabel()));
-                }
-                return super.apply(k);
-            }
-        }
-
-        for (Map.Entry<KLabel, Rule> entry : functionRules.entries()) {
-            GetPredecessors visitor = new GetPredecessors(entry.getKey());
-            visitor.apply(entry.getValue().body());
-            visitor.apply(entry.getValue().requires());
-        }
-
-        List<List<Integer>> components = new SCCTarjan().scc(predecessors);
-
-        return components.stream().map(l -> l.stream()
-                .map(i -> mapping.inverse().get(i)).collect(Collectors.toList()))
-                .collect(Collectors.toList());
-    }
 
     private static void encodeStringToIdentifier(StringBuilder sb, KLabel name) {
         sb.append("Lbl");
@@ -569,8 +666,17 @@ public class DefinitionToFunc {
         }
     }
 
+    private void beginMultilineComment(StringBuilder sb) {
+        sb.append("(*");
+    }
+
+    private void endMultilineComment(StringBuilder sb) {
+        sb.append("*)");
+    }
+    
     private void outputAnnotate(Rule r, StringBuilder sb) {
-        sb.append("(* rule ");
+        beginMultilineComment(sb);
+        sb.append(" rule ");
         sb.append(ToKast.apply(r.body()));
         sb.append(" requires ");
         sb.append(ToKast.apply(r.requires()));
@@ -578,36 +684,37 @@ public class DefinitionToFunc {
         sb.append(ToKast.apply(r.ensures()));
         sb.append(" ");
         sb.append(r.att().toString());
-        sb.append("*)\n");        
+        endMultilineComment(sb);
+        addNewline(sb);
     }
-    
+
     private void unhandledOldConvert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) throws KEMException {
         if(annotateOutput) { outputAnnotate(r, sb); }
-        
+
         sb.append("| ");
-        
+
         K left     = RewriteToTop.toLeft(r.body());
         K right    = RewriteToTop.toRight(r.body());
         K requires = r.requires();
-        
+
         SetMultimap<KVariable, String> vars = HashMultimap.create();
         Visitor visitor = oldConvert(sb, false, vars, false);
-        
+
         if(function) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
             visitor.apply(kapp.klist().items(), true);
         } else {
             visitor.apply(left);
         }
-        
+
         String result = oldConvert(vars);
-        
+
         if(hasLookups(r)) {
             sb.append(" when not (Guard.mem (GuardElt.Guard ").append(ruleNum).append(") guards)");
         }
-        
+
         String suffix = "";
-        
+
         if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
             suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
             sb.append(" when ");
@@ -616,11 +723,11 @@ public class DefinitionToFunc {
             sb.append(result);
             sb.append(")");
         }
-        
+
         sb.append(" -> ");
         oldConvert(sb, true, vars, false).apply(right);
         sb.append(suffix);
-        sb.append("\n");
+        addNewline(sb);
     }
 
     private void oldConvert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) {
@@ -647,7 +754,8 @@ public class DefinitionToFunc {
                     }
                     sb.append(" -> (match ");
                     oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with \n");
+                    sb.append(" with ");
+                    addNewline(sb);
                     oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                     h.i++;
@@ -657,7 +765,8 @@ public class DefinitionToFunc {
                     }
                     sb.append(" -> (match ");
                     oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with \n");
+                    sb.append(" with ");
+                    addNewline(sb);
                     sb.append("| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ");
                     oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
@@ -669,7 +778,8 @@ public class DefinitionToFunc {
                     }
                     sb.append(" -> (match ");
                     oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with \n");
+                    sb.append(" with ");
+                    addNewline(sb);
                     sb.append("| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
                     oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
@@ -679,7 +789,7 @@ public class DefinitionToFunc {
                 return super.apply(k);
             }
         }.apply(requires);
-        
+
         StringBuilder sb2 = new StringBuilder();
         while(!suffix.isEmpty()) {
             sb2.append(suffix.pollLast());
@@ -763,7 +873,7 @@ public class DefinitionToFunc {
                 sb.append(", ");
                 apply(((KSequence) k.klist().items().get(1)).items().get(0));
                 sb.append(")");
-            } else if (functions.contains(k.klabel())) {
+            } else if (functionSet.contains(k.klabel())) {
                 applyFunction(k);
             } else {
                 applyKLabel(k);
@@ -961,7 +1071,7 @@ public class DefinitionToFunc {
 
         private boolean isList(K item, boolean klist) {
             return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K")) || item instanceof KSequence
-                    || (item instanceof KApply && functions.contains(((KApply) item).klabel())));
+                    || (item instanceof KApply && functionSet.contains(((KApply) item).klabel())));
         }
 
         private void apply(Sort sort) {

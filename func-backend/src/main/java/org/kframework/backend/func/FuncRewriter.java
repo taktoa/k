@@ -56,11 +56,7 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
                     ProcessBuilder pb = files.getProcessBuilder();
-                    if (DefinitionToFunc.fastCompilation) {
-                        pb = pb.command("ocamlc.opt", "nums.cma", files.resolveKompiled("def.cmo").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
-                    } else {
-                        pb = pb.command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
-                    }
+                    pb = pb.command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
                     Process p = pb.directory(files.resolveTemp("."))
                             .redirectError(files.resolveTemp("compile.err"))
                             .redirectOutput(files.resolveTemp("compile.out"))

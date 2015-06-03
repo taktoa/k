@@ -35,7 +35,7 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
         files.saveToKompiled("def.ml", ocaml);
         try {
             Process ocamlopt = files.getProcessBuilder()
-                    .command((DefinitionToFunc.fastCompilation ? "ocamlc.opt" : "ocamlopt.opt"), "-c", "def.ml")
+                    .command("ocamlopt.opt", "-c", "def.ml")
                     .directory(files.resolveKompiled("."))
                     .inheritIO()
                     .start();
