@@ -82,7 +82,6 @@ public class DefinitionToFunc {
         this.kompileOptions = kompileOptions;
     }
 
-    public static final boolean fastCompilation = false;
     public static final boolean annotateOutput = true;
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
@@ -312,17 +311,13 @@ public class DefinitionToFunc {
         
         sb.append("type sort = \n");
         
-        if (fastCompilation) {
-            sb.append("Sort of string\n");
-        } else {
-            for (Sort s : iterable(mainModule.definedSorts())) {
-                sb.append("|");
-                encodeStringToIdentifier(sb, s);
-                sb.append("\n");
-            }
-            if (!mainModule.definedSorts().contains(Sorts.String())) {
-                sb.append("|SortString\n");
-            }
+        for (Sort s : iterable(mainModule.definedSorts())) {
+            sb.append("|");
+            encodeStringToIdentifier(sb, s);
+            sb.append("\n");
+        }
+        if (!mainModule.definedSorts().contains(Sorts.String())) {
+            sb.append("|SortString\n");
         }
         
         sb.append("let order_sort(s: sort) = match s with \n");
@@ -337,14 +332,10 @@ public class DefinitionToFunc {
         
         sb.append("type klabel = \n");
         
-        if (fastCompilation) {
-            sb.append("KLabel of string\n");
-        } else {
-            for (KLabel label : iterable(mainModule.definedKLabels())) {
-                sb.append("|");
-                encodeStringToIdentifier(sb, label);
-                sb.append("\n");
-            }
+        for (KLabel label : iterable(mainModule.definedKLabels())) {
+            sb.append("|");
+            encodeStringToIdentifier(sb, label);
+            sb.append("\n");
         }
         
         i = 0;
@@ -429,25 +420,16 @@ public class DefinitionToFunc {
                     sb.append("| ");
                     sb.append(hooks.get(hook));
                     sb.append("\n");
-                    if (fastCompilation) {
-                        sb.append("| _ -> match c with \n");
-                    }
                 }
                 if (predicateRules.containsKey(functionLabel.name())) {
                     sb.append("| ");
                     sb.append(predicateRules.get(functionLabel.name()));
                     sb.append("\n");
-                    if (fastCompilation) {
-                        sb.append("| _ -> match c with \n");
-                    }
                 }
 
                 i = 0;
                 for (Rule r : functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
                     oldConvert(r, sb, true, i++, functionName);
-                    if (fastCompilation) {
-                        sb.append("| _ -> match c with \n");
-                    }
                 }
                 sb.append("| _ -> raise (Stuck [KApply(lbl, c)])\n");
                 conn = "and ";
@@ -461,9 +443,6 @@ public class DefinitionToFunc {
         for (Rule r : sortedRules.get(true)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "lookups_step");
-                if (fastCompilation) {
-                    sb.append("| _ -> match c with \n");
-                }
             }
         }
         sb.append("| _ -> raise (Stuck c)\n");
@@ -471,9 +450,6 @@ public class DefinitionToFunc {
         for (Rule r : sortedRules.get(false)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "step");
-                if (fastCompilation) {
-                    sb.append("| _ -> match c with \n");
-                }
             }
         }
         sb.append("| _ -> lookups_step c Guard.empty\n");
@@ -539,21 +515,13 @@ public class DefinitionToFunc {
     }
 
     private static void encodeStringToIdentifier(StringBuilder sb, KLabel name) {
-        if (fastCompilation) {
-            sb.append("KLabel(\"").append(name.name().replace("\"", "\\\"")).append("\")");
-        } else {
-            sb.append("Lbl");
-            encodeStringToAlphanumeric(sb, name.name());
-        }
+        sb.append("Lbl");
+        encodeStringToAlphanumeric(sb, name.name());
     }
 
     private static void encodeStringToIdentifier(StringBuilder sb, Sort name) {
-        if (fastCompilation) {
-            sb.append("Sort(\"").append(name.name().replace("\"", "\\\"")).append("\")");
-        } else {
-            sb.append("Sort");
-            encodeStringToAlphanumeric(sb, name.name());
-        }
+        sb.append("Sort");
+        encodeStringToAlphanumeric(sb, name.name());
     }
 
     private static String encodeStringToIdentifier(Sort name) {
