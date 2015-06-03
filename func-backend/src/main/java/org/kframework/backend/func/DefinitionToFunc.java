@@ -7,8 +7,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
-import org.kframework.backend.java.kore.compile.ExpandMacros;
 import org.kframework.backend.func.FuncAST;
+import org.kframework.backend.func.FuncPreprocessors;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
 import org.kframework.definition.Module;
@@ -30,10 +30,6 @@ import org.kframework.kore.KToken;
 import org.kframework.kore.KVariable;
 import org.kframework.kore.Sort;
 import org.kframework.kore.ToKast;
-import org.kframework.kore.compile.ConvertDataStructureToLookup;
-import org.kframework.kore.compile.DeconstructIntegerLiterals;
-import org.kframework.kore.compile.GenerateSortPredicateRules;
-import org.kframework.kore.compile.LiftToKSequence;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
 import org.kframework.main.GlobalOptions;
@@ -63,6 +59,10 @@ import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 
+/*
+ * @author: Remy Goldschmidt
+ */
+
 public class DefinitionToFunc {
 
     private final KExceptionManager kem;
@@ -70,7 +70,12 @@ public class DefinitionToFunc {
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
 
-    public DefinitionToFunc(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
+    private FuncPreprocessors preproc;
+
+    public DefinitionToFunc(KExceptionManager kem,
+                            FileUtil files,
+                            GlobalOptions globalOptions,
+                            KompileOptions kompileOptions) {
         this.kem = kem;
         this.files = files;
         this.globalOptions = globalOptions;
@@ -265,90 +270,26 @@ public class DefinitionToFunc {
         builder.put("isList", "[List _] :: [] -> [Bool true]");
         predicateRules = builder.build();
     }
-
+    
     private Module mainModule;
-    private Module executionModule;
-    private Definition kompiledDefinition;
-
-    private ConvertDataStructureToLookup convertLookupsObj() {
-        return new ConvertDataStructureToLookup(executionModule);
-    }
-    
-    private ModuleTransformer convertLookupsMT() {
-        final String convertLookupsStr = "Convert data structures to lookups";
-        return ModuleTransformer.fromSentenceTransformer(convertLookupsObj()::convert, convertLookupsStr);
-    }
-
-    private GenerateSortPredicateRules generatePredicatesObj() {
-        return new GenerateSortPredicateRules(kompiledDefinition);
-    }
-
-    // TODO(taktoa): figure out why I can't make this a ModuleTransformer
-    private Function1<Module, Module> generatePredicatesMT() {
-        final String generatePredicatesStr = "Generate predicates";
-        return func(generatePredicatesObj()::gen);
-    }
-
-    private LiftToKSequence liftToKSequenceObj() {
-        return new LiftToKSequence();
-    }
-    
-    private ModuleTransformer liftToKSequenceMT() {
-        final String liftToKSequenceStr = "Lift K into KSequence";
-        return ModuleTransformer.fromSentenceTransformer(liftToKSequenceObj()::convert, liftToKSequenceStr);
-    }
-
-    private DeconstructIntegerLiterals deconstructIntsObj() {
-        return new DeconstructIntegerLiterals();
-    }
-
-    private ModuleTransformer deconstructIntsMT() {
-        final String deconstructIntsStr = "Remove matches on integer literals in left hand side";
-        return ModuleTransformer.fromSentenceTransformer(deconstructIntsObj()::convert, deconstructIntsStr);
-    }
-
-    private ExpandMacros expandMacrosObj() {
-        return new ExpandMacros(executionModule, kem, files, globalOptions, kompileOptions);
-    }
-    
-    private ModuleTransformer expandMacrosMT() {
-        final String expandMacrosStr = "Expand macros rules";
-        return ModuleTransformer.fromSentenceTransformer(expandMacrosObj()::expand, expandMacrosStr);
-    }
-    
-    private Module generateMainModule(CompiledDefinition def) {
-        executionModule = def.executionModule();
-        kompiledDefinition = def.kompiledDefinition;
-        
-        // Steps are separated for debugging purposes, since with
-        // the steps separated, the line number of the failing step
-        // is made clear.
-        // If this has a performance detriment (it probably does),
-        // just turn it into one pipeline with andThen()
-        Module step1 = deconstructIntsMT().apply(executionModule);
-        Module step2 = convertLookupsMT().apply(step1);
-        Module step3 = expandMacrosMT().apply(step2);
-        Module step4 = generatePredicatesMT().apply(step3);
-        Module step5 = liftToKSequenceMT().apply(step4);
-        
-        return step5;
-    }
     
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
         sb.append("open Def\nopen K\nopen Big_int\n");
         sb.append("let _ = print_string(print_k(try(run(");
         Visitor convVisitor = oldConvert(sb, true, HashMultimap.create(), false);
-        convVisitor.apply(liftToKSequenceObj().convert(expandMacrosObj().expand(k)));
+        convVisitor.apply(preproc.korePreprocess(k));
         sb.append(") (").append(depth).append(")) with Stuck c' -> c'))");
         return new FuncAST(sb.toString());
     }
 
     private FuncAST langDefToFunc(CompiledDefinition def) {
-        return new FuncAST(oldConvert(def));
+        return new FuncAST(oldConvert());
     }
 
     public String convert(CompiledDefinition def) {
+        preproc = new FuncPreprocessors(def, kem, files, globalOptions, kompileOptions);
+        mainModule = preproc.modulePreprocess();
         return langDefToFunc(def).render();
     }
 
@@ -356,12 +297,15 @@ public class DefinitionToFunc {
         return runtimeCodeToFunc(k, depth).render();
     }
 
-    private String oldConvert(CompiledDefinition def) {
-        mainModule = generateMainModule(def);
-        return oldConvert();
+    Set<KLabel> functions;
+
+    private void addPrelude(StringBuilder sb) {
+        sb.append(prelude);
     }
 
-    Set<KLabel> functions;
+    private void addMidlude(StringBuilder sb) {
+        sb.append(midlude);
+    }
 
     private String oldConvert() {
         StringBuilder sb = new StringBuilder();
@@ -413,7 +357,7 @@ public class DefinitionToFunc {
             sb.append(" -> ").append(i++).append("\n");
         }
         
-        sb.append(prelude);
+        addPrelude(sb);
         
         sb.append("let print_sort_string(c: sort) : string = match c with \n");
         
@@ -445,7 +389,7 @@ public class DefinitionToFunc {
             sb.append("\n");
         }
         
-        sb.append(midlude);
+        addMidlude(sb);
         
         SetMultimap<KLabel, Rule> functionRules = HashMultimap.create();
         
@@ -767,8 +711,9 @@ public class DefinitionToFunc {
                 return super.apply(k);
             }
         }.apply(requires);
+        
         StringBuilder sb2 = new StringBuilder();
-        while (!suffix.isEmpty()) {
+        while(!suffix.isEmpty()) {
             sb2.append(suffix.pollLast());
         }
         return sb2.toString();

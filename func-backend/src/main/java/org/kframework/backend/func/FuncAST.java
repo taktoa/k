@@ -1,7 +1,7 @@
 package org.kframework.backend.func;
 
 /**
- * Created by Remy Goldschmidt on 06/02/2015
+ * @author: Remy Goldschmidt
  */
 public class FuncAST {
     private String ast;
