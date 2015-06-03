@@ -274,11 +274,26 @@ public class DefinitionToFunc {
 
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
-        sb.append("open Def\nopen K\nopen Big_int\n");
-        sb.append("let _ = print_string(print_k(try(run(");
+        sb.append("open Def");
+        addNewline(sb);
+        sb.append("open K");
+        addNewline(sb);
+        sb.append("open Big_int");
+        addNewline(sb);
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "_");
+        beginLetEquationValue(sb);
+        sb.append("print_string(print_k(try(run(");
         Visitor convVisitor = oldConvert(sb, true, HashMultimap.create(), false);
         convVisitor.apply(preproc.korePreprocess(k));
-        sb.append(") (").append(depth).append(")) with Stuck c' -> c'))");
+        sb.append(") (");
+        sb.append(depth);
+        sb.append(")) with Stuck c' -> c'))");
+        endLetEquationValue(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
         return new FuncAST(sb.toString());
     }
 
@@ -312,131 +327,375 @@ public class DefinitionToFunc {
         sb.append(postlude);
     }
     
-    private void beginTypeStatement(StringBuilder sb, String typename) {
+    private void beginTypeDefinition(StringBuilder sb, String typename) {
         sb.append("type ");
         sb.append(typename);
         sb.append(" = ");
     }
 
-    private void beginTypeExpression(StringBuilder sb) {
+    private void endTypeDefinition(StringBuilder sb) {}
+
+    private void addConstructor(StringBuilder sb, String con) {
+        beginConstructor(sb);
+        sb.append(con);
+        endConstructor(sb);
+    }
+
+    private void addConstructorSum(StringBuilder sb) {
         sb.append("|");
+    }
+
+    private void beginConstructor(StringBuilder sb) {
+        sb.append("|");
+    }
+
+    private void endConstructor(StringBuilder sb) {}
+
+    private void beginConstructorName(StringBuilder sb) {}
+    
+    private void endConstructorName(StringBuilder sb) {}
+
+    private void beginConstructorArgs(StringBuilder sb) {
+        sb.append(" of ");
+    }
+    
+    private void endConstructorArgs(StringBuilder sb) {}
+
+    private void addType(StringBuilder sb, String typename) {
+        sb.append(typename);
+    }
+    
+    private void addTypeProduct(StringBuilder sb) {
+        sb.append(" * ");
     }
     
     private void addSortType(StringBuilder sb) {
-        beginTypeStatement(sb, "sort");
+        beginTypeDefinition(sb, "sort");
         addNewline(sb);
 
         for (Sort s : iterable(mainModule.definedSorts())) {
-            beginTypeExpression(sb);
+            beginConstructor(sb);
             encodeStringToIdentifier(sb, s);
+            endConstructor(sb);
             addNewline(sb);
         }
         if (!mainModule.definedSorts().contains(Sorts.String())) {
-            beginTypeExpression(sb);
-            sb.append("SortString");
+            addConstructor(sb, "SortString");
             addNewline(sb);
         }
     }
 
     private void addSortOrderFunc(StringBuilder sb) {
-        sb.append("let order_sort(s: sort) = ");
-        beginMatchStatement(sb, "s");
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "order_sort(s: sort)");
+        beginLetEquationValue(sb);
+        beginMatchExpression(sb, "s");
         addNewline(sb);
 
         int i = 0;
 
         for (Sort s : iterable(mainModule.definedSorts())) {
-            beginMatchExpression(sb);
+            beginMatchEquation(sb);
+            beginMatchEquationPattern(sb);
             encodeStringToIdentifier(sb, s);
-            addMatchSeparator(sb);
-            sb.append(i++);
+            endMatchEquationPattern(sb);
+            addMatchEquationValue(sb, Integer.toString(i++));
             addNewline(sb);
         }
+        endMatchExpression(sb);
+        endLetEquationValue(sb);
+        endLetDefinitions(sb);
+        endLetEquation(sb);
     }
 
     private void addKLabelType(StringBuilder sb) {
-        beginTypeStatement(sb, "klabel");
-        addNewline(sb);
-
+        beginTypeDefinition(sb, "klabel");
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            beginTypeExpression(sb);
+            beginConstructor(sb);
             encodeStringToIdentifier(sb, label);
+            endConstructor(sb);
             addNewline(sb);
         }
+        endTypeDefinition(sb);
     }
 
     private void addKLabelOrderFunc(StringBuilder sb) {
-        sb.append("let order_klabel(l: klabel) = ");
-        beginMatchStatement(sb, "l");
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "order_klabel(l: klabel)");
+        beginLetEquationValue(sb);
+        
+        beginMatchExpression(sb, "l");
         addNewline(sb);
 
         int i = 0;
 
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            beginMatchExpression(sb);
+            beginMatchEquation(sb);
+            beginMatchEquationPattern(sb);
             encodeStringToIdentifier(sb, label);
-            addMatchSeparator(sb);
-            sb.append(i++);
+            endMatchEquationPattern(sb);
+            addMatchEquationValue(sb, Integer.toString(i++));
             addNewline(sb);
+            endMatchEquation(sb);
         }
+        endMatchExpression(sb);
+        
+        endLetEquationValue(sb);
+        endLetEquation(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
     }
 
     private void addPrintSortString(StringBuilder sb) {
-        sb.append("let print_sort_string(c: sort) : string = ");
-        beginMatchStatement(sb, "c");
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "print_sort_string(c: sort) : string");
+        beginLetEquationValue(sb);
+        
+        beginMatchExpression(sb, "c");
         addNewline(sb);
 
         for (Sort s : iterable(mainModule.definedSorts())) {
-            beginMatchExpression(sb);
+            beginMatchEquation(sb);
+            beginMatchEquationPattern(sb);
             encodeStringToIdentifier(sb, s);
-            addMatchSeparator(sb);
-            sb.append(StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
+            endMatchEquationPattern(sb);
+            addMatchEquationValue(sb, StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
             addNewline(sb);
+            endMatchEquation(sb);
         }
-    }
-
-    private void addPrintSort(StringBuilder sb) {
-        sb.append("let print_sort(c: sort) : string = ");
-        beginMatchStatement(sb, "c");
-        addNewline(sb);
-
-        for (Sort s : iterable(mainModule.definedSorts())) {
-            beginMatchExpression(sb);
-            encodeStringToIdentifier(sb, s);
-            addMatchSeparator(sb);
-            sb.append(StringUtil.enquoteCString(s.name()));
-            addNewline(sb);
-        }
+        
+        endMatchExpression(sb);
+        
+        endLetEquationValue(sb);
+        endLetEquation(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
     }
     
+    private void addPrintSort(StringBuilder sb) {
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "print_sort(c: sort) : string");
+        beginLetEquationValue(sb);
+        
+        beginMatchExpression(sb, "c");
+        addNewline(sb);
+
+        for (Sort s : iterable(mainModule.definedSorts())) {
+            beginMatchEquation(sb);
+            beginMatchEquationPattern(sb);
+            encodeStringToIdentifier(sb, s);
+            endMatchEquationPattern(sb);
+            addMatchEquationValue(sb, StringUtil.enquoteCString(s.name()));
+            addNewline(sb);
+            endMatchEquation(sb);
+        }
+        
+        endMatchExpression(sb);
+        
+        endLetEquationValue(sb);
+        endLetEquation(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
+    }
+
+    // ----------------
+
     private void addPrintKLabel(StringBuilder sb) {
-        sb.append("let print_klabel(c: klabel) : string = ");
-        beginMatchStatement(sb, "c");
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "print_klabel(c: klabel) : string");
+        beginLetEquationValue(sb);
+        
+        beginMatchExpression(sb, "c");
         addNewline(sb);
 
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            beginMatchExpression(sb);
+            beginMatchEquation(sb);
+            beginMatchEquationPattern(sb);
             encodeStringToIdentifier(sb, label);
-            addMatchSeparator(sb);
-            sb.append(StringUtil.enquoteCString(ToKast.apply(label)));
+            endMatchEquationPattern(sb);
+            addMatchEquationValue(sb, StringUtil.enquoteCString(ToKast.apply(label)));
             addNewline(sb);
+            endMatchEquation(sb);
         }
+        
+        endMatchExpression(sb);
+        
+        endLetEquationValue(sb);
+        endLetEquation(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
     }
-    
-    private void beginMatchStatement(StringBuilder sb, String varname) {
+        
+
+    private void addMatchEquation(StringBuilder sb, String pattern, String value) {
+        beginMatchEquation(sb);
+        addMatchEquationPattern(sb, pattern);
+        addMatchEquationValue(sb, value);
+        endMatchEquation(sb);
+    }
+
+    private void addMatchEquationPattern(StringBuilder sb, String pattern) {
+        beginMatchEquationPattern(sb);
+        sb.append(pattern);
+        endMatchEquationPattern(sb);
+    }
+
+    private void addMatchEquationValue(StringBuilder sb, String value) {
+        beginMatchEquationValue(sb);
+        sb.append(value);
+        endMatchEquationValue(sb);
+    }
+
+    private void beginMatchExpression(StringBuilder sb, String varname) {
         sb.append("match ");
         sb.append(varname);
         sb.append(" with ");
     }
 
-    private void beginMatchExpression(StringBuilder sb) {
+    private void endMatchExpression(StringBuilder sb) {}
+
+    private void beginMatchEquation(StringBuilder sb) {
         sb.append("|");
     }
 
-    private void addMatchSeparator(StringBuilder sb) {
+    private void endMatchEquation(StringBuilder sb) {}
+    
+    private void beginMatchEquationPattern(StringBuilder sb) {}
+    
+    private void endMatchEquationPattern(StringBuilder sb) {
         sb.append(" -> ");
     }
+    
+    private void beginMatchEquationValue(StringBuilder sb) {}
 
+    private void endMatchEquationValue(StringBuilder sb) {}
+
+
+
+    
+    private void addLetEquation(StringBuilder sb, String name, String value) {
+        beginLetEquation(sb);
+        addLetEquationName(sb, name);
+        addLetEquationValue(sb, value);
+        endLetEquation(sb);
+    }
+
+    private void addLetEquationName(StringBuilder sb, String name) {
+        beginLetEquationName(sb);
+        sb.append(name);
+        endLetEquationName(sb);
+    }
+
+    private void addLetEquationValue(StringBuilder sb, String value) {
+        beginLetEquationValue(sb);
+        sb.append(value);
+        endLetEquationValue(sb);
+    }
+
+    private void beginLetEquation(StringBuilder sb) {}
+
+    private void endLetEquation(StringBuilder sb) {}
+
+    private void beginLetEquationName(StringBuilder sb) {}
+    
+    private void endLetEquationName(StringBuilder sb) {
+        sb.append(" = ");
+    }
+
+    private void beginLetEquationValue(StringBuilder sb) {}
+
+    private void endLetEquationValue(StringBuilder sb) {}
+
+    private void addLetEquationSeparator(StringBuilder sb) {
+        sb.append(" and ");
+    }
+
+    private void beginLetDefinitions(StringBuilder sb) {}
+
+    private void endLetDefinitions(StringBuilder sb) {}
+
+    private void beginLetScope(StringBuilder sb) {
+        sb.append(" in ");
+    }
+    
+    private void endLetScope(StringBuilder sb) {}
+
+    private void beginLetExpression(StringBuilder sb) {
+        sb.append("let ");
+    }
+
+    private void endLetExpression(StringBuilder sb) {}
+
+
+
+
+    private void addLetrecEquation(StringBuilder sb, String name, String value) {
+        beginLetrecEquation(sb);
+        addLetrecEquationName(sb, name);
+        addLetrecEquationValue(sb, value);
+        endLetrecEquation(sb);
+    }
+
+    private void addLetrecEquationName(StringBuilder sb, String name) {
+        beginLetrecEquationName(sb);
+        sb.append(name);
+        endLetrecEquationName(sb);
+    }
+
+    private void addLetrecEquationValue(StringBuilder sb, String value) {
+        beginLetrecEquationValue(sb);
+        sb.append(value);
+        endLetrecEquationValue(sb);
+    }
+
+    private void beginLetrecEquation(StringBuilder sb) {}
+
+    private void endLetrecEquation(StringBuilder sb) {}
+
+    private void beginLetrecEquationName(StringBuilder sb) {}
+    
+    private void endLetrecEquationName(StringBuilder sb) {
+        sb.append(" = ");
+    }
+
+    private void beginLetrecEquationValue(StringBuilder sb) {}
+
+    private void endLetrecEquationValue(StringBuilder sb) {}
+
+    private void addLetrecEquationSeparator(StringBuilder sb) {
+        sb.append(" and ");
+    }
+
+    private void beginLetrecDefinitions(StringBuilder sb) {}
+
+    private void endLetrecDefinitions(StringBuilder sb) {}
+
+    private void beginLetrecScope(StringBuilder sb) {
+        sb.append(" in ");
+    }
+    
+    private void endLetrecScope(StringBuilder sb) {}
+
+    private void beginLetrecExpression(StringBuilder sb) {
+        sb.append("let rec ");
+    }
+
+    private void endLetrecExpression(StringBuilder sb) {}
+
+
+    
+
+    
     Set<KLabel> functionSet;
     SetMultimap<KLabel, Rule> functionRules;
     List<List<KLabel>> functionOrder;
@@ -518,25 +777,43 @@ public class DefinitionToFunc {
     private void addRules(StringBuilder sb) {
         int i = 0;
         for (List<KLabel> component : functionOrder) {
-            String conn = "let rec ";
+            boolean inLetrec = false;
             for (KLabel functionLabel : component) {
-                sb.append(conn);
+                if(inLetrec) {
+                    addLetrecEquationSeparator(sb);
+                } else {
+                    beginLetrecExpression(sb);
+                    beginLetrecDefinitions(sb);
+                }
+                beginLetrecEquation(sb);                
+                beginLetrecEquationName(sb);
                 String functionName = encodeStringToFunction(sb, functionLabel.name());
-                sb.append(" (c: k list) (guards: Guard.t) : k = let lbl = ");
-                addNewline(sb);
+                sb.append(" (c: k list) (guards: Guard.t) : k");
+                endLetrecEquationName(sb);
+                beginLetrecEquationValue(sb);
+                beginLetExpression(sb);
+                beginLetDefinitions(sb);
+                beginLetEquation(sb);
+                addLetEquationName(sb, "lbl");
+                beginLetEquationValue(sb);
                 encodeStringToIdentifier(sb, functionLabel);
-                sb.append(" in ");
-                beginMatchStatement(sb, "c");
+                endLetEquationValue(sb);
+                endLetEquation(sb);
+                endLetDefinitions(sb);
+                beginLetScope(sb);
+                beginMatchExpression(sb, "c");
                 addNewline(sb);
                 String hook = mainModule.attributesFor().apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
                 if (hooks.containsKey(hook)) {
-                    sb.append("| ");
+                    beginMatchEquation(sb);
                     sb.append(hooks.get(hook));
+                    endMatchEquation(sb);
                     addNewline(sb);
                 }
                 if (predicateRules.containsKey(functionLabel.name())) {
-                    sb.append("| ");
+                    beginMatchEquation(sb);
                     sb.append(predicateRules.get(functionLabel.name()));
+                    endMatchEquation(sb);
                     addNewline(sb);
                 }
 
@@ -544,17 +821,28 @@ public class DefinitionToFunc {
                 for (Rule r : functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
                     oldConvert(r, sb, true, i++, functionName);
                 }
-                sb.append("| _ -> raise (Stuck [KApply(lbl, c)])");
+                addMatchEquation(sb, "_", "raise (Stuck [KApply(lbl, c)])");
+                endMatchExpression(sb);
+                endLetScope(sb);
+                endLetExpression(sb);
+                endLetrecEquationValue(sb);
+                endLetrecEquation(sb);
                 addNewline(sb);
-                conn = "and ";
+                inLetrec = true;
             }
+            endLetrecDefinitions(sb);
+            endLetrecExpression(sb);
         }
 
         boolean hasLookups = false;
         Map<Boolean, List<Rule>> sortedRules = stream(mainModule.rules()).collect(Collectors.groupingBy(this::hasLookups));
 
-        sb.append("let rec lookups_step (c: k) (guards: Guard.t) : k = ");
-        beginMatchStatement(sb, "c");
+        beginLetrecExpression(sb);
+        beginLetrecDefinitions(sb);
+        beginLetrecEquation(sb);
+        addLetrecEquationName(sb, "lookups_step (c: k) (guards: Guard.t) : k");
+        beginLetrecEquationValue(sb);
+        beginMatchExpression(sb, "c");
         addNewline(sb);
         i = 0;
         for (Rule r : sortedRules.get(true)) {
@@ -562,18 +850,30 @@ public class DefinitionToFunc {
                 oldConvert(r, sb, false, i++, "lookups_step");
             }
         }
-        sb.append("| _ -> raise (Stuck c)");
+        addMatchEquation(sb, "_", "raise (Stuck c)");
+        endLetrecEquationValue(sb);
+        endLetrecDefinitions(sb);
+        endLetrecExpression(sb);
+        
         addNewline(sb);
-        sb.append("let step (c: k) : k = ");
-        beginMatchStatement(sb, "c");
+        
+        beginLetExpression(sb);
+        beginLetDefinitions(sb);
+        beginLetEquation(sb);
+        addLetEquationName(sb, "step (c: k) : k");
+        beginLetEquationValue(sb);
+        beginMatchExpression(sb, "c");
         addNewline(sb);
         for (Rule r : sortedRules.get(false)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "step");
             }
         }
-        sb.append("| _ -> lookups_step c Guard.empty");
+        addMatchEquation(sb, "_", "lookups_step c Guard.empty");
         addNewline(sb);
+        endLetEquationValue(sb);
+        endLetDefinitions(sb);
+        endLetExpression(sb);
     }
 
     private String oldConvert() {
