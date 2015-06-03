@@ -77,7 +77,8 @@ public class DefinitionToFunc {
         this.kompileOptions = kompileOptions;
     }
 
-    public static final boolean fastCompilation = true;
+    public static final boolean fastCompilation = false;
+    public static final boolean annotateOutput = true;
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     public static final String kType = "t = kitem list\n" +
@@ -358,7 +359,9 @@ public class DefinitionToFunc {
 
     private String oldConvert() {
         StringBuilder sb = new StringBuilder();
+        
         sb.append("type sort = \n");
+        
         if (fastCompilation) {
             sb.append("Sort of string\n");
         } else {
@@ -371,14 +374,19 @@ public class DefinitionToFunc {
                 sb.append("|SortString\n");
             }
         }
+        
         sb.append("let order_sort(s: sort) = match s with \n");
+        
         int i = 0;
+        
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.append("|");
             encodeStringToIdentifier(sb, s);
             sb.append(" -> ").append(i++).append("\n");
         }
+        
         sb.append("type klabel = \n");
+        
         if (fastCompilation) {
             sb.append("KLabel of string\n");
         } else {
@@ -388,15 +396,21 @@ public class DefinitionToFunc {
                 sb.append("\n");
             }
         }
+        
         i = 0;
+        
         sb.append("let order_klabel(l: klabel) = match l with \n");
+        
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             sb.append("|");
             encodeStringToIdentifier(sb, label);
             sb.append(" -> ").append(i++).append("\n");
         }
+        
         sb.append(prelude);
+        
         sb.append("let print_sort_string(c: sort) : string = match c with \n");
+        
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.append("|");
             encodeStringToIdentifier(sb, s);
@@ -404,7 +418,9 @@ public class DefinitionToFunc {
             sb.append(StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
             sb.append("\n");
         }
+        
         sb.append("let print_sort(c: sort) : string = match c with \n");
+        
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.append("|");
             encodeStringToIdentifier(sb, s);
@@ -412,7 +428,9 @@ public class DefinitionToFunc {
             sb.append(StringUtil.enquoteCString(s.name()));
             sb.append("\n");
         }
+        
         sb.append("let print_klabel(c: klabel) : string = match c with \n");
+        
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             sb.append("|");
             encodeStringToIdentifier(sb, label);
@@ -420,8 +438,11 @@ public class DefinitionToFunc {
             sb.append(StringUtil.enquoteCString(ToKast.apply(label)));
             sb.append("\n");
         }
+        
         sb.append(midlude);
+        
         SetMultimap<KLabel, Rule> functionRules = HashMultimap.create();
+        
         for (Rule r : iterable(mainModule.rules())) {
             K left = RewriteToTop.toLeft(r.body());
             if (left instanceof KSequence) {
@@ -434,7 +455,9 @@ public class DefinitionToFunc {
                 }
             }
         }
+        
         functions = new HashSet<>(functionRules.keySet());
+        
         for (Production p : iterable(mainModule.productions())) {
             if (p.att().contains(Attribute.FUNCTION_KEY)) {
                 functions.add(p.klabel().get());
@@ -628,46 +651,63 @@ public class DefinitionToFunc {
         }
     }
 
+    private void outputAnnotate(Rule r, StringBuilder sb) {
+        sb.append("(* rule ");
+        sb.append(ToKast.apply(r.body()));
+        sb.append(" requires ");
+        sb.append(ToKast.apply(r.requires()));
+        sb.append(" ensures ");
+        sb.append(ToKast.apply(r.ensures()));
+        sb.append(" ");
+        sb.append(r.att().toString());
+        sb.append("*)\n");        
+    }
+    
+    private void unhandledOldConvert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) throws KEMException {
+        if(annotateOutput) { outputAnnotate(r, sb); }
+        
+        sb.append("| ");
+        
+        K left     = RewriteToTop.toLeft(r.body());
+        K right    = RewriteToTop.toRight(r.body());
+        K requires = r.requires();
+        
+        SetMultimap<KVariable, String> vars = HashMultimap.create();
+        Visitor visitor = oldConvert(sb, false, vars, false);
+        
+        if(function) {
+            KApply kapp = (KApply) ((KSequence) left).items().get(0);
+            visitor.apply(kapp.klist().items(), true);
+        } else {
+            visitor.apply(left);
+        }
+        
+        String result = oldConvert(vars);
+        
+        if(hasLookups(r)) {
+            sb.append(" when not (Guard.mem (GuardElt.Guard ").append(ruleNum).append(") guards)");
+        }
+        
+        String suffix = "";
+        
+        if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
+            suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
+            sb.append(" when ");
+            oldConvert(sb, true, vars, true).apply(requires);
+            sb.append(" && (");
+            sb.append(result);
+            sb.append(")");
+        }
+        
+        sb.append(" -> ");
+        oldConvert(sb, true, vars, false).apply(right);
+        sb.append(suffix);
+        sb.append("\n");
+    }
+
     private void oldConvert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) {
         try {
-            sb.append("(* rule ");
-            sb.append(ToKast.apply(r.body()));
-            sb.append(" requires ");
-            sb.append(ToKast.apply(r.requires()));
-            sb.append(" ensures ");
-            sb.append(ToKast.apply(r.ensures()));
-            sb.append(" ");
-            sb.append(r.att().toString());
-            sb.append("*)\n");
-            sb.append("| ");
-            K left = RewriteToTop.toLeft(r.body());
-            K right = RewriteToTop.toRight(r.body());
-            K requires = r.requires();
-            SetMultimap<KVariable, String> vars = HashMultimap.create();
-            Visitor visitor = oldConvert(sb, false, vars, false);
-            if (function) {
-                KApply kapp = (KApply) ((KSequence) left).items().get(0);
-                visitor.apply(kapp.klist().items(), true);
-            } else {
-                visitor.apply(left);
-            }
-            String result = oldConvert(vars);
-            if (hasLookups(r)) {
-                sb.append(" when not (Guard.mem (GuardElt.Guard ").append(ruleNum).append(") guards)");
-            }
-            String suffix = "";
-            if (!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
-                suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
-                sb.append(" when ");
-                oldConvert(sb, true, vars, true).apply(requires);
-                sb.append(" && (");
-                sb.append(result);
-                sb.append(")");
-            }
-            sb.append(" -> ");
-            oldConvert(sb, true, vars, false).apply(right);
-            sb.append(suffix);
-            sb.append("\n");
+            unhandledOldConvert(r, sb, function, ruleNum, functionName);
         } catch (KEMException e) {
             e.exception.addTraceFrame("while compiling rule at " + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>") + ":" + r.att().getOptional(Location.class).map(Object::toString).orElse("<none>"));
             throw e;
