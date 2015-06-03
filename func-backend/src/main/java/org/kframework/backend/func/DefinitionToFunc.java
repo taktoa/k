@@ -319,14 +319,20 @@ public class DefinitionToFunc {
     private Module generateMainModule(CompiledDefinition def) {
         executionModule = def.executionModule();
         kompiledDefinition = def.kompiledDefinition;
+        
+        // Steps are separated for debugging purposes, since with
+        // the steps separated, the line number of the failing step
+        // is made clear.
+        // If this has a performance detriment (it probably does),
+        // just turn it into one pipeline with andThen()
         Module step1 = deconstructIntsMT().apply(executionModule);
         Module step2 = convertLookupsMT().apply(step1);
         Module step3 = expandMacrosMT().apply(step2);
         Module step4 = generatePredicatesMT().apply(step3);
         Module step5 = liftToKSequenceMT().apply(step4);
+        
         return step5;
     }
-
     
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
