@@ -2,6 +2,7 @@
 package org.kframework.backend.genericAST.type;
 
 import org.kframework.backend.genericAST.type.TypeExp;
+import org.kframework.backend.genericAST.type.ArgumentSignature;
 import com.google.common.collect.ImmutableList;
 
 /**
@@ -9,20 +10,29 @@ import com.google.common.collect.ImmutableList;
  */
 public class ConstructorSignature {
 
-    private ImmutableList<TypeExp> argTypes;
+    private ArgumentSignature argTypes;
     private TypeExp retType;
 
-    public ConstructorSignature(ImmutableList<TypeExp> argumentTypes, TypeExp returnType) {
+    public ConstructorSignature(ArgumentSignature argumentTypes, TypeExp returnType) {
         argTypes = argumentTypes;
         retType = returnType;
     }
 
+    public ConstructorSignature(ImmutableList<TypeExp> argumentTypes, TypeExp returnType) {
+        argTypes = new ArgumentSignature(argumentTypes);
+        retType = returnType;
+    }
+
     public ConstructorSignature(TypeExp argumentType) {
-        argTypes = ImmutableList.of(argumentType);
+        argTypes = new ArgumentSignature(argumentType);
+    }
+
+    public ArgumentSignature getArgumentSignature() {
+        return argTypes;
     }
 
     public ImmutableList<TypeExp> getArgumentTypes() {
-        return argTypes;
+        return argTypes.getArgumentTypes();
     }
 
     public TypeExp getReturnType() {

@@ -4,19 +4,28 @@ package org.kframework.backend.genericAST.type;
 import org.kframework.backend.genericAST.type.TypeExp;
 import org.kframework.backend.genericAST.type.ConstructorSignature;
 import org.kframework.backend.genericAST.value.Constructor;
+
 import com.google.common.collect.ImmutableList;
+
+import java.util.Vector;
 
 /**
  * @author: Sebastian Conybeare
  */
 public class ADT extends TypeExp {
 
-    private ImmutableList<Constructor> cases;
+    private ImmutableList<ConstructorSignature> constructors;
 
-    // @TODO create (java) constructors that do not allow for
-    // inconsistent return types of the constructors.  
-    public ADT(ImmutableList<Constructor> constructors) {
-        cases = constructors;
+    public ADT(ImmutableList<ArgumentSignature> signatures) {
+        int size = signatures.size();
+        ConstructorSignature[] csigs = new ConstructorSignature[size];
+        
+        for(int i = 0; i < size; i++) {
+            csigs[i] = new ConstructorSignature(signatures.get(i), this);
+        }
+
+        constructors = ImmutableList.copyOf(csigs);
+        
     }
     
 }
