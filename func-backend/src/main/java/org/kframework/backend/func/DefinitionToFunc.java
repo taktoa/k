@@ -8,12 +8,15 @@ import com.google.common.collect.SetMultimap;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
 import org.kframework.backend.java.kore.compile.ExpandMacros;
+import org.kframework.backend.func.FuncAST;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
 import org.kframework.definition.Module;
 import org.kframework.definition.ModuleTransformer;
 import org.kframework.definition.Production;
 import org.kframework.definition.Rule;
+import org.kframework.definition.Definition;
+import org.kframework.definition.Sentence;
 import org.kframework.kil.Attribute;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
@@ -52,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -65,7 +69,6 @@ public class DefinitionToFunc {
     private final FileUtil files;
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
-    private ExpandMacros expandMacros;
 
     public DefinitionToFunc(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
         this.kem = kem;
@@ -262,37 +265,98 @@ public class DefinitionToFunc {
         predicateRules = builder.build();
     }
 
-
     private Module mainModule;
+    private Module executionModule;
+    private Definition kompiledDefinition;
+
+    private ConvertDataStructureToLookup convertLookupsObj() {
+        return new ConvertDataStructureToLookup(executionModule);
+    }
+    
+    private ModuleTransformer convertLookupsMT() {
+        final String convertLookupsStr = "Convert data structures to lookups";
+        return ModuleTransformer.fromSentenceTransformer(convertLookupsObj()::convert, convertLookupsStr);
+    }
+
+    private GenerateSortPredicateRules generatePredicatesObj() {
+        return new GenerateSortPredicateRules(kompiledDefinition);
+    }
+
+    // TODO(taktoa): figure out why I can't make this a ModuleTransformer
+    private Function1<Module, Module> generatePredicatesMT() {
+        final String generatePredicatesStr = "Generate predicates";
+        return func(generatePredicatesObj()::gen);
+    }
+
+    private LiftToKSequence liftToKSequenceObj() {
+        return new LiftToKSequence();
+    }
+    
+    private ModuleTransformer liftToKSequenceMT() {
+        final String liftToKSequenceStr = "Lift K into KSequence";
+        return ModuleTransformer.fromSentenceTransformer(liftToKSequenceObj()::convert, liftToKSequenceStr);
+    }
+
+    private DeconstructIntegerLiterals deconstructIntsObj() {
+        return new DeconstructIntegerLiterals();
+    }
+
+    private ModuleTransformer deconstructIntsMT() {
+        final String deconstructIntsStr = "Remove matches on integer literals in left hand side";
+        return ModuleTransformer.fromSentenceTransformer(deconstructIntsObj()::convert, deconstructIntsStr);
+    }
+
+    private ExpandMacros expandMacrosObj() {
+        return new ExpandMacros(executionModule, kem, files, globalOptions, kompileOptions);
+    }
+    
+    private ModuleTransformer expandMacrosMT() {
+        final String expandMacrosStr = "Expand macros rules";
+        return ModuleTransformer.fromSentenceTransformer(expandMacrosObj()::expand, expandMacrosStr);
+    }
+    
+    private Module generateMainModule(CompiledDefinition def) {
+        executionModule = def.executionModule();
+        kompiledDefinition = def.kompiledDefinition;
+        Module step1 = deconstructIntsMT().apply(executionModule);
+        Module step2 = convertLookupsMT().apply(step1);
+        Module step3 = expandMacrosMT().apply(step2);
+        Module step4 = generatePredicatesMT().apply(step3);
+        Module step5 = liftToKSequenceMT().apply(step4);
+        return step5;
+    }
+
+    
+    private FuncAST runtimeCodeToFunc(K k, int depth) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("open Def\nopen K\nopen Big_int\n");
+        sb.append("let _ = print_string(print_k(try(run(");
+        Visitor convVisitor = oldConvert(sb, true, HashMultimap.create(), false);
+        convVisitor.apply(liftToKSequenceObj().convert(expandMacrosObj().expand(k)));
+        sb.append(") (").append(depth).append(")) with Stuck c' -> c'))");
+        return new FuncAST(sb.toString());
+    }
+
+    private FuncAST langDefToFunc(CompiledDefinition def) {
+        return new FuncAST(oldConvert(def));
+    }
 
     public String convert(CompiledDefinition def) {
-        ModuleTransformer convertLookups = ModuleTransformer.fromSentenceTransformer(new ConvertDataStructureToLookup(def.executionModule())::convert, "convert data structures to lookups");
-        Function1<Module, Module> generatePredicates = func(new GenerateSortPredicateRules(def.kompiledDefinition)::gen);
-        ModuleTransformer liftToKSequence = ModuleTransformer.fromSentenceTransformer(new LiftToKSequence()::convert, "lift K into KSequence");
-        this.expandMacros = new ExpandMacros(def.executionModule(), kem, files, globalOptions, kompileOptions);
-        ModuleTransformer expandMacros = ModuleTransformer.fromSentenceTransformer(this.expandMacros::expand, "expand macro rules");
-        ModuleTransformer deconstructInts = ModuleTransformer.fromSentenceTransformer(new DeconstructIntegerLiterals()::convert, "remove matches on integer literals in left hand side");
-        Function1<Module, Module> pipeline = deconstructInts
-                .andThen(convertLookups)
-                .andThen(expandMacros)
-                .andThen(generatePredicates)
-                .andThen(liftToKSequence);
-        mainModule = pipeline.apply(def.executionModule());
-        return convert();
+        return langDefToFunc(def).render();
+    }
+
+    public String convert(K k, int depth) {
+        return runtimeCodeToFunc(k, depth).render();
+    }
+
+    private String oldConvert(CompiledDefinition def) {
+        mainModule = generateMainModule(def);
+        return oldConvert();
     }
 
     Set<KLabel> functions;
 
-    public String convert(K k, int depth) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("open Def\nopen K\nopen Big_int\n");
-        sb.append("let _ = print_string(print_k(try(run(");
-        convert(sb, true, HashMultimap.create(), false).apply(new LiftToKSequence().convert(expandMacros.expand(k)));
-        sb.append(") (").append(depth).append(")) with Stuck c' -> c'))");
-        return sb.toString();
-    }
-
-    private String convert() {
+    private String oldConvert() {
         StringBuilder sb = new StringBuilder();
         sb.append("type sort = \n");
         if (fastCompilation) {
@@ -407,7 +471,7 @@ public class DefinitionToFunc {
 
                 i = 0;
                 for (Rule r : functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
-                    convert(r, sb, true, i++, functionName);
+                    oldConvert(r, sb, true, i++, functionName);
                     if (fastCompilation) {
                         sb.append("| _ -> match c with \n");
                     }
@@ -423,7 +487,7 @@ public class DefinitionToFunc {
         i = 0;
         for (Rule r : sortedRules.get(true)) {
             if (!functionRules.values().contains(r)) {
-                convert(r, sb, false, i++, "lookups_step");
+                oldConvert(r, sb, false, i++, "lookups_step");
                 if (fastCompilation) {
                     sb.append("| _ -> match c with \n");
                 }
@@ -433,7 +497,7 @@ public class DefinitionToFunc {
         sb.append("let step (c: k) : k = match c with \n");
         for (Rule r : sortedRules.get(false)) {
             if (!functionRules.values().contains(r)) {
-                convert(r, sb, false, i++, "step");
+                oldConvert(r, sb, false, i++, "step");
                 if (fastCompilation) {
                     sb.append("| _ -> match c with \n");
                 }
@@ -564,9 +628,7 @@ public class DefinitionToFunc {
         }
     }
 
-
-
-    private void convert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) {
+    private void oldConvert(Rule r, StringBuilder sb, boolean function, int ruleNum, String functionName) {
         try {
             sb.append("(* rule ");
             sb.append(ToKast.apply(r.body()));
@@ -582,28 +644,28 @@ public class DefinitionToFunc {
             K right = RewriteToTop.toRight(r.body());
             K requires = r.requires();
             SetMultimap<KVariable, String> vars = HashMultimap.create();
-            Visitor visitor = convert(sb, false, vars, false);
+            Visitor visitor = oldConvert(sb, false, vars, false);
             if (function) {
                 KApply kapp = (KApply) ((KSequence) left).items().get(0);
                 visitor.apply(kapp.klist().items(), true);
             } else {
                 visitor.apply(left);
             }
-            String result = convert(vars);
+            String result = oldConvert(vars);
             if (hasLookups(r)) {
                 sb.append(" when not (Guard.mem (GuardElt.Guard ").append(ruleNum).append(") guards)");
             }
             String suffix = "";
             if (!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
-                suffix = convertLookups(sb, requires, vars, functionName, ruleNum);
+                suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
                 sb.append(" when ");
-                convert(sb, true, vars, true).apply(requires);
+                oldConvert(sb, true, vars, true).apply(requires);
                 sb.append(" && (");
                 sb.append(result);
                 sb.append(")");
             }
             sb.append(" -> ");
-            convert(sb, true, vars, false).apply(right);
+            oldConvert(sb, true, vars, false).apply(right);
             sb.append(suffix);
             sb.append("\n");
         } catch (KEMException e) {
@@ -614,7 +676,7 @@ public class DefinitionToFunc {
 
     private static class Holder { int i; }
 
-    private String convertLookups(StringBuilder sb, K requires, SetMultimap<KVariable, String> vars, String functionName, int ruleNum) {
+    private String oldConvertLookups(StringBuilder sb, K requires, SetMultimap<KVariable, String> vars, String functionName, int ruleNum) {
         Deque<String> suffix = new ArrayDeque<>();
         Holder h = new Holder();
         h.i = 0;
@@ -626,9 +688,9 @@ public class DefinitionToFunc {
                         throw KEMException.internalError("Unexpected arity of lookup: " + k.klist().size(), k);
                     }
                     sb.append(" -> (match ");
-                    convert(sb, true, vars, false).apply(k.klist().items().get(1));
+                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
                     sb.append(" with \n");
-                    convert(sb, false, vars, false).apply(k.klist().items().get(0));
+                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                     h.i++;
                 } else if (k.klabel().name().equals("#setChoice")) {
@@ -636,10 +698,10 @@ public class DefinitionToFunc {
                         throw KEMException.internalError("Unexpected arity of choice: " + k.klist().size(), k);
                     }
                     sb.append(" -> (match ");
-                    convert(sb, true, vars, false).apply(k.klist().items().get(1));
+                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
                     sb.append(" with \n");
                     sb.append("| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ");
-                    convert(sb, false, vars, false).apply(k.klist().items().get(0));
+                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                     suffix.add("| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)) else choice");
                     h.i++;
@@ -648,10 +710,10 @@ public class DefinitionToFunc {
                         throw KEMException.internalError("Unexpected arity of choice: " + k.klist().size(), k);
                     }
                     sb.append(" -> (match ");
-                    convert(sb, true, vars, false).apply(k.klist().items().get(1));
+                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
                     sb.append(" with \n");
                     sb.append("| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
-                    convert(sb, false, vars, false).apply(k.klist().items().get(0));
+                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
                     suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                     suffix.add("| _ -> [Bottom]) else result) m [Bottom]) in if choice = [Bottom] then (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)) else choice");
                     h.i++;
@@ -666,7 +728,7 @@ public class DefinitionToFunc {
         return sb2.toString();
     }
 
-    private static String convert(SetMultimap<KVariable, String> vars) {
+    private static String oldConvert(SetMultimap<KVariable, String> vars) {
         StringBuilder sb = new StringBuilder();
         for (Collection<String> nonLinearVars : vars.asMap().values()) {
             if (nonLinearVars.size() < 2) {
@@ -710,7 +772,7 @@ public class DefinitionToFunc {
         sb.append(varName);
     }
 
-    private Visitor convert(StringBuilder sb, boolean rhs, SetMultimap<KVariable, String> vars, boolean useNativeBooleanExp) {
+    private Visitor oldConvert(StringBuilder sb, boolean rhs, SetMultimap<KVariable, String> vars, boolean useNativeBooleanExp) {
         return new Visitor(sb, rhs, vars, useNativeBooleanExp);
     }
 
