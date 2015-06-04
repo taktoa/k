@@ -8,7 +8,7 @@ import org.kframework.backend.genericAST.type.ConstructorSignature;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class Constructor extends Exp {
+public class Constructor extends Exp {
 
     private ConstructorName name;
     private ConstructorSignature sig;

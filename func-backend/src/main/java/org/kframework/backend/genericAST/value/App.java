@@ -6,7 +6,7 @@ import org.kframework.backend.genericAST.value.Exp;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class App extends Exp {
+public class App extends Exp {
 
     private Exp func, arg;
 

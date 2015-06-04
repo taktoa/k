@@ -6,7 +6,7 @@ import org.kframework.backend.genericAST.value.Exp;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class If extends Exp {
+public class If extends Exp {
     
     private Exp condition;
     private Exp trueBranch;

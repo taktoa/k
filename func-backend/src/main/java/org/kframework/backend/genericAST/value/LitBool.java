@@ -6,7 +6,7 @@ import org.kframework.backend.genericAST.value.Exp;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class LitBool extends Exp {
+public class LitBool extends Exp {
 
     private boolean val;
 
