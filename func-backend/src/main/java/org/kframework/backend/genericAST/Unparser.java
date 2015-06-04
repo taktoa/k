@@ -7,6 +7,7 @@ import org.kframework.backend.genericAST.value.If;
 import org.kframework.backend.genericAST.value.LitBool;
 import org.kframework.backend.genericAST.value.LitInt;
 import org.kframework.backend.genericAST.value.LitString;
+import org.kframework.backend.genericAST.value.Variable;
 import org.kframework.backend.genericAST.type.ADT;
 
 /**
@@ -20,6 +21,7 @@ public abstract class Unparser {
     public abstract String unparse(LitBool b);
     public abstract String unparse(LitInt i);
     public abstract String unparse(LitString s);
+    public abstract String unparse(Variable v);
     public abstract String unparse(ADT a);
 
 }
