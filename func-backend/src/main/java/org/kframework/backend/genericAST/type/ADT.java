@@ -3,6 +3,7 @@ package org.kframework.backend.genericAST.type;
 
 import org.kframework.backend.genericAST.type.TypeExp;
 import org.kframework.backend.genericAST.type.ConstructorSignature;
+import org.kframework.backend.genericAST.type.TypeName;
 import org.kframework.backend.genericAST.value.Constructor;
 import org.kframework.backend.genericAST.NamespaceManager;
 
@@ -17,6 +18,7 @@ import java.util.Iterator;
 public class ADT extends TypeExp {
 
     private ImmutableList<Constructor> constructors;
+    private TypeName name;
 
     public ADT(ImmutableList<ArgumentSignature> argSigs, NamespaceManager nm) {
         int size = argSigs.size();
@@ -30,7 +32,16 @@ public class ADT extends TypeExp {
         }
         
         constructors = ImmutableList.copyOf(constructorArr);
+        name = nm.newTypeName();
         
+    }
+
+    public ImmutableList<Constructor> getConstructors() {
+        return constructors;
+    }
+
+    public TypeName getName() {
+        return name;
     }
     
 }

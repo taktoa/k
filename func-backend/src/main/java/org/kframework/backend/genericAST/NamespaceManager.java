@@ -2,11 +2,13 @@
 package org.kframework.backend.genericAST;
 
 import org.kframework.backend.genericAST.ConstructorName;
+import org.kframework.backend.genericAST.type.TypeName;
 /**
  * @author: Sebastian Conybeare
  */
 public abstract class NamespaceManager {
     
     public abstract ConstructorName newConstructorName();
+    public abstract TypeName newTypeName();
 
 }
