@@ -209,15 +209,15 @@ public final class OcamlIncludes {
 
     private OcamlIncludes() {}
 
-    public static void addPrelude(StringBuilder sb) {
+    public static void addPrelude(SyntaxBuilder sb) {
         sb.append(prelude);
     }
 
-    public static void addMidlude(StringBuilder sb) {
+    public static void addMidlude(SyntaxBuilder sb) {
         sb.append(midlude);
     }
 
-    public static void addPostlude(StringBuilder sb) {
+    public static void addPostlude(SyntaxBuilder sb) {
         sb.append(postlude);
     }
     
