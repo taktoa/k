@@ -7,24 +7,27 @@ import org.kframework.backend.genericAST.value.Constructor;
 
 import com.google.common.collect.ImmutableList;
 
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.Iterator;
 
 /**
  * @author: Sebastian Conybeare
  */
 public class ADT extends TypeExp {
 
-    private ImmutableList<ConstructorSignature> constructors;
+    private ImmutableList<ConstructorSignature> constructorSignatures;
 
-    public ADT(ImmutableList<ArgumentSignature> signatures) {
-        int size = signatures.size();
-        ConstructorSignature[] csigs = new ConstructorSignature[size];
-        
-        for(int i = 0; i < size; i++) {
-            csigs[i] = new ConstructorSignature(signatures.get(i), this);
+    public ADT(ImmutableList<ArgumentSignature> argSigs) {
+        int size = argSigs.size();
+        ArrayList<ConstructorSignature> conSigs = new ArrayList<ConstructorSignature>(size);
+
+        Iterator<ArgumentSignature> argSigIter = argSigs.iterator();
+
+        for(ConstructorSignature conSig : conSigs) {
+            conSig = new ConstructorSignature(argSigIter.next(), this);
         }
-
-        constructors = ImmutableList.copyOf(csigs);
+        
+        constructorSignatures = ImmutableList.copyOf(conSigs);
         
     }
     
