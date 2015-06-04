@@ -81,12 +81,9 @@ public class DefinitionToFunc {
 
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
-        sb.append("open Def");
-        addNewline(sb);
-        sb.append("open K");
-        addNewline(sb);
-        sb.append("open Big_int");
-        addNewline(sb);
+        addImport(sb, "Def");
+        addImport(sb, "K");
+        addImport(sb, "Big_int");
         beginLetExpression(sb);
         beginLetDefinitions(sb);
         beginLetEquation(sb);
@@ -121,19 +118,13 @@ public class DefinitionToFunc {
     private void addNewline(StringBuilder sb) {
         sb.append("\n");
     }
-    
-    private void addPrelude(StringBuilder sb) {
-        sb.append(prelude);
+
+    private void addImport(StringBuilder sb, String i) {
+        sb.append("open ");
+        sb.append(i);
+        addNewline(sb);
     }
 
-    private void addMidlude(StringBuilder sb) {
-        sb.append(midlude);
-    }
-
-    private void addPostlude(StringBuilder sb) {
-        sb.append(postlude);
-    }
-    
     private void beginTypeDefinition(StringBuilder sb, String typename) {
         sb.append("type ");
         sb.append(typename);
@@ -165,7 +156,7 @@ public class DefinitionToFunc {
     private void beginConstructorName(StringBuilder sb) {
         // Begin constructor name
     }
-    
+
     private void endConstructorName(StringBuilder sb) {
         // End constructor name
     }
@@ -173,7 +164,7 @@ public class DefinitionToFunc {
     private void beginConstructorArgs(StringBuilder sb) {
         sb.append(" of ");
     }
-    
+
     private void endConstructorArgs(StringBuilder sb) {
         // End constructor args
     }
@@ -181,11 +172,11 @@ public class DefinitionToFunc {
     private void addType(StringBuilder sb, String typename) {
         sb.append(typename);
     }
-    
+
     private void addTypeProduct(StringBuilder sb) {
         sb.append(" * ");
     }
-    
+
     private void addSortType(StringBuilder sb) {
         beginTypeDefinition(sb, "sort");
         addNewline(sb);
@@ -244,7 +235,7 @@ public class DefinitionToFunc {
         beginLetEquation(sb);
         addLetEquationName(sb, "order_klabel(l: klabel)");
         beginLetEquationValue(sb);
-        
+
         beginMatchExpression(sb, "l");
         addNewline(sb);
 
@@ -260,7 +251,7 @@ public class DefinitionToFunc {
             endMatchEquation(sb);
         }
         endMatchExpression(sb);
-        
+
         endLetEquationValue(sb);
         endLetEquation(sb);
         endLetDefinitions(sb);
@@ -273,7 +264,7 @@ public class DefinitionToFunc {
         beginLetEquation(sb);
         addLetEquationName(sb, "print_sort_string(c: sort) : string");
         beginLetEquationValue(sb);
-        
+
         beginMatchExpression(sb, "c");
         addNewline(sb);
 
@@ -286,22 +277,22 @@ public class DefinitionToFunc {
             addNewline(sb);
             endMatchEquation(sb);
         }
-        
+
         endMatchExpression(sb);
-        
+
         endLetEquationValue(sb);
         endLetEquation(sb);
         endLetDefinitions(sb);
         endLetExpression(sb);
     }
-    
+
     private void addPrintSort(StringBuilder sb) {
         beginLetExpression(sb);
         beginLetDefinitions(sb);
         beginLetEquation(sb);
         addLetEquationName(sb, "print_sort(c: sort) : string");
         beginLetEquationValue(sb);
-        
+
         beginMatchExpression(sb, "c");
         addNewline(sb);
 
@@ -314,9 +305,9 @@ public class DefinitionToFunc {
             addNewline(sb);
             endMatchEquation(sb);
         }
-        
+
         endMatchExpression(sb);
-        
+
         endLetEquationValue(sb);
         endLetEquation(sb);
         endLetDefinitions(sb);
@@ -329,7 +320,7 @@ public class DefinitionToFunc {
         beginLetEquation(sb);
         addLetEquationName(sb, "print_klabel(c: klabel) : string");
         beginLetEquationValue(sb);
-        
+
         beginMatchExpression(sb, "c");
         addNewline(sb);
 
@@ -342,15 +333,15 @@ public class DefinitionToFunc {
             addNewline(sb);
             endMatchEquation(sb);
         }
-        
+
         endMatchExpression(sb);
-        
+
         endLetEquationValue(sb);
         endLetEquation(sb);
         endLetDefinitions(sb);
         endLetExpression(sb);
     }
-        
+
 
     private void addMatchEquation(StringBuilder sb, String pattern, String value) {
         beginMatchEquation(sb);
@@ -388,15 +379,15 @@ public class DefinitionToFunc {
     private void endMatchEquation(StringBuilder sb) {
         // End match equation
     }
-    
+
     private void beginMatchEquationPattern(StringBuilder sb) {
         // Begin match equation pattern
     }
-    
+
     private void endMatchEquationPattern(StringBuilder sb) {
         sb.append(" -> ");
     }
-    
+
     private void beginMatchEquationValue(StringBuilder sb) {
         // Begin match equation value
     }
@@ -406,7 +397,7 @@ public class DefinitionToFunc {
     }
 
 
-    
+
     private void addLetEquation(StringBuilder sb, String name, String value) {
         beginLetEquation(sb);
         addLetEquationName(sb, name);
@@ -437,7 +428,7 @@ public class DefinitionToFunc {
     private void beginLetEquationName(StringBuilder sb) {
         // Begin let equation name
     }
-    
+
     private void endLetEquationName(StringBuilder sb) {
         sb.append(" = ");
     }
@@ -465,7 +456,7 @@ public class DefinitionToFunc {
     private void beginLetScope(StringBuilder sb) {
         sb.append(" in ");
     }
-    
+
     private void endLetScope(StringBuilder sb) {
         // End let scope
     }
@@ -478,7 +469,7 @@ public class DefinitionToFunc {
         // End let expression
     }
 
-    
+
 
     private void addLetrecEquation(StringBuilder sb, String name, String value) {
         beginLetrecEquation(sb);
@@ -510,7 +501,7 @@ public class DefinitionToFunc {
     private void beginLetrecEquationName(StringBuilder sb) {
         // Begin letrec equation name
     }
-    
+
     private void endLetrecEquationName(StringBuilder sb) {
         sb.append(" = ");
     }
@@ -538,7 +529,7 @@ public class DefinitionToFunc {
     private void beginLetrecScope(StringBuilder sb) {
         sb.append(" in ");
     }
-    
+
     private void endLetrecScope(StringBuilder sb) {
         // End letrec scope
     }
@@ -552,9 +543,9 @@ public class DefinitionToFunc {
     }
 
 
-    
 
-    
+
+
 
     private void initializeFunctionRules() {
         functionRules = HashMultimap.create();
@@ -641,7 +632,7 @@ public class DefinitionToFunc {
                     beginLetrecExpression(sb);
                     beginLetrecDefinitions(sb);
                 }
-                beginLetrecEquation(sb);                
+                beginLetrecEquation(sb);
                 beginLetrecEquationName(sb);
                 String functionName = encodeStringToFunction(functionLabel.name());
                 sb.append(functionName);
@@ -711,9 +702,9 @@ public class DefinitionToFunc {
         endLetrecEquationValue(sb);
         endLetrecDefinitions(sb);
         endLetrecExpression(sb);
-        
+
         addNewline(sb);
-        
+
         beginLetExpression(sb);
         beginLetDefinitions(sb);
         beginLetEquation(sb);
@@ -773,7 +764,7 @@ public class DefinitionToFunc {
     private void endMultilineComment(StringBuilder sb) {
         sb.append("*)");
     }
-    
+
     private void outputAnnotate(Rule r, StringBuilder sb) {
         beginMultilineComment(sb);
         sb.append(" rule ");

@@ -22,7 +22,7 @@ public final class OcamlIncludes {
     public static final String INT = encodeStringToIdentifier(Sort("Int"));
     private static long counter = 0;
 
-    public static final String kType =
+    private static final String kType =
         "t = kitem list\n" +
         " and kitem = KApply of klabel * t list\n" +
         "           | KToken of sort * string\n" +
@@ -35,7 +35,7 @@ public final class OcamlIncludes {
         "           | Bool of bool\n" +
         "           | Bottom\n";
 
-    public static final String prelude =
+    private static final String prelude =
         "open Big_int\n" +
         "module type S =\n" +
         "sig\n" +
@@ -110,7 +110,7 @@ public final class OcamlIncludes {
         "module Guard = Set.Make(GuardElt)\n";
 
 
-    public static final String midlude =
+    private static final String midlude =
         "let eq k1 k2 = k1 = k2\n" +
         "let isTrue(c: k) : bool = match c with\n" +
         "| ([" + TRUE + "]) -> true\n" +
@@ -140,7 +140,7 @@ public final class OcamlIncludes {
         "| Set(s) -> KSet.fold (fun k s -> \"`_Set_`(`SetItem`(\" ^ print_k(k) ^ \"), \" ^ s ^ \")\") s \"`.Set`(.KList)\"\n" +
         "| Map(m) -> KMap.fold (fun k v s -> \"`_Map_`(`_|->_`(\" ^ print_k(k) ^ \", \" ^ print_k(v) ^ \"), \" ^ s ^ \")\") m \"`.Map`(.KList)\"\n";
 
-    public static final String postlude =
+    private static final String postlude =
         "let run c n=\n" +
         "  try let rec go c n = if n = 0 then c else go (step c) (n - 1)\n" +
         "      in go c n\n" +
@@ -208,6 +208,18 @@ public final class OcamlIncludes {
     }
 
     private OcamlIncludes() {}
+
+    public static void addPrelude(StringBuilder sb) {
+        sb.append(prelude);
+    }
+
+    public static void addMidlude(StringBuilder sb) {
+        sb.append(midlude);
+    }
+
+    public static void addPostlude(StringBuilder sb) {
+        sb.append(postlude);
+    }
     
     public static String encodeStringToIdentifier(KLabel name) {
         return "Lbl" + encodeStringToAlphanumeric(name.name());
