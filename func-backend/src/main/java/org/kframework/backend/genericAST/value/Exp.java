@@ -6,4 +6,6 @@ package org.kframework.backend.genericAST.value;
  */
 public abstract class Exp {
 
+    public abstract String unparse();
+
 }

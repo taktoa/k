@@ -6,4 +6,6 @@ package org.kframework.backend.genericAST.type;
  */
 public abstract class TypeExp {
 
+    public abstract String unparse();
+
 }

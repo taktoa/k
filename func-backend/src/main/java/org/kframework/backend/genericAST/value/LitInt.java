@@ -6,7 +6,7 @@ import org.kframework.backend.genericAST.value.Exp;
 /**
  * @author: Sebastian Conybeare
  */
-public class LitInt extends Exp {
+public abstract class LitInt extends Exp {
     
     private int val;
     

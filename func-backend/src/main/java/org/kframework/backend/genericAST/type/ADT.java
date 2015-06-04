@@ -12,7 +12,7 @@ import java.util.Vector;
 /**
  * @author: Sebastian Conybeare
  */
-public class ADT extends TypeExp {
+public abstract class ADT extends TypeExp {
 
     private ImmutableList<ConstructorSignature> constructors;
 
