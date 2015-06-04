@@ -3,20 +3,14 @@ package org.kframework.backend.func;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
-import org.kframework.backend.func.FuncAST;
-import org.kframework.backend.func.FuncPreprocessors;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
 import org.kframework.definition.Module;
-import org.kframework.definition.ModuleTransformer;
 import org.kframework.definition.Production;
 import org.kframework.definition.Rule;
-import org.kframework.definition.Definition;
-import org.kframework.definition.Sentence;
 import org.kframework.kil.Attribute;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
@@ -38,7 +32,6 @@ import org.kframework.utils.algorithms.SCCTarjan;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
-import scala.Function1;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -50,20 +43,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
+import static org.kframework.backend.func.OcamlIncludes.*;
 
 /*
  * @author: Remy Goldschmidt
  */
 
 public class DefinitionToFunc {
+    public static final boolean annotateOutput = true;
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -71,6 +63,11 @@ public class DefinitionToFunc {
     private final KompileOptions kompileOptions;
 
     private FuncPreprocessors preproc;
+    private Module mainModule;
+
+    private Set<KLabel> functionSet;
+    private SetMultimap<KLabel, Rule> functionRules;
+    private List<List<KLabel>> functionOrder;
 
     public DefinitionToFunc(KExceptionManager kem,
                             FileUtil files,
@@ -81,196 +78,6 @@ public class DefinitionToFunc {
         this.globalOptions = globalOptions;
         this.kompileOptions = kompileOptions;
     }
-
-    public static final boolean annotateOutput = true;
-    public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
-
-    public static final String kType = "t = kitem list\n" +
-            " and kitem = KApply of klabel * t list\n" +
-            "           | KToken of sort * string\n" +
-            "           | InjectedKLabel of klabel\n" +
-            "           | Map of t m\n" +
-            "           | List of t list\n" +
-            "           | Set of s\n" +
-            "           | Int of big_int\n" +
-            "           | String of string\n" +
-            "           | Bool of bool\n" +
-            "           | Bottom\n";
-
-    public static final String prelude = "open Big_int\n" +
-            "module type S =\n" +
-            "sig\n" +
-            "  type 'a m\n" +
-            "  type s\n" +
-            "  type " + kType +
-            "  val compare : t -> t -> int\n" +
-            "end \n" +
-            "\n" +
-            "\n" +
-            "module rec K : (S with type 'a m = 'a Map.Make(K).t and type s = Set.Make(K).t)  = \n" +
-            "struct\n" +
-            "  module KMap = Map.Make(K)\n" +
-            "  module KSet = Set.Make(K)\n" +
-            "  type 'a m = 'a KMap.t\n" +
-            "  and s = KSet.t\n" +
-            "  and " + kType +
-            "  let rec compare c1 c2 = match (c1, c2) with\n" +
-            "    | [], [] -> 0\n" +
-            "    | (hd1 :: tl1), (hd2 :: tl2) -> let v = compare_kitem hd1 hd2 in if v = 0 then compare tl1 tl2 else v\n" +
-            "    | (hd1 :: tl1), _ -> -1\n" +
-            "    | _ -> 1\n" +
-            "  and compare_kitem c1 c2 = match (c1, c2) with\n" +
-            "    | (KApply(kl1, k1)), (KApply(kl2, k2)) -> let v = compare_klabel kl1 kl2 in if v = 0 then compare_klist k1 k2 else v\n" +
-            "    | (KToken(s1, st1)), (KToken(s2, st2)) -> let v = compare_sort s1 s2 in if v = 0 then Pervasives.compare st1 st2 else v\n" +
-            "    | (InjectedKLabel kl1), (InjectedKLabel kl2) -> compare_klabel kl1 kl2\n" +
-            "    | (Map m1), (Map m2) -> (KMap.compare) compare m1 m2\n" +
-            "    | (List l1), (List l2) -> compare_klist l1 l2\n" +
-            "    | (Set s1), (Set s2) -> (KSet.compare) s1 s2\n" +
-            "    | (Int i1), (Int i2) -> compare_big_int i1 i2\n" +
-            "    | (String s1), (String s2) -> Pervasives.compare s1 s2\n" +
-            "    | (Bool b1), (Bool b2) -> if b1 = b2 then 0 else if b1 then -1 else 1\n" +
-            "    | Bottom, Bottom -> 0\n" +
-            "    | KApply(_, _), _ -> -1\n" +
-            "    | _, KApply(_, _) -> 1\n" +
-            "    | KToken(_, _), _ -> -1\n" +
-            "    | _, KToken(_, _) -> 1\n" +
-            "    | InjectedKLabel(_), _ -> -1\n" +
-            "    | _, InjectedKLabel(_) -> 1\n" +
-            "    | Map(_), _ -> -1\n" +
-            "    | _, Map(_) -> 1\n" +
-            "    | List(_), _ -> -1\n" +
-            "    | _, List(_) -> 1\n" +
-            "    | Set(_), _ -> -1\n" +
-            "    | _, Set(_) -> 1\n" +
-            "    | Int(_), _ -> -1\n" +
-            "    | _, Int(_) -> 1\n" +
-            "    | String(_), _ -> -1\n" +
-            "    | _, String(_) -> 1\n" +
-            "    | Bool(_), _ -> -1\n" +
-            "    | _, Bool(_) -> 1\n" +
-            "  and compare_klist c1 c2 = match (c1, c2) with\n" +
-            "    | [], [] -> 0\n" +
-            "    | (hd1 :: tl1), (hd2 :: tl2) -> let v = compare hd1 hd2 in if v = 0 then compare_klist tl1 tl2 else v\n" +
-            "    | (hd1 :: tl1), _ -> -1\n" +
-            "    | _ -> 1\n" +
-            "  and compare_klabel kl1 kl2 = (order_klabel kl2) - (order_klabel kl1)\n" +
-            "  and compare_sort s1 s2 = (order_sort s2) - (order_sort s1)\n" +
-            "end\n" +
-            "\n" +
-            "  module KMap = Map.Make(K)\n" +
-            "  module KSet = Set.Make(K)\n" +
-            "\n" +
-            "open K\n" +
-            "type k = K.t" +
-            "\n" +
-            "exception Stuck of k\n" +
-            "module GuardElt = struct\n" +
-            "  type t = Guard of int\n" +
-            "  let compare c1 c2 = match c1 with Guard(i1) -> match c2 with Guard(i2) -> i2 - i1\n" +
-            "end\n" +
-            "module Guard = Set.Make(GuardElt)\n";
-
-    public static final String TRUE = "(Bool true)";
-    public static final String BOOL = encodeStringToIdentifier(Sort("Bool"));
-    public static final String STRING = encodeStringToIdentifier(Sort("String"));
-    public static final String INT = encodeStringToIdentifier(Sort("Int"));
-
-    public static final String midlude = "let eq k1 k2 = k1 = k2\n" +
-            "let isTrue(c: k) : bool = match c with\n" +
-            "| ([" + TRUE + "]) -> true\n" +
-            "| _ -> false\n" +
-            "let rec list_range (c: k list * int * int) : k list = match c with\n" +
-            "| (l, 0, 0) -> l\n" +
-            "| (head :: tail, 0, len) -> head :: list_range(tail, 0, len - 1)\n" +
-            "| (_ :: tail, n, len) -> list_range(tail, n - 1, len)\n" +
-            "| ([], _, _) -> raise(Failure \"list_range\")\n" +
-            "let rec print_klist(c: k list) : string = match c with\n" +
-            "| [] -> \".KList\"\n" +
-            "| e::[] -> print_k(e)\n" +
-            "| e1::e2::l -> print_k(e1) ^ \", \" ^ print_klist(e2::l)\n" +
-            "and print_k(c: k) : string = match c with\n" +
-            "| [] -> \".K\"\n" +
-            "| e::[] -> print_kitem(e)\n" +
-            "| e1::e2::l -> print_kitem(e1) ^ \" ~> \" ^ print_k(e2::l)\n" +
-            "and print_kitem(c: kitem) : string = match c with\n" +
-            "| KApply(klabel, klist) -> print_klabel(klabel) ^ \"(\" ^ print_klist(klist) ^ \")\"\n" +
-            "| KToken(sort, s) -> \"#token(\\\"\" ^ s ^ \"\\\", \" ^ print_sort_string(sort) ^ \")\"\n" +
-            "| InjectedKLabel(klabel) -> \"#klabel(\" ^ print_klabel(klabel) ^ \")\"\n" +
-            "| Bool(b) -> print_kitem(KToken(" + BOOL + ", string_of_bool(b)))\n" +
-            "| String(s) -> print_kitem(KToken(" + STRING + ", \"\\\"\" ^ s ^ \"\\\"\"))\n" +
-            "| Int(i) -> print_kitem(KToken(" + INT + ", string_of_big_int(i)))\n" +
-            "| Bottom -> \"`#Bottom`(.KList)\"\n" +
-            "| List(l) -> List.fold_left (fun s k -> \"`_List_`(`ListItem`(\" ^ print_k(k) ^ \"),\" ^ s ^ \")\") \"`.List`(.KList)\" l\n" +
-            "| Set(s) -> KSet.fold (fun k s -> \"`_Set_`(`SetItem`(\" ^ print_k(k) ^ \"), \" ^ s ^ \")\") s \"`.Set`(.KList)\"\n" +
-            "| Map(m) -> KMap.fold (fun k v s -> \"`_Map_`(`_|->_`(\" ^ print_k(k) ^ \", \" ^ print_k(v) ^ \"), \" ^ s ^ \")\") m \"`.Map`(.KList)\"\n";
-
-    public static final String postlude = "let run c n=\n" +
-            "  try let rec go c n = if n = 0 then c else go (step c) (n - 1)\n" +
-            "      in go c n\n" +
-            "  with Stuck c' -> c'\n";
-
-    public static final ImmutableMap<String, String> hooks;
-    public static final ImmutableMap<String, Function<String, String>> sortHooks;
-    public static final ImmutableMap<String, String> predicateRules;
-
-    static {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("#INT:_%Int_", "[Int a] :: [Int b] :: [] -> [Int (mod_big_int a b)]");
-        builder.put("#INT:_+Int_", "[Int a] :: [Int b] :: [] -> [Int (add_big_int a b)]");
-        builder.put("#INT:_<=Int_", "[Int a] :: [Int b] :: [] -> [Bool (le_big_int a b)]");
-        builder.put("Map:_|->_", "k1 :: k2 :: [] -> [Map (KMap.add k1 k2 KMap.empty)]");
-        builder.put("Map:.Map", "[] -> [Map KMap.empty]");
-        builder.put("Map:__", "([Map k1]) :: ([Map k2]) :: [] -> [Map (KMap.merge (fun k a b -> match a, b with None, None -> None | None, Some v | Some v, None -> Some v) k1 k2)]");
-        builder.put("Map:lookup", "[Map k1] :: k2 :: [] -> (try KMap.find k2 k1 with Not_found -> [Bottom])");
-        builder.put("Map:update", "[Map k1] :: k :: v :: [] -> [Map (KMap.add k v k1)]");
-        builder.put("Map:remove", "[Map k1] :: k2 :: [] -> [Map (KMap.remove k2 k1)]");
-        builder.put("Map:keys", "[Map k1] :: [] -> [Set (KMap.fold (fun key -> KSet.add) k1 KSet.empty)]");
-        builder.put("Set:in", "k1 :: [Set k2] :: [] -> [Bool (KSet.mem k1 k2)]");
-        builder.put("Set:.Set", "[] -> [Set KSet.empty]");
-        builder.put("Set:SetItem", "kl -> [Set (KSet.add (KApply(lbl, kl) :: []) KSet.empty)]");
-        builder.put("Set:__", "[Set s1] :: [Set s2] :: [] -> [Set (KSet.union s1 s2)]");
-        builder.put("Set:difference", "[Set k1] :: [Set k2] :: [] -> [Set (KSet.diff k1 k2)]");
-        builder.put("List:.List", "[] -> [List []]");
-        builder.put("List:ListItem", "kl -> [List ([KApply(lbl, kl)] :: [])]");
-        builder.put("List:__", "[List l1] :: [List l2] :: [] -> [List (l1 @ l2)]");
-        builder.put("List:get", "[List l1] :: [Int i] :: [] -> (try List.nth l1 (int_of_big_int i) with Failure \"nth\" -> [Bottom])");
-        builder.put("List:range", "[List l1] :: [Int i1] :: [Int i2] :: [] -> (try [List (list_range (l1, (int_of_big_int i1), (List.length(l1) - (int_of_big_int i2) - (int_of_big_int i1))))] with Failure \"list_range\" -> [Bottom])");
-        builder.put("MetaK:#sort", "[KToken (sort, s)] :: [] -> [String (print_sort(sort))] " +
-                "| [Int _] :: [] -> [String \"Int\"] " +
-                "| [String _] :: [] -> [String \"String\"] " +
-                "| [Bool _] :: [] -> [String \"Bool\"] " +
-                "| [Map _] :: [] -> [String \"Map\"] " +
-                "| [List _] :: [] -> [String \"List\"] " +
-                "| [Set _] :: [] -> [String \"Set\"] " +
-                "| _ -> [String \"\"]");
-        builder.put("#K-EQUAL:_==K_", "k1 :: k2 :: [] -> [Bool (eq k1 k2)]");
-        builder.put("#BOOL:_andBool_", "[Bool b1] :: [Bool b2] :: [] -> [Bool (b1 && b2)]");
-        builder.put("#BOOL:notBool_", "[Bool b1] :: [] -> [Bool (not b1)]");
-        hooks = builder.build();
-    }
-
-    static {
-        ImmutableMap.Builder<String, Function<String, String>> builder = ImmutableMap.builder();
-        builder.put("#BOOL", s -> "(Bool " + s + ")");
-        builder.put("#INT", s -> "(Int (big_int_of_string \"" + s + "\"))");
-        builder.put("#STRING", s -> "(String " + StringUtil.enquoteCString(StringUtil.unquoteKString(s)) + ")");
-        sortHooks = builder.build();
-    }
-
-    static {
-        ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-        builder.put("isK", "k1 :: [] -> [Bool true]");
-        builder.put("isKItem", "[k1] :: [] -> [Bool true]");
-        builder.put("isInt", "[Int _] :: [] -> [Bool true]");
-        builder.put("isString", "[String _] :: [] -> [Bool true]");
-        builder.put("isBool", "[Bool _] :: [] -> [Bool true]");
-        builder.put("isMap", "[Map _] :: [] -> [Bool true]");
-        builder.put("isSet", "[Set _] :: [] -> [Bool true]");
-        builder.put("isList", "[List _] :: [] -> [Bool true]");
-        predicateRules = builder.build();
-    }
-
-    private Module mainModule;
 
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         StringBuilder sb = new StringBuilder();
@@ -333,7 +140,9 @@ public class DefinitionToFunc {
         sb.append(" = ");
     }
 
-    private void endTypeDefinition(StringBuilder sb) {}
+    private void endTypeDefinition(StringBuilder sb) {
+        // End type definition
+    }
 
     private void addConstructor(StringBuilder sb, String con) {
         beginConstructor(sb);
@@ -349,17 +158,25 @@ public class DefinitionToFunc {
         sb.append("|");
     }
 
-    private void endConstructor(StringBuilder sb) {}
+    private void endConstructor(StringBuilder sb) {
+        // End constructor
+    }
 
-    private void beginConstructorName(StringBuilder sb) {}
+    private void beginConstructorName(StringBuilder sb) {
+        // Begin constructor name
+    }
     
-    private void endConstructorName(StringBuilder sb) {}
+    private void endConstructorName(StringBuilder sb) {
+        // End constructor name
+    }
 
     private void beginConstructorArgs(StringBuilder sb) {
         sb.append(" of ");
     }
     
-    private void endConstructorArgs(StringBuilder sb) {}
+    private void endConstructorArgs(StringBuilder sb) {
+        // End constructor args
+    }
 
     private void addType(StringBuilder sb, String typename) {
         sb.append(typename);
@@ -375,7 +192,7 @@ public class DefinitionToFunc {
 
         for (Sort s : iterable(mainModule.definedSorts())) {
             beginConstructor(sb);
-            encodeStringToIdentifier(sb, s);
+            sb.append(encodeStringToIdentifier(s));
             endConstructor(sb);
             addNewline(sb);
         }
@@ -399,7 +216,7 @@ public class DefinitionToFunc {
         for (Sort s : iterable(mainModule.definedSorts())) {
             beginMatchEquation(sb);
             beginMatchEquationPattern(sb);
-            encodeStringToIdentifier(sb, s);
+            sb.append(encodeStringToIdentifier(s));
             endMatchEquationPattern(sb);
             addMatchEquationValue(sb, Integer.toString(i++));
             addNewline(sb);
@@ -414,7 +231,7 @@ public class DefinitionToFunc {
         beginTypeDefinition(sb, "klabel");
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             beginConstructor(sb);
-            encodeStringToIdentifier(sb, label);
+            sb.append(encodeStringToIdentifier(label));
             endConstructor(sb);
             addNewline(sb);
         }
@@ -436,7 +253,7 @@ public class DefinitionToFunc {
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             beginMatchEquation(sb);
             beginMatchEquationPattern(sb);
-            encodeStringToIdentifier(sb, label);
+            sb.append(encodeStringToIdentifier(label));
             endMatchEquationPattern(sb);
             addMatchEquationValue(sb, Integer.toString(i++));
             addNewline(sb);
@@ -463,7 +280,7 @@ public class DefinitionToFunc {
         for (Sort s : iterable(mainModule.definedSorts())) {
             beginMatchEquation(sb);
             beginMatchEquationPattern(sb);
-            encodeStringToIdentifier(sb, s);
+            sb.append(encodeStringToIdentifier(s));
             endMatchEquationPattern(sb);
             addMatchEquationValue(sb, StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
             addNewline(sb);
@@ -491,7 +308,7 @@ public class DefinitionToFunc {
         for (Sort s : iterable(mainModule.definedSorts())) {
             beginMatchEquation(sb);
             beginMatchEquationPattern(sb);
-            encodeStringToIdentifier(sb, s);
+            sb.append(encodeStringToIdentifier(s));
             endMatchEquationPattern(sb);
             addMatchEquationValue(sb, StringUtil.enquoteCString(s.name()));
             addNewline(sb);
@@ -506,8 +323,6 @@ public class DefinitionToFunc {
         endLetExpression(sb);
     }
 
-    // ----------------
-
     private void addPrintKLabel(StringBuilder sb) {
         beginLetExpression(sb);
         beginLetDefinitions(sb);
@@ -521,7 +336,7 @@ public class DefinitionToFunc {
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             beginMatchEquation(sb);
             beginMatchEquationPattern(sb);
-            encodeStringToIdentifier(sb, label);
+            sb.append(encodeStringToIdentifier(label));
             endMatchEquationPattern(sb);
             addMatchEquationValue(sb, StringUtil.enquoteCString(ToKast.apply(label)));
             addNewline(sb);
@@ -562,24 +377,33 @@ public class DefinitionToFunc {
         sb.append(" with ");
     }
 
-    private void endMatchExpression(StringBuilder sb) {}
+    private void endMatchExpression(StringBuilder sb) {
+        // End match expression
+    }
 
     private void beginMatchEquation(StringBuilder sb) {
         sb.append("|");
     }
 
-    private void endMatchEquation(StringBuilder sb) {}
+    private void endMatchEquation(StringBuilder sb) {
+        // End match equation
+    }
     
-    private void beginMatchEquationPattern(StringBuilder sb) {}
+    private void beginMatchEquationPattern(StringBuilder sb) {
+        // Begin match equation pattern
+    }
     
     private void endMatchEquationPattern(StringBuilder sb) {
         sb.append(" -> ");
     }
     
-    private void beginMatchEquationValue(StringBuilder sb) {}
+    private void beginMatchEquationValue(StringBuilder sb) {
+        // Begin match equation value
+    }
 
-    private void endMatchEquationValue(StringBuilder sb) {}
-
+    private void endMatchEquationValue(StringBuilder sb) {
+        // End match equation value
+    }
 
 
     
@@ -602,42 +426,59 @@ public class DefinitionToFunc {
         endLetEquationValue(sb);
     }
 
-    private void beginLetEquation(StringBuilder sb) {}
+    private void beginLetEquation(StringBuilder sb) {
+        // Begin let equation
+    }
 
-    private void endLetEquation(StringBuilder sb) {}
+    private void endLetEquation(StringBuilder sb) {
+        // End let equation
+    }
 
-    private void beginLetEquationName(StringBuilder sb) {}
+    private void beginLetEquationName(StringBuilder sb) {
+        // Begin let equation name
+    }
     
     private void endLetEquationName(StringBuilder sb) {
         sb.append(" = ");
     }
 
-    private void beginLetEquationValue(StringBuilder sb) {}
+    private void beginLetEquationValue(StringBuilder sb) {
+        // Begin let equation value
+    }
 
-    private void endLetEquationValue(StringBuilder sb) {}
+    private void endLetEquationValue(StringBuilder sb) {
+        // End let equation value
+    }
 
     private void addLetEquationSeparator(StringBuilder sb) {
         sb.append(" and ");
     }
 
-    private void beginLetDefinitions(StringBuilder sb) {}
+    private void beginLetDefinitions(StringBuilder sb) {
+        // Begin let definitions
+    }
 
-    private void endLetDefinitions(StringBuilder sb) {}
+    private void endLetDefinitions(StringBuilder sb) {
+        // End let definitions
+    }
 
     private void beginLetScope(StringBuilder sb) {
         sb.append(" in ");
     }
     
-    private void endLetScope(StringBuilder sb) {}
+    private void endLetScope(StringBuilder sb) {
+        // End let scope
+    }
 
     private void beginLetExpression(StringBuilder sb) {
         sb.append("let ");
     }
 
-    private void endLetExpression(StringBuilder sb) {}
+    private void endLetExpression(StringBuilder sb) {
+        // End let expression
+    }
 
-
-
+    
 
     private void addLetrecEquation(StringBuilder sb, String name, String value) {
         beginLetrecEquation(sb);
@@ -658,47 +499,62 @@ public class DefinitionToFunc {
         endLetrecEquationValue(sb);
     }
 
-    private void beginLetrecEquation(StringBuilder sb) {}
+    private void beginLetrecEquation(StringBuilder sb) {
+        // Begin letrec equation
+    }
 
-    private void endLetrecEquation(StringBuilder sb) {}
+    private void endLetrecEquation(StringBuilder sb) {
+        // End letrec equation
+    }
 
-    private void beginLetrecEquationName(StringBuilder sb) {}
+    private void beginLetrecEquationName(StringBuilder sb) {
+        // Begin letrec equation name
+    }
     
     private void endLetrecEquationName(StringBuilder sb) {
         sb.append(" = ");
     }
 
-    private void beginLetrecEquationValue(StringBuilder sb) {}
+    private void beginLetrecEquationValue(StringBuilder sb) {
+        // Begin letrec equation value
+    }
 
-    private void endLetrecEquationValue(StringBuilder sb) {}
+    private void endLetrecEquationValue(StringBuilder sb) {
+        // End letrec equation value
+    }
 
     private void addLetrecEquationSeparator(StringBuilder sb) {
         sb.append(" and ");
     }
 
-    private void beginLetrecDefinitions(StringBuilder sb) {}
+    private void beginLetrecDefinitions(StringBuilder sb) {
+        // Begin letrec definitions
+    }
 
-    private void endLetrecDefinitions(StringBuilder sb) {}
+    private void endLetrecDefinitions(StringBuilder sb) {
+        // End letrec definitions
+    }
 
     private void beginLetrecScope(StringBuilder sb) {
         sb.append(" in ");
     }
     
-    private void endLetrecScope(StringBuilder sb) {}
+    private void endLetrecScope(StringBuilder sb) {
+        // End letrec scope
+    }
 
     private void beginLetrecExpression(StringBuilder sb) {
         sb.append("let rec ");
     }
 
-    private void endLetrecExpression(StringBuilder sb) {}
+    private void endLetrecExpression(StringBuilder sb) {
+        // End letrec expression
+    }
 
 
     
 
     
-    Set<KLabel> functionSet;
-    SetMultimap<KLabel, Rule> functionRules;
-    List<List<KLabel>> functionOrder;
 
     private void initializeFunctionRules() {
         functionRules = HashMultimap.create();
@@ -787,7 +643,8 @@ public class DefinitionToFunc {
                 }
                 beginLetrecEquation(sb);                
                 beginLetrecEquationName(sb);
-                String functionName = encodeStringToFunction(sb, functionLabel.name());
+                String functionName = encodeStringToFunction(functionLabel.name());
+                sb.append(functionName);
                 sb.append(" (c: k list) (guards: Guard.t) : k");
                 endLetrecEquationName(sb);
                 beginLetrecEquationValue(sb);
@@ -796,7 +653,7 @@ public class DefinitionToFunc {
                 beginLetEquation(sb);
                 addLetEquationName(sb, "lbl");
                 beginLetEquationValue(sb);
-                encodeStringToIdentifier(sb, functionLabel);
+                sb.append(encodeStringToIdentifier(functionLabel));
                 endLetEquationValue(sb);
                 endLetEquation(sb);
                 endLetDefinitions(sb);
@@ -909,63 +766,6 @@ public class DefinitionToFunc {
         return h.b;
     }
 
-
-
-    private static void encodeStringToIdentifier(StringBuilder sb, KLabel name) {
-        sb.append("Lbl");
-        encodeStringToAlphanumeric(sb, name.name());
-    }
-
-    private static void encodeStringToIdentifier(StringBuilder sb, Sort name) {
-        sb.append("Sort");
-        encodeStringToAlphanumeric(sb, name.name());
-    }
-
-    private static String encodeStringToIdentifier(Sort name) {
-        StringBuilder sb = new StringBuilder();
-        encodeStringToIdentifier(sb, name);
-        return sb.toString();
-    }
-
-
-    private static String encodeStringToFunction(StringBuilder sb, String name) {
-        StringBuilder sb2 = new StringBuilder();
-        sb2.append("eval");
-        encodeStringToAlphanumeric(sb2, name);
-        sb.append(sb2);
-        return sb2.toString();
-    }
-
-    private static long counter = 0;
-
-    private static String encodeStringToVariable(String name) {
-        StringBuilder sb2 = new StringBuilder();
-        sb2.append("var");
-        encodeStringToAlphanumeric(sb2, name);
-        sb2.append("_");
-        sb2.append(counter++);
-        return sb2.toString();
-    }
-
-    private static void encodeStringToAlphanumeric(StringBuilder sb, String name) {
-        boolean inIdent = true;
-        for (int i = 0; i < name.length(); i++) {
-            if (identChar.matcher(name).region(i, name.length()).lookingAt()) {
-                if (!inIdent) {
-                    inIdent = true;
-                    sb.append("'");
-                }
-                sb.append(name.charAt(i));
-            } else {
-                if (inIdent) {
-                    inIdent = false;
-                    sb.append("'");
-                }
-                sb.append(String.format("%04x", (int) name.charAt(i)));
-            }
-        }
-    }
-
     private void beginMultilineComment(StringBuilder sb) {
         sb.append("(*");
     }
@@ -1015,7 +815,7 @@ public class DefinitionToFunc {
 
         String suffix = "";
 
-        if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
+        if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !("true".equals(result))) {
             suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
             sb.append(" when ");
             oldConvert(sb, true, vars, true).apply(requires);
@@ -1193,7 +993,7 @@ public class DefinitionToFunc {
             boolean stack = inBooleanExp;
             String hook = mainModule.attributesFor().apply(k.klabel()).<String>getOptional(Attribute.HOOK_KEY).orElse("");
             // use native &&, ||, not where possible
-            if (useNativeBooleanExp && (hook.equals("#BOOL:_andBool_") || hook.equals("#BOOL:_andThenBool_"))) {
+            if (useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
                 assert k.klist().items().size() == 2;
                 if (!stack) {
                     sb.append("[Bool ");
@@ -1207,7 +1007,7 @@ public class DefinitionToFunc {
                 if (!stack) {
                     sb.append("]");
                 }
-            } else if (useNativeBooleanExp && (hook.equals("#BOOL:_orBool_") || hook.equals("#BOOL:_orElseBool_"))) {
+            } else if (useNativeBooleanExp && ("#BOOL:_orBool_".equals(hook) || "#BOOL:_orElseBool_".equals(hook))) {
                 assert k.klist().items().size() == 2;
                 if (!stack) {
                     sb.append("[Bool ");
@@ -1221,7 +1021,7 @@ public class DefinitionToFunc {
                 if (!stack) {
                     sb.append("]");
                 }
-            } else if (useNativeBooleanExp && hook.equals("#BOOL:notBool_")) {
+            } else if (useNativeBooleanExp && "#BOOL:notBool_".equals(hook)) {
                 assert k.klist().items().size() == 1;
                 if (!stack) {
                     sb.append("[Bool ");
@@ -1241,17 +1041,15 @@ public class DefinitionToFunc {
                     Sort s = Sort(mainModule.attributesFor().apply(k.klabel()).<String>get(Attribute.PREDICATE_KEY).get());
                     if (mainModule.sortAttributesFor().contains(s)) {
                         String hook2 = mainModule.sortAttributesFor().apply(s).<String>getOptional("hook").orElse("");
-                        if (sortHooks.containsKey(hook2)) {
-                            if (k.klist().items().size() == 1) {
-                                KSequence item = (KSequence) k.klist().items().get(0);
-                                if (item.items().size() == 1 &&
-                                        vars.containsKey(item.items().get(0))) {
-                                    Optional<String> varSort = item.items().get(0).att().<String>getOptional(Attribute.SORT_KEY);
-                                    if (varSort.isPresent() && varSort.get().equals(s.name())) {
-                                        // this has been subsumed by a structural check on the builtin data type
-                                        apply(BooleanUtils.TRUE);
-                                        return;
-                                    }
+                        if (sortHooks.containsKey(hook2) && k.klist().items().size() == 1) {
+                            KSequence item = (KSequence) k.klist().items().get(0);
+                            if (item.items().size() == 1 &&
+                                    vars.containsKey(item.items().get(0))) {
+                                Optional<String> varSort = item.items().get(0).att().<String>getOptional(Attribute.SORT_KEY);
+                                if (varSort.isPresent() && varSort.get().equals(s.name())) {
+                                    // this has been subsumed by a structural check on the builtin data type
+                                    apply(BooleanUtils.TRUE);
+                                    return;
                                 }
                             }
                         }
@@ -1271,7 +1069,7 @@ public class DefinitionToFunc {
                 }
                 inBooleanExp = false;
                 sb.append("(");
-                encodeStringToFunction(sb, k.klabel().name());
+                sb.append(encodeStringToFunction(k.klabel().name()));
                 sb.append("(");
                 apply(k.klist().items(), true);
                 sb.append(") Guard.empty)");
@@ -1350,23 +1148,24 @@ public class DefinitionToFunc {
         }
 
         private void apply(List<K> items, boolean klist) {
-            for (int i = 0; i < items.size(); i++) {
+            for(int i = 0; i < items.size(); i++) {
                 K item = items.get(i);
                 apply(item);
-                if (i != items.size() - 1) {
+                if (i == items.size() - 1) {
+                    if (!isList(item, klist)) {
+                        sb.append(" :: []");
+                    }
+                } else {
                     if (isList(item, klist)) {
                         sb.append(" @ ");
                     } else {
                         sb.append(" :: ");
                     }
-                } else {
-                    if (!isList(item, klist)) {
-                        sb.append(" :: []");
-                    }
                 }
             }
-            if (items.size() == 0)
+            if(items.isEmpty()) {
                 sb.append("[]");
+            }
         }
 
         private boolean isList(K item, boolean klist) {
@@ -1375,14 +1174,14 @@ public class DefinitionToFunc {
         }
 
         private void apply(Sort sort) {
-            encodeStringToIdentifier(sb, sort);
+            sb.append(encodeStringToIdentifier(sort));
         }
 
         public void apply(KLabel klabel) {
             if (klabel instanceof KVariable) {
                 apply((KVariable) klabel);
             } else {
-                encodeStringToIdentifier(sb, klabel);
+                sb.append(encodeStringToIdentifier(klabel));
             }
         }
     }

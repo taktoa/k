@@ -2,10 +2,7 @@ package org.kframework.backend.func;
 
 import org.kframework.definition.Module;
 import org.kframework.definition.ModuleTransformer;
-import org.kframework.definition.Production;
-import org.kframework.definition.Rule;
 import org.kframework.definition.Definition;
-import org.kframework.definition.Sentence;
 import org.kframework.kore.compile.ConvertDataStructureToLookup;
 import org.kframework.kore.compile.DeconstructIntegerLiterals;
 import org.kframework.kore.compile.GenerateSortPredicateRules;
@@ -32,8 +29,8 @@ public class FuncPreprocessors {
     private static DeconstructIntegerLiterals   deconstructIntsObj;
     private static ExpandMacros                 expandMacrosObj;
 
-    private Module executionModule;
-    private Definition kompiledDefinition;
+    private static Module executionModule;
+    private static Definition kompiledDefinition;
 
     private static final String convertLookupsStr     = "Convert data structures to lookups";
     private static final String generatePredicatesStr = "Generate predicates";
