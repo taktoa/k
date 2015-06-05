@@ -13,7 +13,6 @@ public class ADT extends TypeExp {
 
     private final ImmutableList<Constructor> constructors;
     private final TypeName name;
-    private final Catamorphism cata;
 
     public ADT(ImmutableList<ArgumentSignature> argSigs, Target target) {
         int size = argSigs.size();
@@ -28,15 +27,10 @@ public class ADT extends TypeExp {
         
         constructors = ImmutableList.copyOf(constructorArr);
         name = new TypeName(target);
-        cata = new Catamorphism(this, target);
     }
 
     public ImmutableList<Constructor> getConstructors() {
         return constructors;
-    }
-
-    public Catamorphism getCatamorphism() {
-        return cata;
     }
 
     public TypeName getName() {
