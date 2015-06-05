@@ -15,6 +15,7 @@ import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
 import scala.Function1;
+import scala.Tuple2;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -23,9 +24,9 @@ import org.kframework.utils.algorithms.SCCTarjan;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-//import java.util.Set;
+import java.util.Set;
 import java.util.List;
-//import java.util.Map;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -41,9 +42,6 @@ import org.kframework.kore.Sort;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
 
-import scala.collection.immutable.*;
-
-
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
@@ -53,7 +51,7 @@ import static scala.compat.java8.JFunction.*;
  */
 public final class PreprocessedKORE {
     public final Module mainModule;
-    public final java.util.Set<KLabel> functionSet;
+    public final Set<KLabel> functionSet;
     public final SetMultimap<KLabel, Rule> functionRules;
     public final List<List<KLabel>> functionOrder;
     public final Set<Sort> definedSorts;
@@ -62,6 +60,8 @@ public final class PreprocessedKORE {
     public final Map<Sort, Att> sortAttributesFor;
     public final Map<KLabel, Att> attributesFor;
     public final Map<KLabel, KLabel> collectionFor;
+    public final Set<Rule> nonLookupRules;
+    public final Set<Rule> hasLookupRules;
 
     private final ConvertDataStructureToLookup convertLookupsObj;
     private final GenerateSortPredicateRules   generatePredicatesObj;
@@ -106,22 +106,25 @@ public final class PreprocessedKORE {
 
         mainModule = pipeline.apply(executionModule);
         
+        definedSorts      = stream(mainModule.definedSorts()).collect(Collectors.toSet());
+        definedKLabels    = stream(mainModule.definedKLabels()).collect(Collectors.toSet());
+        rules             = stream(mainModule.rules()).collect(Collectors.toSet());
+        attributesFor     = scalaMapAsJava(mainModule.attributesFor());
+        sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
+        collectionFor     = scalaMapAsJava(mainModule.collectionFor());
+
         functionRules = getFunctionRules();
         functionSet   = getFunctionSet(functionRules);
         functionOrder = getFunctionOrder(functionSet, functionRules);
 
-        definedSorts      = mainModule.definedSorts();
-        definedKLabels    = mainModule.definedKLabels();
-        rules             = mainModule.rules();
-        attributesFor     = mainModule.attributesFor();
-        sortAttributesFor = mainModule.sortAttributesFor();
-        collectionFor     = mainModule.collectionFor();
+        Tuple2<Set<Rule>, Set<Rule>> lr = partitionLookupRules(rules);
+        hasLookupRules = lr._1();
+        nonLookupRules = lr._2();
     }
 
     public K runtimeProcess(K k) {
         return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
-
 
     private void prettyPrint(StringBuilder sb, Rule r) {
         String defaultRequires = "~>(#token(\"true\",Bool))";
@@ -153,19 +156,19 @@ public final class PreprocessedKORE {
     public String prettyPrint() {
         StringBuilder sb = new StringBuilder();
         sb.append("Rules:\n");
-        for(Rule r : iterable(rules)) {
+        for(Rule r : rules) {
             prettyPrint(sb, r);
         }
         sb.append("\n");
         sb.append("\n");
         sb.append("Sorts:\n");
-        for(Sort s : iterable(definedSorts)) {
+        for(Sort s : definedSorts) {
             prettyPrint(sb, s);
         }
         sb.append("\n");
         sb.append("\n");
         sb.append("KLabels:\n");
-        for(KLabel l : iterable(definedKLabels)) {
+        for(KLabel l : definedKLabels) {
             sb.append(l.toString());
             sb.append("\n");
         } 
@@ -204,7 +207,7 @@ public final class PreprocessedKORE {
     private SetMultimap<KLabel, Rule> getFunctionRules() {
         SetMultimap<KLabel, Rule> fr = HashMultimap.create();
         
-        for(Rule r : iterable(mainModule.rules())) {
+        for(Rule r : rules) {
             Optional<KLabel> mkl = getKLabelIfFunctionRule(r);
             if(mkl.isPresent()) {
                 fr.put(mkl.get(), r);
@@ -214,8 +217,8 @@ public final class PreprocessedKORE {
         return fr;
     }
 
-    private java.util.Set<KLabel> getFunctionSet(SetMultimap<KLabel, Rule> fr) {
-        java.util.Set<KLabel> fs = new HashSet<>(fr.keySet());
+    private Set<KLabel> getFunctionSet(SetMultimap<KLabel, Rule> fr) {
+        Set<KLabel> fs = new HashSet<>(fr.keySet());
 
         for(Production p : iterable(mainModule.productions())) {
             if(p.att().contains(Attribute.FUNCTION_KEY)) {
@@ -226,7 +229,7 @@ public final class PreprocessedKORE {
         return fs;
     }
 
-    private List<List<KLabel>> getFunctionOrder(java.util.Set<KLabel> fs, SetMultimap<KLabel, Rule> fr) {
+    private List<List<KLabel>> getFunctionOrder(Set<KLabel> fs, SetMultimap<KLabel, Rule> fr) {
         BiMap<KLabel, Integer> mapping = HashBiMap.create();
         
         int counter = 0;
@@ -257,7 +260,7 @@ public final class PreprocessedKORE {
             }
         }
 
-        for (java.util.Map.Entry<KLabel, Rule> entry : fr.entries()) {
+        for(Map.Entry<KLabel, Rule> entry : fr.entries()) {
             GetPredecessors visitor = new GetPredecessors(entry.getKey());
             visitor.apply(entry.getValue().body());
             visitor.apply(entry.getValue().requires());
@@ -272,7 +275,32 @@ public final class PreprocessedKORE {
                           .collect(Collectors.toList()))
                .collect(Collectors.toList());
     }
+
+    private Tuple2<Set<Rule>, Set<Rule>> partitionLookupRules(Set<Rule> rs) {
+        Map<Boolean, Set<Rule>> sr
+            = rs.stream().collect(Collectors.groupingBy(this::hasLookups, Collectors.toSet()));
+        Set<Rule> yes = sr.get(Boolean.TRUE);
+        Set<Rule> no = sr.get(Boolean.FALSE);
+        return new Tuple2<Set<Rule>, Set<Rule>>(yes, no);
+    }
+
+    public Boolean hasLookups(Rule r) {
+        class Holder { boolean b; }
+        Holder h = new Holder();
+        new VisitKORE() {
+            @Override
+            public Void apply(KApply k) {
+                h.b |= isLookupKLabel(k);
+                return super.apply(k);
+            }
+        }.apply(r.requires());
+        return Boolean.valueOf(h.b);
+    }
     
+    private boolean isLookupKLabel(KApply k) {
+        return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
+    }
+
     private ModuleTransformer convertLookupsMT() {
         return ModuleTransformer.fromSentenceTransformer(convertLookupsObj::convert, convertLookupsStr);
     }
