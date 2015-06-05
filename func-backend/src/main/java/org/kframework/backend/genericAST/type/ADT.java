@@ -1,11 +1,10 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST.type;
 
-import org.kframework.backend.genericAST.type.TypeExp;
-import org.kframework.backend.genericAST.type.ConstructorSignature;
-import org.kframework.backend.genericAST.type.TypeName;
 import org.kframework.backend.genericAST.value.Constructor;
+
 import org.kframework.backend.genericAST.NamespaceManager;
+import org.kframework.backend.genericAST.Unparser;
 
 import com.google.common.collect.ImmutableList;
 
@@ -17,10 +16,10 @@ import java.util.Iterator;
  */
 public class ADT extends TypeExp {
 
-    private ImmutableList<Constructor> constructors;
-    private TypeName name;
+    private final ImmutableList<Constructor> constructors;
+    private final TypeName name;
 
-    public ADT(ImmutableList<ArgumentSignature> argSigs, NamespaceManager nm) {
+    public ADT(ImmutableList<ArgumentSignature> argSigs, NamespaceManager nm, Unparser unparser) {
         int size = argSigs.size();
         ArrayList<Constructor> constructorArr = new ArrayList<Constructor>(size);
 
@@ -28,7 +27,7 @@ public class ADT extends TypeExp {
 
         for(Constructor currCon : constructorArr) {
             ConstructorSignature currConSig = new ConstructorSignature(argSigIter.next(), this);
-            currCon = new Constructor(nm, currConSig);
+            currCon = new Constructor(nm, currConSig, unparser);
         }
         
         constructors = ImmutableList.copyOf(constructorArr);

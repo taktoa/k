@@ -2,24 +2,26 @@
 package org.kframework.backend.genericAST.value;
 
 import org.kframework.backend.genericAST.ConstructorName;
-import org.kframework.backend.genericAST.value.Exp;
 import org.kframework.backend.genericAST.type.ConstructorSignature;
 import org.kframework.backend.genericAST.NamespaceManager;
+import org.kframework.backend.genericAST.Unparser;
 
 /**
  * @author: Sebastian Conybeare
  */
 public class Constructor extends Exp {
 
-    private ConstructorName name;
-    private ConstructorSignature sig;
+    private final ConstructorName name;
+    private final ConstructorSignature sig;
 
-    public Constructor(ConstructorName cName, ConstructorSignature cSig) {
+    public Constructor(ConstructorName cName, ConstructorSignature cSig, Unparser unparser) {
+        super(unparser);
         name = cName;
         sig = cSig;
     }
 
-    public Constructor(NamespaceManager nm, ConstructorSignature cSig) {
+    public Constructor(NamespaceManager nm, ConstructorSignature cSig, Unparser unparser) {
+        super(unparser);
         name = nm.newConstructorName();
         sig = cSig;
     }
@@ -31,5 +33,10 @@ public class Constructor extends Exp {
     public ConstructorSignature getConstructorSignature() {
         return sig;
     }
+
+    public String unparse() {
+        return unparser.unparse(this);
+    }
+
 
 }

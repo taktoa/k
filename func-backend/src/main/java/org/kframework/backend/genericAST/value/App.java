@@ -1,18 +1,18 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST.value;
 
-import org.kframework.backend.genericAST.value.Exp;
-
+import org.kframework.backend.genericAST.Unparser;
 /**
  * @author: Sebastian Conybeare
  */
 public class App extends Exp {
 
-    private Exp func, arg;
+    private final Exp func, arg;
 
-    public App(Exp f, Exp x) {
-        func = f;
-        arg = x;
+    public App(Exp func, Exp arg, Unparser unparser) {
+        super(unparser);
+        this.func = func;
+        this.arg = arg;
     }
 
     public Exp getFunction() {
@@ -21,6 +21,10 @@ public class App extends Exp {
 
     public Exp getArgument() {
         return arg;
+    }
+
+    public String unparse() {
+        return unparser.unparse(this);
     }
     
 }

@@ -22,6 +22,6 @@ public abstract class Unparser {
     public abstract String unparse(LitInt i);
     public abstract String unparse(LitString s);
     public abstract String unparse(Variable v);
-    public abstract String unparse(ADT a);
+//    public abstract String unparse(ADT a);
 
 }

@@ -6,13 +6,13 @@ package org.kframework.backend.genericAST;
  */
 public class ConstructorName {
 
-    private String name;
+    private final String name;
 
     public ConstructorName(String constructorName) {
         name = constructorName;
     }
 
-    public String getConstructorName() {
+    public String getName() {
         return name;
     }
     
