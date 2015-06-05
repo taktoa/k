@@ -13,15 +13,9 @@ public class Constructor extends Exp {
     private final ConstructorName name;
     private final ConstructorSignature sig;
 
-    // public Constructor(ConstructorName cName, ConstructorSignature cSig, Target target) {
-    //     super(target);
-    //     name = cName;
-    //     sig = cSig;
-    // }
-
     public Constructor(ConstructorSignature cSig, Target target) {
         super(target);
-        name = target.newConstructorName();
+        name = new ConstructorName(target);
         sig = cSig;
     }
 

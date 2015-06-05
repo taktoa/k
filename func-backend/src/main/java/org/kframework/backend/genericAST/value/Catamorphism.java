@@ -12,10 +12,10 @@ public class Catamorphism extends Exp {
     private final ADT domainType;
     private final CatamorphismName name;
 
-    public Catamorphism(ADT domainType, CatamorphismName name, Target target) {
+    public Catamorphism(ADT domainType, Target target) {
         super(target);
         this.domainType = domainType;
-        this.name = name;
+        name = new CatamorphismName(target);
     }
 
     public ADT getDomainType() {

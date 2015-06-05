@@ -31,8 +31,8 @@ public class ADT extends TypeExp {
         }
         
         constructors = ImmutableList.copyOf(constructorArr);
-        name = target.newTypeName();
-        cata = new Catamorphism(this, target.newCatamorphismName(), target);
+        name = new TypeName(target);
+        cata = new Catamorphism(this, target);
     }
 
     public ImmutableList<Constructor> getConstructors() {

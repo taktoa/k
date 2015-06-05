@@ -2,20 +2,21 @@
 package org.kframework.backend.genericAST.value;
 
 import org.kframework.backend.genericAST.Target;
+import org.kframework.backend.genericAST.VariableName;
 /**
  * @author: Sebastian Conybeare
  */
 public class Variable extends Exp {
 
-    private final String name;
+    private final VariableName name;
 
-    public Variable(String name, Target target) {
+    public Variable(Target target) {
         super(target);
-        this.name = name;
+        name = new VariableName(target);
     }
 
     public String getName() {
-        return name;
+        return name.toString();
     }
 
     @Override

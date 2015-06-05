@@ -4,16 +4,10 @@ package org.kframework.backend.genericAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class ConstructorName {
+public class ConstructorName extends Identifier {
 
-    private final String name;
-
-    public ConstructorName(String constructorName) {
-        name = constructorName;
+    public ConstructorName(Target target) {
+        super(target.newConstructorName());
     }
 
-    public String getName() {
-        return name;
-    }
-    
 }

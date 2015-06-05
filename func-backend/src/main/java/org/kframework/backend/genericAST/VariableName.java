@@ -4,10 +4,10 @@ package org.kframework.backend.genericAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class CatamorphismName extends Identifier {
+public class VariableName extends Identifier {
 
-    public CatamorphismName(Target target) {
-        super(target.newCatamorphismName());
+    public VariableName(Target target) {
+        super(target.newConstructorName());
     }
 
 }

@@ -35,7 +35,7 @@ public class HaskellTarget extends Target {
 
     @Override
     public String unparse(Constructor c) {
-        return c.getConstructorName().getName();
+        return c.getConstructorName().toString();
     }
 
     @Override
@@ -63,45 +63,45 @@ public class HaskellTarget extends Target {
 
     @Override
     public String unparse(Variable v) {
-        return v.getName();
+        return v.toString();
     }
 
     @Override
     public String unparse(Catamorphism c) {
-        return c.getCatamorphismName().getName();
+        return c.getCatamorphismName().toString();
     }
     
 
     @Override
-    public ConstructorName newConstructorName() {
-        String rawName = String.format("Constructor%i",
+    public String newConstructorName() {
+        String name = String.format("Constructor%i",
                                        constructorNameCount);
         constructorNameCount++;
-        return new ConstructorName(rawName);
+        return name;
     }
 
     @Override
-    public TypeName newTypeName() {
+    public String newTypeName() {
         String rawName = String.format("Type%i",
                                        typeNameCount);
         typeNameCount++;
-        return new TypeName(rawName);
+        return rawName;
     }
 
     @Override
-    public Variable newVariable() {
+    public String newVariable() {
         String rawName = String.format("var%i",
                                        variableNameCount);
         variableNameCount++;
-        return new Variable(rawName, this);
+        return rawName;
     }
 
     @Override
-    public CatamorphismName newCatamorphismName() {
+    public String newCatamorphismName() {
         String rawName = String.format("cata%d",
                                        catamorphismNameCount);
         catamorphismNameCount++;
-        return new CatamorphismName(rawName);
+        return rawName;
     }
 
     @Override

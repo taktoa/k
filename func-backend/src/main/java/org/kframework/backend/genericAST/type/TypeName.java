@@ -1,19 +1,15 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST.type;
 
+import org.kframework.backend.genericAST.Target;
+import org.kframework.backend.genericAST.Identifier;
 /**
  * @author: Sebastian Conybeare
  */
-public class TypeName {
+public class TypeName extends Identifier {
 
-    private final String name;
-
-    public TypeName(String name) {
-        this.name = name;
-    }
-
-    public String getName() {
-        return name;
+    public TypeName(Target target) {
+        super(target.newTypeName());
     }
 
 }
