@@ -1,15 +1,11 @@
 package org.kframework.backend.func;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
-import org.kframework.definition.Module;
-import org.kframework.definition.Production;
 import org.kframework.definition.Rule;
 import org.kframework.kil.Attribute;
 import org.kframework.kompile.CompiledDefinition;
@@ -28,28 +24,23 @@ import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.StringUtil;
-import org.kframework.utils.algorithms.SCCTarjan;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OcamlIncludes.*;
-
 
 /*
  * @author: Remy Goldschmidt
@@ -62,12 +53,7 @@ public class DefinitionToFunc {
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
 
-    private FuncPreprocessors preproc;
-    private Module mainModule;
-
-    private Set<KLabel> functionSet;
-    private SetMultimap<KLabel, Rule> functionRules;
-    private List<List<KLabel>> functionOrder;
+    private PreprocessedKORE preproc;
 
     public DefinitionToFunc(KExceptionManager kem,
                             FileUtil files,
@@ -91,7 +77,7 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
         sb.append("print_string(print_k(try(run(");
         Visitor convVisitor = oldConvert(sb, true, HashMultimap.create(), false);
-        convVisitor.apply(preproc.korePreprocess(k));
+        convVisitor.apply(preproc.runtimeProcess(k));
         sb.append(") (");
         sb.append(Integer.toString(depth));
         sb.append(")) with Stuck c' -> c'))");
@@ -106,24 +92,31 @@ public class DefinitionToFunc {
     }
 
     public String convert(CompiledDefinition def) {
-        preproc = new FuncPreprocessors(def, kem, files, globalOptions, kompileOptions);
-        mainModule = preproc.modulePreprocess();
+        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        String p = preproc.prettyPrint(); // DEBUG
+        System.out.println(p); // DEBUG
+        System.out.println(Integer.toString(p.hashCode())); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        if(1 == 1) { throw KEMException.criticalError("blah"); } // DEBUG
         return langDefToFunc(def).render();
     }
 
     public String convert(K k, int depth) {
+        if(1 == 1) { throw KEMException.criticalError("blah"); } // DEBUG
         return runtimeCodeToFunc(k, depth).render();
     }
 
-
     private void addSortType(SyntaxBuilder sb) {
         sb.beginTypeDefinition("sort");
-        for (Sort s : iterable(mainModule.definedSorts())) {
+        for (Sort s : iterable(preproc.definedSorts)) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(s));
             sb.endConstructor();
         }
-        if (!mainModule.definedSorts().contains(Sorts.String())) {
+        if (!preproc.definedSorts.contains(Sorts.String())) {
             sb.addConstructor("SortString");
         }
         sb.endTypeDefinition();
@@ -139,7 +132,7 @@ public class DefinitionToFunc {
 
         int i = 0;
 
-        for (Sort s : iterable(mainModule.definedSorts())) {
+        for (Sort s : iterable(preproc.definedSorts)) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -155,7 +148,7 @@ public class DefinitionToFunc {
 
     private void addKLabelType(SyntaxBuilder sb) {
         sb.beginTypeDefinition("klabel");
-        for (KLabel label : iterable(mainModule.definedKLabels())) {
+        for (KLabel label : iterable(preproc.definedKLabels)) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(label));
             sb.endConstructor();
@@ -174,7 +167,7 @@ public class DefinitionToFunc {
 
         int i = 0;
 
-        for (KLabel label : iterable(mainModule.definedKLabels())) {
+        for (KLabel label : iterable(preproc.definedKLabels)) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(label));
@@ -199,7 +192,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (Sort s : iterable(mainModule.definedSorts())) {
+        for (Sort s : iterable(preproc.definedSorts)) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -225,7 +218,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (Sort s : iterable(mainModule.definedSorts())) {
+        for (Sort s : iterable(preproc.definedSorts)) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -251,7 +244,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (KLabel label : iterable(mainModule.definedKLabels())) {
+        for (KLabel label : iterable(preproc.definedKLabels)) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(label));
@@ -268,75 +261,6 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private void initializeFunctionRules() {
-        functionRules = HashMultimap.create();
-
-        for(Rule r : iterable(mainModule.rules())) {
-            K left = RewriteToTop.toLeft(r.body());
-            if(left instanceof KSequence) {
-                KSequence kseq = (KSequence) left;
-                if(kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
-                    KApply kapp = (KApply) kseq.items().get(0);
-                    if(mainModule.attributesFor().apply(kapp.klabel()).contains(Attribute.FUNCTION_KEY)) {
-                        functionRules.put(kapp.klabel(), r);
-                    }
-                }
-            }
-        }
-    }
-
-    private void initializeFunctionSet() {
-        functionSet = new HashSet<>(functionRules.keySet());
-
-        for(Production p : iterable(mainModule.productions())) {
-            if(p.att().contains(Attribute.FUNCTION_KEY)) {
-                functionSet.add(p.klabel().get());
-            }
-        }
-    }
-
-    private void initializeFunctionOrder() {
-        BiMap<KLabel, Integer> mapping = HashBiMap.create();
-        int counter = 0;
-        for(KLabel lbl : functionSet) {
-            mapping.put(lbl, counter++);
-        }
-        List<Integer>[] predecessors = new List[functionSet.size()];
-        for(int i = 0; i < predecessors.length; i++) {
-            predecessors[i] = new ArrayList<>();
-        }
-
-        class GetPredecessors extends VisitKORE {
-            private final KLabel current;
-
-            public GetPredecessors(KLabel current) {
-                this.current = current;
-            }
-
-            @Override
-            public Void apply(KApply k) {
-                if (functionSet.contains(k.klabel())) {
-                    predecessors[mapping.get(current)].add(mapping.get(k.klabel()));
-                }
-                return super.apply(k);
-            }
-        }
-
-        for (Map.Entry<KLabel, Rule> entry : functionRules.entries()) {
-            GetPredecessors visitor = new GetPredecessors(entry.getKey());
-            visitor.apply(entry.getValue().body());
-            visitor.apply(entry.getValue().requires());
-        }
-
-        List<List<Integer>> components = new SCCTarjan().scc(predecessors);
-
-        functionOrder = components
-                        .stream()
-                        .map(l -> l.stream()
-                                   .map(i -> mapping.inverse().get(i))
-                                   .collect(Collectors.toList()))
-                        .collect(Collectors.toList());
-    }
 
     private int sortFunctionRules(Rule a1, Rule a2) {
         return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
@@ -344,7 +268,7 @@ public class DefinitionToFunc {
 
     private void addRules(SyntaxBuilder sb) {
         int i = 0;
-        for (List<KLabel> component : functionOrder) {
+        for (List<KLabel> component : preproc.functionOrder) {
             boolean inLetrec = false;
             for (KLabel functionLabel : component) {
                 if(inLetrec) {
@@ -363,7 +287,7 @@ public class DefinitionToFunc {
                 sb.endLetDefinitions();
                 sb.beginLetScope();
                 sb.beginMatchExpression("c");
-                String hook = mainModule.attributesFor().apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
+                String hook = preproc.attributesFor.apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
                 if (hooks.containsKey(hook)) {
                     sb.beginMatchEquation();
                     sb.append(hooks.get(hook));
@@ -376,7 +300,7 @@ public class DefinitionToFunc {
                 }
 
                 i = 0;
-                for (Rule r : functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
+                for (Rule r : preproc.functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
                     oldConvert(r, sb, true, i++, functionName);
                 }
                 sb.addMatchEquation("_", "raise (Stuck [KApply(lbl, c)])");
@@ -392,7 +316,7 @@ public class DefinitionToFunc {
         }
 
         boolean hasLookups = false;
-        Map<Boolean, List<Rule>> sortedRules = stream(mainModule.rules()).collect(Collectors.groupingBy(this::hasLookups));
+        Map<Boolean, List<Rule>> sortedRules = stream(preproc.rules).collect(Collectors.groupingBy(this::hasLookups));
 
         sb.beginLetrecExpression();
         sb.beginLetrecDefinitions();
@@ -402,7 +326,7 @@ public class DefinitionToFunc {
         sb.beginMatchExpression("c");
         i = 0;
         for (Rule r : sortedRules.get(true)) {
-            if (!functionRules.values().contains(r)) {
+            if (!preproc.functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "lookups_step");
             }
         }
@@ -418,7 +342,7 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
         sb.beginMatchExpression("c");
         for (Rule r : sortedRules.get(false)) {
-            if (!functionRules.values().contains(r)) {
+            if (!preproc.functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "step");
             }
         }
@@ -439,9 +363,6 @@ public class DefinitionToFunc {
         addPrintSortString(sb);
         addPrintKLabel(sb);
         addMidlude(sb);
-        initializeFunctionRules();
-        initializeFunctionSet();
-        initializeFunctionOrder();
         addRules(sb);
         addPostlude(sb);
 
@@ -644,8 +565,8 @@ public class DefinitionToFunc {
         String varName = encodeStringToVariable(k.name());
         vars.put(k, varName);
         Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
-        if (mainModule.sortAttributesFor().contains(s)) {
-            String hook = mainModule.sortAttributesFor().apply(s).<String>getOptional("hook").orElse("");
+        if (preproc.sortAttributesFor.contains(s)) {
+            String hook = preproc.sortAttributesFor.apply(s).<String>getOptional("hook").orElse("");
             if (sortHooks.containsKey(hook)) {
                 sb.append("(");
                 sb.append(s.name());
@@ -691,7 +612,7 @@ public class DefinitionToFunc {
                 sb.append(", ");
                 apply(((KSequence) k.klist().items().get(1)).items().get(0));
                 sb.append(")");
-            } else if (functionSet.contains(k.klabel())) {
+            } else if (preproc.functionSet.contains(k.klabel())) {
                 applyFunction(k);
             } else {
                 applyKLabel(k);
@@ -709,7 +630,7 @@ public class DefinitionToFunc {
 
         public void applyFunction(KApply k) {
             boolean stack = inBooleanExp;
-            String hook = mainModule.attributesFor().apply(k.klabel()).<String>getOptional(Attribute.HOOK_KEY).orElse("");
+            String hook = preproc.attributesFor.apply(k.klabel()).<String>getOptional(Attribute.HOOK_KEY).orElse("");
             // use native &&, ||, not where possible
             if (useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
                 assert k.klist().items().size() == 2;
@@ -751,14 +672,14 @@ public class DefinitionToFunc {
                 if (!stack) {
                     sb.append("]");
                 }
-            } else if (mainModule.collectionFor().contains(k.klabel()) && !rhs) {
+            } else if (preproc.collectionFor.contains(k.klabel()) && !rhs) {
                 applyKLabel(k);
                 sb.append(" :: []");
             } else {
-                if (mainModule.attributesFor().apply(k.klabel()).contains(Attribute.PREDICATE_KEY)) {
-                    Sort s = Sort(mainModule.attributesFor().apply(k.klabel()).<String>get(Attribute.PREDICATE_KEY).get());
-                    if (mainModule.sortAttributesFor().contains(s)) {
-                        String hook2 = mainModule.sortAttributesFor().apply(s).<String>getOptional("hook").orElse("");
+                if (preproc.attributesFor.apply(k.klabel()).contains(Attribute.PREDICATE_KEY)) {
+                    Sort s = Sort(preproc.attributesFor.apply(k.klabel()).<String>get(Attribute.PREDICATE_KEY).get());
+                    if (preproc.sortAttributesFor.contains(s)) {
+                        String hook2 = preproc.sortAttributesFor.apply(s).<String>getOptional("hook").orElse("");
                         if (sortHooks.containsKey(hook2) && k.klist().items().size() == 1) {
                             KSequence item = (KSequence) k.klist().items().get(0);
                             if (item.items().size() == 1 &&
@@ -809,8 +730,8 @@ public class DefinitionToFunc {
                 sb.append(k.s());
                 return null;
             }
-            if (mainModule.sortAttributesFor().contains(k.sort())) {
-                String hook = mainModule.sortAttributesFor().apply(k.sort()).<String>getOptional("hook").orElse("");
+            if (preproc.sortAttributesFor.contains(k.sort())) {
+                String hook = preproc.sortAttributesFor.apply(k.sort()).<String>getOptional("hook").orElse("");
                 if (sortHooks.containsKey(hook)) {
                     sb.append(sortHooks.get(hook).apply(k.s()));
                     return null;
@@ -888,7 +809,7 @@ public class DefinitionToFunc {
 
         private boolean isList(K item, boolean klist) {
             return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K")) || item instanceof KSequence
-                    || (item instanceof KApply && functionSet.contains(((KApply) item).klabel())));
+                    || (item instanceof KApply && preproc.functionSet.contains(((KApply) item).klabel())));
         }
 
         private void apply(Sort sort) {
