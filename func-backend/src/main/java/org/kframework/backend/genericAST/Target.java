@@ -8,8 +8,9 @@ import org.kframework.backend.genericAST.value.LitBool;
 import org.kframework.backend.genericAST.value.LitInt;
 import org.kframework.backend.genericAST.value.LitString;
 import org.kframework.backend.genericAST.value.Variable;
-//import org.kframework.backend.genericAST.type.ADT;
+import org.kframework.backend.genericAST.value.Catamorphism;
 
+import org.kframework.backend.genericAST.type.ADT;
 import org.kframework.backend.genericAST.type.TypeName;
 /**
  * @author: Sebastian Conybeare
@@ -23,9 +24,13 @@ public abstract class Target {
     public abstract String unparse(LitInt i);
     public abstract String unparse(LitString s);
     public abstract String unparse(Variable v);
+    public abstract String unparse(Catamorphism c);
 
     public abstract ConstructorName newConstructorName();
     public abstract TypeName newTypeName();
     public abstract Variable newVariable();
+    public abstract CatamorphismName newCatamorphismName();
+
+    public abstract String declare(ADT a);
 
 }

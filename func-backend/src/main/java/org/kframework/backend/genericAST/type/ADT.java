@@ -2,7 +2,7 @@
 package org.kframework.backend.genericAST.type;
 
 import org.kframework.backend.genericAST.value.Constructor;
-
+import org.kframework.backend.genericAST.value.Catamorphism;
 import org.kframework.backend.genericAST.Target;
 
 import com.google.common.collect.ImmutableList;
@@ -17,6 +17,7 @@ public class ADT extends TypeExp {
 
     private final ImmutableList<Constructor> constructors;
     private final TypeName name;
+    private final Catamorphism cata;
 
     public ADT(ImmutableList<ArgumentSignature> argSigs, Target target) {
         int size = argSigs.size();
@@ -31,10 +32,15 @@ public class ADT extends TypeExp {
         
         constructors = ImmutableList.copyOf(constructorArr);
         name = target.newTypeName();
+        cata = new Catamorphism(this, target.newCatamorphismName(), target);
     }
 
     public ImmutableList<Constructor> getConstructors() {
         return constructors;
+    }
+
+    public Catamorphism getCatamorphism() {
+        return cata;
     }
 
     public TypeName getName() {

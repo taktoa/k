@@ -8,9 +8,9 @@ import org.kframework.backend.genericAST.value.LitBool;
 import org.kframework.backend.genericAST.value.LitInt;
 import org.kframework.backend.genericAST.value.LitString;
 import org.kframework.backend.genericAST.value.Variable;
+import org.kframework.backend.genericAST.value.Catamorphism;
 import org.kframework.backend.genericAST.type.TypeName;
-import org.kframework.backend.genericAST.ConstructorName;
-//import org.kframework.backend.genericAST.type.ADT;
+import org.kframework.backend.genericAST.type.ADT;
 
 /**
  * @author: Sebastian Conybeare
@@ -19,10 +19,13 @@ public class HaskellTarget extends Target {
     private int constructorNameCount;
     private int typeNameCount;
     private int variableNameCount;
+    private int catamorphismNameCount;
+    
     public HaskellTarget() {
         constructorNameCount = 0;
         typeNameCount = 0;
         variableNameCount = 0;
+        catamorphismNameCount = 0;
     }
 
     @Override
@@ -63,10 +66,11 @@ public class HaskellTarget extends Target {
         return v.getName();
     }
 
-    // @Override
-    // public String unparse(ADT a) {
-        
-    // }
+    @Override
+    public String unparse(Catamorphism c) {
+        return c.getCatamorphismName().getName();
+    }
+    
 
     @Override
     public ConstructorName newConstructorName() {
@@ -90,6 +94,19 @@ public class HaskellTarget extends Target {
                                        variableNameCount);
         variableNameCount++;
         return new Variable(rawName, this);
+    }
+
+    @Override
+    public CatamorphismName newCatamorphismName() {
+        String rawName = String.format("cata%d",
+                                       catamorphismNameCount);
+        catamorphismNameCount++;
+        return new CatamorphismName(rawName);
+    }
+
+    @Override
+    public String declare(ADT a) {
+        return "";
     }
     
 }
