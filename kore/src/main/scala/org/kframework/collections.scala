@@ -3,6 +3,7 @@
 package org.kframework
 
 import java.util
+import java.util.{Map => JMap, Set => JSet, List => JList}
 
 import collection.JavaConverters._
 import java.util.stream.StreamSupport
@@ -12,6 +13,8 @@ import java.util.function.BiConsumer
 import java.util.function.BinaryOperator
 import java.util.function.Supplier
 import scala.collection.mutable.SetBuilder
+import scala.collection.mutable.{Map => MutMap}
+import scala.collection.immutable.{Map => ImMap}
 
 object Collections {
   def immutable[T](s: java.lang.Iterable[T]): Iterable[T] = s.asScala
@@ -31,6 +34,9 @@ object Collections {
   def stream[T](c: Iterable[T]): java.util.stream.Stream[T] = StreamSupport.stream(c.asJava.spliterator(), false);
   //  def stream[T](c: Collection[T]): java.util.stream.Stream[T] = c.stream
   def iterable[T](c: Collection[T]): java.lang.Iterable[T] = c.iterable.asJava
+
+  def scalaMapAsJava[K, V](m: MutMap[K, V]): java.util.Map[K, V] = m.asJava
+  def scalaMapAsJava[K, V](m: ImMap[K, V]): java.util.Map[K, V] = scalaMapAsJava(MutMap(m.toSeq: _*))
 
   def map[T](s: Set[T], f: java.util.function.Function[T, T]): Set[T] = s.map(x => f(x))
 
