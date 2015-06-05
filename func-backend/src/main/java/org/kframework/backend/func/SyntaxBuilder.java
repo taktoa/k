@@ -74,6 +74,7 @@ public class SyntaxBuilder {
     }
 
     public void addLetEquationSeparator() {
+        addNewline();
         append(" and ");
     }
 
@@ -127,7 +128,7 @@ public class SyntaxBuilder {
     }
 
     public void endLetrecEquation() {
-        // End letrec equation
+        addNewline();
     }
 
     public void beginLetrecEquationName() {
@@ -147,6 +148,7 @@ public class SyntaxBuilder {
     }
 
     public void addLetrecEquationSeparator() {
+        addNewline();
         append(" and ");
     }
 
@@ -200,6 +202,7 @@ public class SyntaxBuilder {
         append("match ");
         append(varname);
         append(" with ");
+        addNewline();
     }
 
     public void endMatchExpression() {
@@ -211,7 +214,7 @@ public class SyntaxBuilder {
     }
 
     public void endMatchEquation() {
-        // End match equation
+        addNewline();
     }
 
     public void beginMatchEquationPattern() {
@@ -258,6 +261,7 @@ public class SyntaxBuilder {
         append("type ");
         append(typename);
         append(" = ");
+        addNewline();
     }
 
     public void endTypeDefinition() {
@@ -279,7 +283,7 @@ public class SyntaxBuilder {
     }
 
     public void endConstructor() {
-        // End constructor
+        addNewline();
     }
 
     public void beginConstructorName() {

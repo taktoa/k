@@ -19,15 +19,13 @@ import java.util.Optional;
 import java.util.function.Function;
 
 /**
- * Created by dwightguth on 5/27/15.
+ * @author: Remy Goldschmidt
  */
 @DefinitionScoped
 public class FuncRewriter implements Function<Module, Rewriter> {
 
     private final KExceptionManager kem;
     private final FileUtil files;
-    private final GlobalOptions globalOptions;
-    private final KompileOptions kompileOptions;
     private final CompiledDefinition def;
     private final DefinitionToFunc converter;
 
@@ -35,8 +33,6 @@ public class FuncRewriter implements Function<Module, Rewriter> {
     public FuncRewriter(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions, CompiledDefinition def) {
         this.kem = kem;
         this.files = files;
-        this.globalOptions = globalOptions;
-        this.kompileOptions = kompileOptions;
         this.def = def;
         this.converter = new DefinitionToFunc(kem, files, globalOptions, kompileOptions);
         converter.convert(def);
@@ -58,20 +54,20 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                     ProcessBuilder pb = files.getProcessBuilder();
                     pb = pb.command("ocamlopt.opt", "nums.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
                     Process p = pb.directory(files.resolveTemp("."))
-                            .redirectError(files.resolveTemp("compile.err"))
-                            .redirectOutput(files.resolveTemp("compile.out"))
-                            .start();
+                                  .redirectError(files.resolveTemp("compile.err"))
+                                  .redirectOutput(files.resolveTemp("compile.out"))
+                                  .start();
                     int exit = p.waitFor();
                     if (exit != 0) {
                         System.err.println(files.loadFromTemp("compile.err"));
                         throw KEMException.criticalError("Failed to compile program to ocaml. See output for error information.");
                     }
                     p = files.getProcessBuilder()
-                            .command("./a.out")
-                            .directory(files.resolveTemp("."))
-                            .redirectError(files.resolveTemp("run.err"))
-                            .redirectOutput(files.resolveTemp("run.out"))
-                            .start();
+                             .command("./a.out")
+                             .directory(files.resolveTemp("."))
+                             .redirectError(files.resolveTemp("run.err"))
+                             .redirectOutput(files.resolveTemp("run.out"))
+                             .start();
                     exit = p.waitFor();
                     if (exit != 0) {
                         throw KEMException.criticalError("Failed to execute program in ocaml. Rerun with --debug and examine" +

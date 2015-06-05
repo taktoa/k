@@ -54,7 +54,6 @@ import static org.kframework.backend.func.OcamlIncludes.*;
 /*
  * @author: Remy Goldschmidt
  */
-
 public class DefinitionToFunc {
     public static final boolean annotateOutput = true;
 
@@ -103,7 +102,7 @@ public class DefinitionToFunc {
     }
 
     private FuncAST langDefToFunc(CompiledDefinition def) {
-        return new FuncAST(oldConvert());
+        return new FuncAST(mainConvert());
     }
 
     public String convert(CompiledDefinition def) {
@@ -119,17 +118,13 @@ public class DefinitionToFunc {
 
     private void addSortType(SyntaxBuilder sb) {
         sb.beginTypeDefinition("sort");
-        sb.addNewline();
-
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(s));
             sb.endConstructor();
-            sb.addNewline();
         }
         if (!mainModule.definedSorts().contains(Sorts.String())) {
             sb.addConstructor("SortString");
-            sb.addNewline();
         }
         sb.endTypeDefinition();
     }
@@ -141,7 +136,6 @@ public class DefinitionToFunc {
         sb.addLetEquationName("order_sort(s: sort)");
         sb.beginLetEquationValue();
         sb.beginMatchExpression("s");
-        sb.addNewline();
 
         int i = 0;
 
@@ -151,7 +145,6 @@ public class DefinitionToFunc {
             sb.append(encodeStringToIdentifier(s));
             sb.endMatchEquationPattern();
             sb.addMatchEquationValue(Integer.toString(i++));
-            sb.addNewline();
         }
 
         sb.endMatchExpression();
@@ -166,7 +159,6 @@ public class DefinitionToFunc {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(label));
             sb.endConstructor();
-            sb.addNewline();
         }
         sb.endTypeDefinition();
     }
@@ -179,7 +171,6 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
 
         sb.beginMatchExpression("l");
-        sb.addNewline();
 
         int i = 0;
 
@@ -189,7 +180,6 @@ public class DefinitionToFunc {
             sb.append(encodeStringToIdentifier(label));
             sb.endMatchEquationPattern();
             sb.addMatchEquationValue(Integer.toString(i++));
-            sb.addNewline();
             sb.endMatchEquation();
         }
         sb.endMatchExpression();
@@ -208,7 +198,6 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
 
         sb.beginMatchExpression("c");
-        sb.addNewline();
 
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.beginMatchEquation();
@@ -216,7 +205,6 @@ public class DefinitionToFunc {
             sb.append(encodeStringToIdentifier(s));
             sb.endMatchEquationPattern();
             sb.addMatchEquationValue(StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
-            sb.addNewline();
             sb.endMatchEquation();
         }
 
@@ -236,7 +224,6 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
 
         sb.beginMatchExpression("c");
-        sb.addNewline();
 
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.beginMatchEquation();
@@ -244,7 +231,6 @@ public class DefinitionToFunc {
             sb.append(encodeStringToIdentifier(s));
             sb.endMatchEquationPattern();
             sb.addMatchEquationValue(StringUtil.enquoteCString(s.name()));
-            sb.addNewline();
             sb.endMatchEquation();
         }
 
@@ -264,7 +250,6 @@ public class DefinitionToFunc {
         sb.beginLetEquationValue();
 
         sb.beginMatchExpression("c");
-        sb.addNewline();
 
         for (KLabel label : iterable(mainModule.definedKLabels())) {
             sb.beginMatchEquation();
@@ -272,7 +257,6 @@ public class DefinitionToFunc {
             sb.append(encodeStringToIdentifier(label));
             sb.endMatchEquationPattern();
             sb.addMatchEquationValue(StringUtil.enquoteCString(ToKast.apply(label)));
-            sb.addNewline();
             sb.endMatchEquation();
         }
 
@@ -370,36 +354,25 @@ public class DefinitionToFunc {
                     sb.beginLetrecDefinitions();
                 }
                 sb.beginLetrecEquation();
-                sb.beginLetrecEquationName();
                 String functionName = encodeStringToFunction(functionLabel.name());
-                sb.append(functionName);
-                sb.append(" (c: k list) (guards: Guard.t) : k");
-                sb.endLetrecEquationName();
+                sb.addLetrecEquationName(functionName + " (c: k list) (guards: Guard.t) : k");
                 sb.beginLetrecEquationValue();
                 sb.beginLetExpression();
                 sb.beginLetDefinitions();
-                sb.beginLetEquation();
-                sb.addLetEquationName("lbl");
-                sb.beginLetEquationValue();
-                sb.append(encodeStringToIdentifier(functionLabel));
-                sb.endLetEquationValue();
-                sb.endLetEquation();
+                sb.addLetEquation("lbl", encodeStringToIdentifier(functionLabel));
                 sb.endLetDefinitions();
                 sb.beginLetScope();
                 sb.beginMatchExpression("c");
-                sb.addNewline();
                 String hook = mainModule.attributesFor().apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
                 if (hooks.containsKey(hook)) {
                     sb.beginMatchEquation();
                     sb.append(hooks.get(hook));
                     sb.endMatchEquation();
-                    sb.addNewline();
                 }
                 if (predicateRules.containsKey(functionLabel.name())) {
                     sb.beginMatchEquation();
                     sb.append(predicateRules.get(functionLabel.name()));
                     sb.endMatchEquation();
-                    sb.addNewline();
                 }
 
                 i = 0;
@@ -412,7 +385,6 @@ public class DefinitionToFunc {
                 sb.endLetExpression();
                 sb.endLetrecEquationValue();
                 sb.endLetrecEquation();
-                sb.addNewline();
                 inLetrec = true;
             }
             sb.endLetrecDefinitions();
@@ -428,7 +400,6 @@ public class DefinitionToFunc {
         sb.addLetrecEquationName("lookups_step (c: k) (guards: Guard.t) : k");
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression("c");
-        sb.addNewline();
         i = 0;
         for (Rule r : sortedRules.get(true)) {
             if (!functionRules.values().contains(r)) {
@@ -437,31 +408,27 @@ public class DefinitionToFunc {
         }
         sb.addMatchEquation("_", "raise (Stuck c)");
         sb.endLetrecEquationValue();
+        sb.endLetrecEquation();
         sb.endLetrecDefinitions();
         sb.endLetrecExpression();
-
-        sb.addNewline();
-
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
         sb.addLetEquationName("step (c: k) : k");
         sb.beginLetEquationValue();
         sb.beginMatchExpression("c");
-        sb.addNewline();
         for (Rule r : sortedRules.get(false)) {
             if (!functionRules.values().contains(r)) {
                 oldConvert(r, sb, false, i++, "step");
             }
         }
         sb.addMatchEquation("_", "lookups_step c Guard.empty");
-        sb.addNewline();
         sb.endLetEquationValue();
         sb.endLetDefinitions();
         sb.endLetExpression();
     }
 
-    private String oldConvert() {
+    private String mainConvert() {
         SyntaxBuilder sb = new SyntaxBuilder();
 
         addSortType(sb);
@@ -537,7 +504,7 @@ public class DefinitionToFunc {
 
         String suffix = "";
 
-        if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !("true".equals(result))) {
+        if(!(KSequence(BooleanUtils.TRUE).equals(requires)) || !("true".equals(result))) {
             suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
             sb.append(" when ");
             oldConvert(sb, true, vars, true).apply(requires);
@@ -556,58 +523,84 @@ public class DefinitionToFunc {
         try {
             unhandledOldConvert(r, sb, function, ruleNum, functionName);
         } catch (KEMException e) {
-            e.exception.addTraceFrame("while compiling rule at " + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>") + ":" + r.att().getOptional(Location.class).map(Object::toString).orElse("<none>"));
+            e.exception.addTraceFrame("while compiling rule at "
+                                      + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>")
+                                      + ":"
+                                      + r.att().getOptional(Location.class).map(Object::toString).orElse("<none>"));
             throw e;
         }
     }
 
     private static class Holder { int i; }
 
-    private String oldConvertLookups(SyntaxBuilder sb, K requires, SetMultimap<KVariable, String> vars, String functionName, int ruleNum) {
+    private void checkApplyArity(KApply k, int arity, String funcName) throws KEMException {
+        if(k.klist().size() != arity) {
+            throw KEMException.internalError("Unexpected arity of " + funcName + ": " + k.klist().size(), k);
+        }
+    }
+
+    private String oldConvertLookups(SyntaxBuilder sb,
+                                     K requires,
+                                     SetMultimap<KVariable, String> vars,
+                                     String functionName,
+                                     int ruleNum) {
         Deque<String> suffix = new ArrayDeque<>();
         Holder h = new Holder();
         h.i = 0;
         new VisitKORE() {
             @Override
             public Void apply(KApply k) {
-                if (k.klabel().name().equals("#match")) {
-                    if (k.klist().items().size() != 2) {
-                        throw KEMException.internalError("Unexpected arity of lookup: " + k.klist().size(), k);
-                    }
-                    sb.append(" -> (match ");
-                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with ");
-                    sb.addNewline();
-                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
-                    suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
-                    h.i++;
-                } else if (k.klabel().name().equals("#setChoice")) {
-                    if (k.klist().items().size() != 2) {
-                        throw KEMException.internalError("Unexpected arity of choice: " + k.klist().size(), k);
-                    }
-                    sb.append(" -> (match ");
-                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with ");
-                    sb.addNewline();
-                    sb.append("| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ");
-                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
-                    suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
-                    suffix.add("| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)) else choice");
-                    h.i++;
-                } else if (k.klabel().name().equals("#mapChoice")) {
-                    if (k.klist().items().size() != 2) {
-                        throw KEMException.internalError("Unexpected arity of choice: " + k.klist().size(), k);
-                    }
-                    sb.append(" -> (match ");
-                    oldConvert(sb, true, vars, false).apply(k.klist().items().get(1));
-                    sb.append(" with ");
-                    sb.addNewline();
-                    sb.append("| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
-                    oldConvert(sb, false, vars, false).apply(k.klist().items().get(0));
-                    suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
-                    suffix.add("| _ -> [Bottom]) else result) m [Bottom]) in if choice = [Bottom] then (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)) else choice");
-                    h.i++;
+                String str1, str2;
+                int arity;
+                String functionStr;
+
+                List<K> kitems = k.klist().items();
+                String klabel = k.klabel().name();
+
+                switch(klabel) {
+                case "#match":
+                    str1 = "";
+                    str2 = "";
+                    functionStr = "lookup";
+                    arity = 2;
+                    break;
+                case "#setChoice":
+                    str1 = "| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ";
+                    str2 = "| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then ("
+                         + functionName
+                         + " c (Guard.add (GuardElt.Guard "
+                         + ruleNum
+                         + ") guards)) else choice";
+                    functionStr = "set choice";
+                    arity = 2;
+                    break;
+                case "#mapChoice":
+                    str1 = "| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ";
+                    str2 = "| _ -> [Bottom]) else result) m [Bottom]) in if choice = [Bottom] then ("
+                         + functionName
+                         + " c (Guard.add (GuardElt.Guard "
+                         + ruleNum
+                         + ") guards)) else choice";
+                    functionStr = "map choice";
+                    arity = 2;
+                    break;
+                default: return super.apply(k);
                 }
+
+                checkApplyArity(k, arity, functionStr);
+
+                K fstKLabel = kitems.get(0);
+                K sndKLabel = kitems.get(1);
+
+                sb.append(" -> (match ");
+                oldConvert(sb, true, vars, false).apply(sndKLabel);
+                sb.append(" with ");
+                sb.addNewline();
+                sb.append(str1);
+                oldConvert(sb, false, vars, false).apply(fstKLabel);
+                suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
+                suffix.add(str2);
+                h.i++;
                 return super.apply(k);
             }
         }.apply(requires);

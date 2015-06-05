@@ -14,7 +14,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Created by dwightguth on 5/27/15.
+ * @author: Remy Goldschmidt
  */
 public class FuncBackendKModule extends AbstractKModule {
 

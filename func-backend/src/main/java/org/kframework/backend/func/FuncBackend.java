@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.function.Consumer;
 
 /**
- * Created by dwightguth on 5/27/15.
+ * @author: Remy Goldschmidt
  */
 public class FuncBackend implements Consumer<CompiledDefinition> {
 
