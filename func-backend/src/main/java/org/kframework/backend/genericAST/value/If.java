@@ -1,7 +1,7 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST.value;
 
-import org.kframework.backend.genericAST.Unparser;
+import org.kframework.backend.genericAST.Target;
 /**
  * @author: Sebastian Conybeare
  */
@@ -11,8 +11,8 @@ public class If extends Exp {
     private final Exp trueBranch;
     private final Exp falseBranch;
 
-    public If(Exp cond, Exp t, Exp f, Unparser unparser) {
-        super(unparser);
+    public If(Exp cond, Exp t, Exp f, Target target) {
+        super(target);
         condition = cond;
         trueBranch = t;
         falseBranch = f;
@@ -32,7 +32,7 @@ public class If extends Exp {
 
     @Override
     public String unparse() {
-        return unparser.unparse(this);
+        return target.unparse(this);
     }
 
 

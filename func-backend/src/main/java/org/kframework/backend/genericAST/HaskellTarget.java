@@ -8,12 +8,22 @@ import org.kframework.backend.genericAST.value.LitBool;
 import org.kframework.backend.genericAST.value.LitInt;
 import org.kframework.backend.genericAST.value.LitString;
 import org.kframework.backend.genericAST.value.Variable;
-import org.kframework.backend.genericAST.type.ADT;
+import org.kframework.backend.genericAST.type.TypeName;
+import org.kframework.backend.genericAST.ConstructorName;
+//import org.kframework.backend.genericAST.type.ADT;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class HaskellUnparser extends Unparser {
+public class HaskellTarget extends Target {
+    private int constructorNameCount;
+    private int typeNameCount;
+    private int variableNameCount;
+    public HaskellTarget() {
+        constructorNameCount = 0;
+        typeNameCount = 0;
+        variableNameCount = 0;
+    }
 
     @Override
     public String unparse(App a) {
@@ -58,4 +68,28 @@ public class HaskellUnparser extends Unparser {
         
     // }
 
+    @Override
+    public ConstructorName newConstructorName() {
+        String rawName = String.format("Constructor%i",
+                                       constructorNameCount);
+        constructorNameCount++;
+        return new ConstructorName(rawName);
+    }
+
+    @Override
+    public TypeName newTypeName() {
+        String rawName = String.format("Type%i",
+                                       typeNameCount);
+        typeNameCount++;
+        return new TypeName(rawName);
+    }
+
+    @Override
+    public Variable newVariable() {
+        String rawName = String.format("var%i",
+                                       variableNameCount);
+        variableNameCount++;
+        return new Variable(rawName, this);
+    }
+    
 }

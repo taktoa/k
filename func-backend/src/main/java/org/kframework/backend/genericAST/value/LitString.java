@@ -1,7 +1,7 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST.value;
 
-import org.kframework.backend.genericAST.Unparser;
+import org.kframework.backend.genericAST.Target;
 /**
  * @author: Sebastian Conybeare
  */
@@ -9,8 +9,8 @@ public class LitString extends Exp {
 
     private final String val;
 
-    public LitString(String val, Unparser unparser) {
-        super(unparser);
+    public LitString(String val, Target target) {
+        super(target);
         this.val = val;
     }
 
@@ -20,7 +20,7 @@ public class LitString extends Exp {
 
     @Override
     public String unparse() {
-        return unparser.unparse(this);
+        return target.unparse(this);
     }
 
     

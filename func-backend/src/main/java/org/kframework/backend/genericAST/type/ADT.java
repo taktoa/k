@@ -3,8 +3,7 @@ package org.kframework.backend.genericAST.type;
 
 import org.kframework.backend.genericAST.value.Constructor;
 
-import org.kframework.backend.genericAST.NamespaceManager;
-import org.kframework.backend.genericAST.Unparser;
+import org.kframework.backend.genericAST.Target;
 
 import com.google.common.collect.ImmutableList;
 
@@ -19,7 +18,7 @@ public class ADT extends TypeExp {
     private final ImmutableList<Constructor> constructors;
     private final TypeName name;
 
-    public ADT(ImmutableList<ArgumentSignature> argSigs, NamespaceManager nm, Unparser unparser) {
+    public ADT(ImmutableList<ArgumentSignature> argSigs, Target target) {
         int size = argSigs.size();
         ArrayList<Constructor> constructorArr = new ArrayList<Constructor>(size);
 
@@ -27,12 +26,11 @@ public class ADT extends TypeExp {
 
         for(Constructor currCon : constructorArr) {
             ConstructorSignature currConSig = new ConstructorSignature(argSigIter.next(), this);
-            currCon = new Constructor(nm, currConSig, unparser);
+            currCon = new Constructor(currConSig, target);
         }
         
         constructors = ImmutableList.copyOf(constructorArr);
-        name = nm.newTypeName();
-        
+        name = target.newTypeName();
     }
 
     public ImmutableList<Constructor> getConstructors() {

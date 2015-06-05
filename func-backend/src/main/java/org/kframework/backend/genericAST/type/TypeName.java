@@ -6,7 +6,7 @@ package org.kframework.backend.genericAST.type;
  */
 public class TypeName {
 
-    private String name;
+    private final String name;
 
     public TypeName(String name) {
         this.name = name;

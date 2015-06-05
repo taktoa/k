@@ -8,12 +8,13 @@ import org.kframework.backend.genericAST.value.LitBool;
 import org.kframework.backend.genericAST.value.LitInt;
 import org.kframework.backend.genericAST.value.LitString;
 import org.kframework.backend.genericAST.value.Variable;
-import org.kframework.backend.genericAST.type.ADT;
+//import org.kframework.backend.genericAST.type.ADT;
 
+import org.kframework.backend.genericAST.type.TypeName;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class Unparser {
+public abstract class Target {
 
     public abstract String unparse(App a);
     public abstract String unparse(Constructor c);
@@ -22,6 +23,9 @@ public abstract class Unparser {
     public abstract String unparse(LitInt i);
     public abstract String unparse(LitString s);
     public abstract String unparse(Variable v);
-//    public abstract String unparse(ADT a);
+
+    public abstract ConstructorName newConstructorName();
+    public abstract TypeName newTypeName();
+    public abstract Variable newVariable();
 
 }
