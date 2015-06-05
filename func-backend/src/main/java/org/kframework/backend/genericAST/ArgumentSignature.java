@@ -8,7 +8,7 @@ import com.google.common.collect.ImmutableList;
  */
 public class ArgumentSignature {
 
-    private ImmutableList<TypeExp> argTypes;
+    private final ImmutableList<TypeExp> argTypes;
 
     public ArgumentSignature(ImmutableList<TypeExp> argumentTypes) {
         argTypes = argumentTypes;

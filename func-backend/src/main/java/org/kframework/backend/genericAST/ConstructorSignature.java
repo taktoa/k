@@ -7,7 +7,7 @@ import com.google.common.collect.ImmutableList;
  */
 public class ConstructorSignature {
 
-    private ArgumentSignature argTypes;
+    private final ArgumentSignature argTypes;
     private TypeExp retType;
 
     public ConstructorSignature(ArgumentSignature argumentTypes, TypeExp returnType) {
