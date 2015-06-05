@@ -2,11 +2,11 @@
 package org.kframework.backend.genericAST.value;
 
 import org.kframework.backend.genericAST.Target;
-import org.kframework.backend.genericAST.ASTNode;
+import org.kframework.backend.genericAST.genericASTNode;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class Exp extends ASTNode {
+public abstract class Exp extends genericASTNode {
 
     protected final Target target;
 
