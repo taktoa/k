@@ -1,9 +1,5 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST.type;
-
-import org.kframework.backend.genericAST.value.Constructor;
-import org.kframework.backend.genericAST.value.Catamorphism;
-import org.kframework.backend.genericAST.Target;
+package org.kframework.backend.genericAST;
 
 import com.google.common.collect.ImmutableList;
 

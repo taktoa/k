@@ -1,17 +1,6 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
 package org.kframework.backend.genericAST;
 
-import org.kframework.backend.genericAST.value.App;
-import org.kframework.backend.genericAST.value.Constructor;
-import org.kframework.backend.genericAST.value.If;
-import org.kframework.backend.genericAST.value.LitBool;
-import org.kframework.backend.genericAST.value.LitInt;
-import org.kframework.backend.genericAST.value.LitString;
-import org.kframework.backend.genericAST.value.Variable;
-import org.kframework.backend.genericAST.value.Catamorphism;
-import org.kframework.backend.genericAST.type.TypeName;
-import org.kframework.backend.genericAST.type.ADT;
-
 /**
  * @author: Sebastian Conybeare
  */

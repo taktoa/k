@@ -1,8 +1,6 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST.value;
+package org.kframework.backend.genericAST;
 
-import org.kframework.backend.genericAST.Target;
-import org.kframework.backend.genericAST.VariableName;
 /**
  * @author: Sebastian Conybeare
  */

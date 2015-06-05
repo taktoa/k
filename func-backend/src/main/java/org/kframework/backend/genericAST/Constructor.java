@@ -1,9 +1,5 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST.value;
-
-import org.kframework.backend.genericAST.ConstructorName;
-import org.kframework.backend.genericAST.type.ConstructorSignature;
-import org.kframework.backend.genericAST.Target;
+package org.kframework.backend.genericAST;
 
 /**
  * @author: Sebastian Conybeare
