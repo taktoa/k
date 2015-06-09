@@ -13,6 +13,7 @@ public abstract class Target {
     public abstract String unparse(LitInt i);
     public abstract String unparse(LitString s);
     public abstract String unparse(Variable v);
+    public abstract String unparse(Match m);
 
     public abstract String newConstructorName();
     public abstract String newTypeName();

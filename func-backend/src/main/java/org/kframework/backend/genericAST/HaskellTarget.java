@@ -4,7 +4,7 @@ package org.kframework.backend.genericAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class HaskellTarget extends Target {
+public abstract class HaskellTarget extends Target {
     private int constructorNameCount;
     private int typeNameCount;
     private int variableNameCount;

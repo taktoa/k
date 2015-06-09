@@ -18,6 +18,13 @@ public class ConstructorPattern extends Pattern {
         this.args = args;
     }
 
+    public ConstructorPattern(Target target, Constructor constructor, Pattern... args) {
+        super(target);
+        this.target = target;
+        this.constructor = constructor;
+        this.args = ImmutableList.copyOf(args);
+    }
+
     public Constructor getConstructor() {
         return constructor;
     }
