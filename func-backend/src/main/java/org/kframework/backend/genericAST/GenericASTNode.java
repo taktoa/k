@@ -4,11 +4,11 @@ package org.kframework.backend.genericAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class genericASTNode {
+public class GenericASTNode {
 
     protected final Target target;
 
-    protected genericASTNode(Target target) {
+    protected GenericASTNode(Target target) {
         this.target = target;
     }
 
