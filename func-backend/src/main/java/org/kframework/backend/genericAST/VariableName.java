@@ -7,7 +7,7 @@ package org.kframework.backend.genericAST;
 public class VariableName extends Identifier {
 
     public VariableName(Target target) {
-        super(target.newConstructorName());
+        super(target.newVariable());
     }
 
 }
