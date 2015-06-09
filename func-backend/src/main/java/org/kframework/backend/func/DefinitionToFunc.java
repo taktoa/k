@@ -10,13 +10,10 @@ import org.kframework.definition.Rule;
 import org.kframework.kil.Attribute;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
-import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
 import org.kframework.kore.KLabel;
-import org.kframework.kore.KRewrite;
 import org.kframework.kore.KSequence;
-import org.kframework.kore.KToken;
 import org.kframework.kore.KVariable;
 import org.kframework.kore.Sort;
 import org.kframework.kore.ToKast;
@@ -33,8 +30,6 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.kframework.Collections.*;
@@ -76,7 +71,7 @@ public class DefinitionToFunc {
         sb.addLetEquationName("_");
         sb.beginLetEquationValue();
         sb.append("print_string(print_k(try(run(");
-        Visitor convVisitor = oldConvert(sb, true, HashMultimap.create(), false);
+        FuncVisitor convVisitor = oldConvert(preproc, sb, true, HashMultimap.create(), false);
         convVisitor.apply(preproc.runtimeProcess(k));
         sb.append(") (");
         sb.append(Integer.toString(depth));
@@ -87,8 +82,8 @@ public class DefinitionToFunc {
         return new FuncAST(sb.render());
     }
 
-    private FuncAST langDefToFunc(CompiledDefinition def) {
-        return new FuncAST(mainConvert());
+    private FuncAST langDefToFunc(PreprocessedKORE ppk) {
+        return new FuncAST(mainConvert(ppk));
     }
 
     public String convert(CompiledDefinition def) {
@@ -97,11 +92,10 @@ public class DefinitionToFunc {
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // String p = preproc.prettyPrint(); // DEBUG
         // System.out.println(p); // DEBUG
-        // System.out.println(Integer.toString(p.hashCode())); // DEBUG
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // if(1 == 1) { throw KEMException.criticalError("blah"); } // DEBUG
-        return langDefToFunc(def).render();
+        return langDefToFunc(preproc).render();
     }
 
     public String convert(K k, int depth) {
@@ -109,20 +103,20 @@ public class DefinitionToFunc {
         return runtimeCodeToFunc(k, depth).render();
     }
 
-    private void addSortType(SyntaxBuilder sb) {
+    private void addSortType(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginTypeDefinition("sort");
-        for (Sort s : preproc.definedSorts) {
+        for (Sort s : ppk.definedSorts) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(s));
             sb.endConstructor();
         }
-        if (!preproc.definedSorts.contains(Sorts.String())) {
+        if (!ppk.definedSorts.contains(Sorts.String())) {
             sb.addConstructor("SortString");
         }
         sb.endTypeDefinition();
     }
 
-    private void addSortOrderFunc(SyntaxBuilder sb) {
+    private void addSortOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -132,7 +126,7 @@ public class DefinitionToFunc {
 
         int i = 0;
 
-        for (Sort s : preproc.definedSorts) {
+        for (Sort s : ppk.definedSorts) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -146,9 +140,9 @@ public class DefinitionToFunc {
         sb.endLetEquation();
     }
 
-    private void addKLabelType(SyntaxBuilder sb) {
+    private void addKLabelType(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginTypeDefinition("klabel");
-        for (KLabel label : preproc.definedKLabels) {
+        for (KLabel label : ppk.definedKLabels) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(label));
             sb.endConstructor();
@@ -156,7 +150,7 @@ public class DefinitionToFunc {
         sb.endTypeDefinition();
     }
 
-    private void addKLabelOrderFunc(SyntaxBuilder sb) {
+    private void addKLabelOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -167,7 +161,7 @@ public class DefinitionToFunc {
 
         int i = 0;
 
-        for (KLabel label : preproc.definedKLabels) {
+        for (KLabel label : ppk.definedKLabels) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(label));
@@ -183,7 +177,7 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private void addPrintSortString(SyntaxBuilder sb) {
+    private void addPrintSortString(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -192,7 +186,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (Sort s : preproc.definedSorts) {
+        for (Sort s : ppk.definedSorts) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -209,7 +203,7 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private void addPrintSort(SyntaxBuilder sb) {
+    private void addPrintSort(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -218,7 +212,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (Sort s : preproc.definedSorts) {
+        for (Sort s : ppk.definedSorts) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(s));
@@ -235,7 +229,7 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private void addPrintKLabel(SyntaxBuilder sb) {
+    private void addPrintKLabel(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -244,7 +238,7 @@ public class DefinitionToFunc {
 
         sb.beginMatchExpression("c");
 
-        for (KLabel label : preproc.definedKLabels) {
+        for (KLabel label : ppk.definedKLabels) {
             sb.beginMatchEquation();
             sb.beginMatchEquationPattern();
             sb.append(encodeStringToIdentifier(label));
@@ -266,9 +260,9 @@ public class DefinitionToFunc {
         return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
     }
 
-    private void addRules(SyntaxBuilder sb) {
+    private void addRules(PreprocessedKORE ppk, SyntaxBuilder sb) {
         int i = 0;
-        for (List<KLabel> component : preproc.functionOrder) {
+        for (List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
             for (KLabel functionLabel : component) {
                 if(inLetrec) {
@@ -287,7 +281,7 @@ public class DefinitionToFunc {
                 sb.endLetDefinitions();
                 sb.beginLetScope();
                 sb.beginMatchExpression("c");
-                String hook = preproc.attributesFor.get(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
+                String hook = ppk.attributesFor.get(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
                 if (hooks.containsKey(hook)) {
                     sb.beginMatchEquation();
                     sb.append(hooks.get(hook));
@@ -300,8 +294,8 @@ public class DefinitionToFunc {
                 }
 
                 i = 0;
-                for (Rule r : preproc.functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
-                    oldConvert(r, sb, true, i++, functionName);
+                for (Rule r : ppk.functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
+                    oldConvert(ppk, r, sb, true, i++, functionName);
                 }
                 sb.addMatchEquation("_", "raise (Stuck [KApply(lbl, c)])");
                 sb.endMatchExpression();
@@ -322,9 +316,9 @@ public class DefinitionToFunc {
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression("c");
         i = 0;
-        for (Rule r : preproc.hasLookupRules) {
-            if (!preproc.functionRules.values().contains(r)) {
-                oldConvert(r, sb, false, i++, "lookups_step");
+        for (Rule r : ppk.hasLookupRules) {
+            if (!ppk.functionRules.values().contains(r)) {
+                oldConvert(ppk, r, sb, false, i++, "lookups_step");
             }
         }
         sb.addMatchEquation("_", "raise (Stuck c)");
@@ -338,9 +332,9 @@ public class DefinitionToFunc {
         sb.addLetEquationName("step (c: k) : k");
         sb.beginLetEquationValue();
         sb.beginMatchExpression("c");
-        for (Rule r : preproc.nonLookupRules) {
-            if (!preproc.functionRules.values().contains(r)) {
-                oldConvert(r, sb, false, i++, "step");
+        for (Rule r : ppk.nonLookupRules) {
+            if (!ppk.functionRules.values().contains(r)) {
+                oldConvert(ppk, r, sb, false, i++, "step");
             }
         }
         sb.addMatchEquation("_", "lookups_step c Guard.empty");
@@ -349,18 +343,18 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private String mainConvert() {
+    private String mainConvert(PreprocessedKORE ppk) {
         SyntaxBuilder sb = new SyntaxBuilder();
 
-        addSortType(sb);
-        addSortOrderFunc(sb);
-        addKLabelType(sb);
-        addKLabelOrderFunc(sb);
+        addSortType(ppk, sb);
+        addSortOrderFunc(ppk, sb);
+        addKLabelType(ppk, sb);
+        addKLabelOrderFunc(ppk, sb);
         addPrelude(sb);
-        addPrintSortString(sb);
-        addPrintKLabel(sb);
+        addPrintSortString(ppk, sb);
+        addPrintKLabel(ppk, sb);
         addMidlude(sb);
-        addRules(sb);
+        addRules(ppk, sb);
         addPostlude(sb);
 
         return sb.toString();
@@ -381,7 +375,12 @@ public class DefinitionToFunc {
         sb.addNewline();
     }
 
-    private void unhandledOldConvert(Rule r, SyntaxBuilder sb, boolean function, int ruleNum, String functionName) throws KEMException {
+    private void unhandledOldConvert(PreprocessedKORE ppk,
+                                     Rule r,
+                                     SyntaxBuilder sb,
+                                     boolean function,
+                                     int ruleNum,
+                                     String functionName) throws KEMException {
         if(annotateOutput) { outputAnnotate(r, sb); }
 
         sb.append("| ");
@@ -391,7 +390,7 @@ public class DefinitionToFunc {
         K requires = r.requires();
 
         SetMultimap<KVariable, String> vars = HashMultimap.create();
-        Visitor visitor = oldConvert(sb, false, vars, false);
+        FuncVisitor visitor = oldConvert(ppk, sb, false, vars, false);
 
         if(function) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
@@ -402,7 +401,7 @@ public class DefinitionToFunc {
 
         String result = oldConvert(vars);
 
-        if(preproc.hasLookupRules.contains(r)) {
+        if(ppk.hasLookupRules.contains(r)) {
             sb.append(" when not (Guard.mem (GuardElt.Guard ");
             sb.append(Integer.toString(ruleNum));
             sb.append(") guards)");
@@ -411,23 +410,28 @@ public class DefinitionToFunc {
         String suffix = "";
 
         if(!(KSequence(BooleanUtils.TRUE).equals(requires)) || !("true".equals(result))) {
-            suffix = oldConvertLookups(sb, requires, vars, functionName, ruleNum);
+            suffix = oldConvertLookups(ppk, sb, requires, vars, functionName, ruleNum);
             sb.append(" when ");
-            oldConvert(sb, true, vars, true).apply(requires);
+            oldConvert(ppk, sb, true, vars, true).apply(requires);
             sb.append(" && (");
             sb.append(result);
             sb.append(")");
         }
 
         sb.append(" -> ");
-        oldConvert(sb, true, vars, false).apply(right);
+        oldConvert(ppk, sb, true, vars, false).apply(right);
         sb.append(suffix);
         sb.addNewline();
     }
 
-    private void oldConvert(Rule r, SyntaxBuilder sb, boolean function, int ruleNum, String functionName) {
+    private void oldConvert(PreprocessedKORE ppk,
+                            Rule r,
+                            SyntaxBuilder sb,
+                            boolean function,
+                            int ruleNum,
+                            String functionName) {
         try {
-            unhandledOldConvert(r, sb, function, ruleNum, functionName);
+            unhandledOldConvert(ppk, r, sb, function, ruleNum, functionName);
         } catch (KEMException e) {
             e.exception.addTraceFrame("while compiling rule at "
                                       + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>")
@@ -445,7 +449,8 @@ public class DefinitionToFunc {
         }
     }
 
-    private String oldConvertLookups(SyntaxBuilder sb,
+    private String oldConvertLookups(PreprocessedKORE ppk,
+                                     SyntaxBuilder sb,
                                      K requires,
                                      SetMultimap<KVariable, String> vars,
                                      String functionName,
@@ -499,11 +504,11 @@ public class DefinitionToFunc {
                 K sndKLabel = kitems.get(1);
 
                 sb.append(" -> (match ");
-                oldConvert(sb, true, vars, false).apply(sndKLabel);
+                oldConvert(ppk, sb, true, vars, false).apply(sndKLabel);
                 sb.append(" with ");
                 sb.addNewline();
                 sb.append(str1);
-                oldConvert(sb, false, vars, false).apply(fstKLabel);
+                oldConvert(ppk, sb, false, vars, false).apply(fstKLabel);
                 suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                 suffix.add(str2);
                 h.i++;
@@ -542,275 +547,11 @@ public class DefinitionToFunc {
         return sb.toString();
     }
 
-    private void applyVarRhs(KVariable v, SyntaxBuilder sb, SetMultimap<KVariable, String> vars) {
-        sb.append(vars.get(v).iterator().next());
-    }
-
-    private void applyVarLhs(KVariable k, SyntaxBuilder sb, SetMultimap<KVariable, String> vars) {
-        String varName = encodeStringToVariable(k.name());
-        vars.put(k, varName);
-        Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
-        if (preproc.sortAttributesFor.containsKey(s)) {
-            String hook = preproc.sortAttributesFor.get(s).<String>getOptional("hook").orElse("");
-            if (sortHooks.containsKey(hook)) {
-                sb.append("(");
-                sb.append(s.name());
-                sb.append(" _");
-                sb.append(" as ");
-                sb.append(varName);
-                sb.append(")");
-                return;
-            }
-        }
-        sb.append(varName);
-    }
-
-    private Visitor oldConvert(SyntaxBuilder sb, boolean rhs, SetMultimap<KVariable, String> vars, boolean useNativeBooleanExp) {
-        return new Visitor(sb, rhs, vars, useNativeBooleanExp);
-    }
-
-    private class Visitor extends VisitKORE {
-        private final SyntaxBuilder sb;
-        private final boolean rhs;
-        private final SetMultimap<KVariable, String> vars;
-        private final boolean useNativeBooleanExp;
-
-        public Visitor(SyntaxBuilder sb, boolean rhs, SetMultimap<KVariable, String> vars, boolean useNativeBooleanExp) {
-            this.sb = sb;
-            this.rhs = rhs;
-            this.vars = vars;
-            this.useNativeBooleanExp = useNativeBooleanExp;
-            this.inBooleanExp = useNativeBooleanExp;
-        }
-
-        private boolean inBooleanExp;
-
-        @Override
-        public Void apply(KApply k) {
-            if (isLookupKLabel(k)) {
-                apply(BooleanUtils.TRUE);
-            } else if (k.klabel().name().equals("#KToken")) {
-                //magic down-ness
-                sb.append("KToken (");
-                Sort sort = Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s());
-                apply(sort);
-                sb.append(", ");
-                apply(((KSequence) k.klist().items().get(1)).items().get(0));
-                sb.append(")");
-            } else if (preproc.functionSet.contains(k.klabel())) {
-                applyFunction(k);
-            } else {
-                applyKLabel(k);
-            }
-            return null;
-        }
-
-        public void applyKLabel(KApply k) {
-            sb.append("KApply (");
-            apply(k.klabel());
-            sb.append(", ");
-            apply(k.klist().items(), true);
-            sb.append(")");
-        }
-
-        public void applyFunction(KApply k) {
-            boolean stack = inBooleanExp;
-            String hook = preproc.attributesFor.get(k.klabel()).<String>getOptional(Attribute.HOOK_KEY).orElse("");
-            // use native &&, ||, not where possible
-            if (useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
-                assert k.klist().items().size() == 2;
-                if (!stack) {
-                    sb.append("[Bool ");
-                }
-                inBooleanExp = true;
-                sb.append("(");
-                apply(k.klist().items().get(0));
-                sb.append(") && (");
-                apply(k.klist().items().get(1));
-                sb.append(")");
-                if (!stack) {
-                    sb.append("]");
-                }
-            } else if (useNativeBooleanExp && ("#BOOL:_orBool_".equals(hook) || "#BOOL:_orElseBool_".equals(hook))) {
-                assert k.klist().items().size() == 2;
-                if (!stack) {
-                    sb.append("[Bool ");
-                }
-                inBooleanExp = true;
-                sb.append("(");
-                apply(k.klist().items().get(0));
-                sb.append(") || (");
-                apply(k.klist().items().get(1));
-                sb.append(")");
-                if (!stack) {
-                    sb.append("]");
-                }
-            } else if (useNativeBooleanExp && "#BOOL:notBool_".equals(hook)) {
-                assert k.klist().items().size() == 1;
-                if (!stack) {
-                    sb.append("[Bool ");
-                }
-                inBooleanExp = true;
-                sb.append("(not ");
-                apply(k.klist().items().get(0));
-                sb.append(")");
-                if (!stack) {
-                    sb.append("]");
-                }
-            } else if (preproc.collectionFor.containsKey(k.klabel()) && !rhs) {
-                applyKLabel(k);
-                sb.append(" :: []");
-            } else {
-                if (preproc.attributesFor.get(k.klabel()).contains(Attribute.PREDICATE_KEY)) {
-                    Sort s = Sort(preproc.attributesFor.get(k.klabel()).<String>get(Attribute.PREDICATE_KEY).get());
-                    if (preproc.sortAttributesFor.containsKey(s)) {
-                        String hook2 = preproc.sortAttributesFor.get(s).<String>getOptional("hook").orElse("");
-                        if (sortHooks.containsKey(hook2) && k.klist().items().size() == 1) {
-                            KSequence item = (KSequence) k.klist().items().get(0);
-                            if (item.items().size() == 1 &&
-                                    vars.containsKey(item.items().get(0))) {
-                                Optional<String> varSort = item.items().get(0).att().<String>getOptional(Attribute.SORT_KEY);
-                                if (varSort.isPresent() && varSort.get().equals(s.name())) {
-                                    // this has been subsumed by a structural check on the builtin data type
-                                    apply(BooleanUtils.TRUE);
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    if (s.equals(Sorts.KItem()) && k.klist().items().size() == 1) {
-                        if (k.klist().items().get(0) instanceof KSequence) {
-                            KSequence item = (KSequence) k.klist().items().get(0);
-                            if (item.items().size() == 1) {
-                                apply(BooleanUtils.TRUE);
-                                return;
-                            }
-                        }
-                    }
-                }
-                if (stack) {
-                    sb.append("(isTrue ");
-                }
-                inBooleanExp = false;
-                sb.append("(");
-                sb.append(encodeStringToFunction(k.klabel().name()));
-                sb.append("(");
-                apply(k.klist().items(), true);
-                sb.append(") Guard.empty)");
-                if (stack) {
-                    sb.append(")");
-                }
-            }
-            inBooleanExp = stack;
-        }
-
-        @Override
-        public Void apply(KRewrite k) {
-            throw new AssertionError("unexpected rewrite");
-        }
-
-        @Override
-        public Void apply(KToken k) {
-            if (useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
-                sb.append(k.s());
-                return null;
-            }
-            if (preproc.sortAttributesFor.containsKey(k.sort())) {
-                String hook = preproc.sortAttributesFor.get(k.sort()).<String>getOptional("hook").orElse("");
-                if (sortHooks.containsKey(hook)) {
-                    sb.append(sortHooks.get(hook).apply(k.s()));
-                    return null;
-                }
-            }
-            sb.append("KToken (");
-            apply(k.sort());
-            sb.append(", ");
-            sb.append(StringUtil.enquoteCString(k.s()));
-            sb.append(")");
-            return null;
-        }
-
-        @Override
-        public Void apply(KVariable k) {
-            if (rhs) {
-                applyVarRhs(k, sb, vars);
-            } else {
-                applyVarLhs(k, sb, vars);
-            }
-            return null;
-        }
-
-        @Override
-        public Void apply(KSequence k) {
-            if (useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
-                apply(k.items().get(0));
-                return null;
-            }
-            sb.append("(");
-            if (!rhs) {
-                for (int i = 0; i < k.items().size() - 1; i++) {
-                    if (isList(k.items().get(i), false)) {
-                        throw KEMException.criticalError("Cannot compile KSequence with K variable not at tail.", k.items().get(i));
-                    }
-                }
-            }
-            apply(k.items(), false);
-            sb.append(")");
-            return null;
-        }
-
-        public String getSortOfVar(K k) {
-            return k.att().<String>getOptional(Attribute.SORT_KEY).orElse("K");
-        }
-
-        @Override
-        public Void apply(InjectedKLabel k) {
-            sb.append("InjectedKLabel (");
-            apply(k.klabel());
-            sb.append(")");
-            return null;
-        }
-
-        private void apply(List<K> items, boolean klist) {
-            for(int i = 0; i < items.size(); i++) {
-                K item = items.get(i);
-                apply(item);
-                if (i == items.size() - 1) {
-                    if (!isList(item, klist)) {
-                        sb.append(" :: []");
-                    }
-                } else {
-                    if (isList(item, klist)) {
-                        sb.append(" @ ");
-                    } else {
-                        sb.append(" :: ");
-                    }
-                }
-            }
-            if(items.isEmpty()) {
-                sb.append("[]");
-            }
-        }
-
-        private boolean isList(K item, boolean klist) {
-            return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K")) || item instanceof KSequence
-                    || (item instanceof KApply && preproc.functionSet.contains(((KApply) item).klabel())));
-        }
-
-        private void apply(Sort sort) {
-            sb.append(encodeStringToIdentifier(sort));
-        }
-
-        public void apply(KLabel klabel) {
-            if (klabel instanceof KVariable) {
-                apply((KVariable) klabel);
-            } else {
-                sb.append(encodeStringToIdentifier(klabel));
-            }
-        }
-    }
-
-    private boolean isLookupKLabel(KApply k) {
-        return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
+    private FuncVisitor oldConvert(PreprocessedKORE ppk,
+                                   SyntaxBuilder sb,
+                                   boolean rhs,
+                                   SetMultimap<KVariable, String> vars,
+                                   boolean useNativeBooleanExp) {
+        return new FuncVisitor(ppk, sb, rhs, vars, useNativeBooleanExp);
     }
 }
