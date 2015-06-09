@@ -4,7 +4,7 @@ package org.kframework.backend.genericAST;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class Exp extends genericASTNode {
+public abstract class Exp extends GenericASTNode {
 
     protected final Target target;
 
