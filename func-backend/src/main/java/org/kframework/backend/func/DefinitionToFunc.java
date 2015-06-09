@@ -88,18 +88,16 @@ public class DefinitionToFunc {
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
+        return langDefToFunc(preproc).render();
+    }
+
+    public String convert(K k, int depth) {
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // String p = preproc.prettyPrint(); // DEBUG
         // System.out.println(p); // DEBUG
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // if(1 == 1) { throw KEMException.criticalError("blah"); } // DEBUG
-        return langDefToFunc(preproc).render();
-    }
-
-    public String convert(K k, int depth) {
-        // if(1 == 1) { throw KEMException.criticalError("blah"); } // DEBUG
         return runtimeCodeToFunc(k, depth).render();
     }
 
