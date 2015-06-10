@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -89,16 +90,16 @@ public class DefinitionToFunc {
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        return langDefToFunc(preproc).render();
-    }
-
-    public String convert(K k, int depth) {
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         String p = preproc.prettyPrint(); // DEBUG
         System.out.println(p); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        return langDefToFunc(preproc).render();
+    }
+
+    public String convert(K k, int depth) {
         return runtimeCodeToFunc(k, depth).render();
     }
 
@@ -254,11 +255,6 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-
-    private int sortFunctionRules(Rule a1, Rule a2) {
-        return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
-    }
-
     private void addRules(PreprocessedKORE ppk, SyntaxBuilder sb) {
         int i = 0;
         for (List<KLabel> component : ppk.functionOrder) {
@@ -293,7 +289,7 @@ public class DefinitionToFunc {
                 }
 
                 i = 0;
-                for (Rule r : ppk.functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList())) {
+                for (Rule r : ppk.functionRulesOrdered.getOrDefault(functionLabel, new ArrayList<>())) {
                     oldConvert(ppk, r, sb, true, i++, functionName);
                 }
                 sb.addMatchEquation("_", "raise (Stuck [KApply(lbl, c)])");

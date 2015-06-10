@@ -54,17 +54,19 @@ import static scala.compat.java8.JFunction.*;
  */
 public final class PreprocessedKORE {
     public final Set<KLabel> functionSet;
-    public final SetMultimap<KLabel, Rule> functionRules;
+    public final Map<KLabel, List<Rule>> functionRulesOrdered;
     public final List<List<KLabel>> functionOrder;
     public final Set<Sort> definedSorts;
     public final Set<KLabel> definedKLabels;
     public final Map<String, Map<KLabel, String>> attrLabels;
     public final Map<String, Map<Sort, String>> attrSorts;
     public final Map<KLabel, KLabel> collectionFor;
+    public final Map<KLabel, Set<Production>> productionsFor;
     public final Map<Rule, Set<String>> indexedRules;
 
     private final Module mainModule;
     private final Set<Rule> rules;
+    private final SetMultimap<KLabel, Rule> functionRules;
     private final Map<Sort, Att> sortAttributesFor;
     private final Map<KLabel, Att> attributesFor;
 
@@ -121,14 +123,20 @@ public final class PreprocessedKORE {
         attributesFor     = scalaMapAsJava(mainModule.attributesFor());
         sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
         collectionFor     = scalaMapAsJava(mainModule.collectionFor());
+        productionsFor    = getProductionsFor(mainModule);
 
         functionRules = getFunctionRules();
+        functionRulesOrdered = getFunctionRulesOrdered(functionRules);
         functionSet   = getFunctionSet(functionRules);
         functionOrder = getFunctionOrder(functionSet, functionRules);
         attrLabels    = getAttrLabels(attributesFor);
         attrSorts     = getAttrSorts(sortAttributesFor);
 
         indexedRules = getIndexedRules(rules);
+    }
+
+    public K runtimeProcess(K k) {
+        return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
 
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
@@ -178,10 +186,6 @@ public final class PreprocessedKORE {
         res.put(Attribute.HOOK_KEY, hm);
         res.put(Attribute.PREDICATE_KEY, pm);
         return res;
-    }
-
-    public K runtimeProcess(K k) {
-        return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
 
     private boolean attPairPrint(StringBuilder sb, boolean isFirst, KApply ka) {
@@ -300,12 +304,25 @@ public final class PreprocessedKORE {
         sb.append(eol);
         sb.append(eol);
 
+        sb.append("Indexed Rules:");
+        sb.append(eol);
+        for(Rule r : indexedRules.keySet()) {
+            prettyPrint(sb, eol, r);
+            sb.append(eol);
+            sb.append("Indices: ");
+            sb.append(indexedRules.get(r));
+            sb.append(eol);            
+        }
+        sb.append(eol);
+       
         sb.append("Function Rules:");
         sb.append(eol);
-        for(Map.Entry<KLabel, Rule> e : functionRules.entries()) {
-            sb.append(e.getKey());
+        for(KLabel k : functionRulesOrdered.keySet()) {
+            sb.append(k);
             sb.append(" -> ");
-            prettyPrint(sb, eol + "    ", e.getValue());
+            for(Rule r : functionRulesOrdered.get(k)) {
+                prettyPrint(sb, eol + "    ", r);
+            }
             sb.append(eol);
         }
         sb.append(eol);
@@ -367,6 +384,23 @@ public final class PreprocessedKORE {
             sb.append(eol);
         }
         sb.append(eol);
+
+        sb.append("productionsFor:");
+        sb.append(eol);
+        for(KLabel key : productionsFor.keySet()) {
+            if(productionsFor.get(key).size() > 1) {
+                sb.append(key.toString());
+                sb.append(" -> ");
+                for(Production p : productionsFor.get(key)) {
+                    sb.append(eol + "    ");
+                    sb.append(p);
+                }
+                sb.append(eol);
+            }
+        }
+        sb.append(eol);
+
+
     }
 
     public String prettyPrint() {
@@ -375,6 +409,15 @@ public final class PreprocessedKORE {
         return sb.toString();
     }
 
+    private Map<KLabel, Set<Production>> getProductionsFor(Module main) {
+        Map<KLabel, scala.collection.immutable.Set<Production>> m = scalaMapAsJava(main.productionsFor());
+        Map<KLabel, Set<Production>> out = new HashMap<>();
+        for(KLabel k : m.keySet()) {
+            out.put(k, stream(m.get(k)).collect(Collectors.toSet()));
+        }
+        return out;
+    }
+    
     private Optional<KLabel> getKLabelIfFunctionRule(Rule r) {
         K left = RewriteToTop.toLeft(r.body());
         boolean is = false;
@@ -403,6 +446,25 @@ public final class PreprocessedKORE {
         }
 
         return fr;
+    }
+
+    private Map<KLabel, List<Rule>> getFunctionRulesOrdered(SetMultimap<KLabel, Rule> fr) {
+        Map<KLabel, List<Rule>> result = new HashMap<>();
+        List<Rule> rl;
+        
+        for(KLabel k : fr.keySet()) {
+            rl = fr.get(k)
+                   .stream()
+                   .sorted(this::sortFunctionRules)
+                   .collect(Collectors.toList());
+            result.put(k, rl);
+        }
+
+        return result;
+    }
+
+    private int sortFunctionRules(Rule a1, Rule a2) {
+        return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
     }
 
     private Set<KLabel> getFunctionSet(SetMultimap<KLabel, Rule> fr) {
