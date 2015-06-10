@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.kframework.Collections.*;
@@ -92,12 +93,12 @@ public class DefinitionToFunc {
     }
 
     public String convert(K k, int depth) {
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // String p = preproc.prettyPrint(); // DEBUG
-        // System.out.println(p); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        String p = preproc.prettyPrint(); // DEBUG
+        System.out.println(p); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         return runtimeCodeToFunc(k, depth).render();
     }
 
@@ -314,8 +315,9 @@ public class DefinitionToFunc {
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression("c");
         i = 0;
-        for (Rule r : ppk.hasLookupRules) {
-            if (!ppk.functionRules.values().contains(r)) {
+        for (Rule r : ppk.indexedRules.keySet()) {
+            Set<String> cap = ppk.indexedRules.get(r);
+            if (cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "lookups_step");
             }
         }
@@ -330,8 +332,9 @@ public class DefinitionToFunc {
         sb.addLetEquationName("step (c: k) : k");
         sb.beginLetEquationValue();
         sb.beginMatchExpression("c");
-        for (Rule r : ppk.nonLookupRules) {
-            if (!ppk.functionRules.values().contains(r)) {
+        for (Rule r : ppk.indexedRules.keySet()) {
+            Set<String> cap = ppk.indexedRules.get(r);
+            if (!cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "step");
             }
         }
@@ -399,7 +402,7 @@ public class DefinitionToFunc {
 
         String result = oldConvert(vars);
 
-        if(ppk.hasLookupRules.contains(r)) {
+        if(ppk.indexedRules.get(r).contains("lookup")) {
             sb.append(" when not (Guard.mem (GuardElt.Guard ");
             sb.append(Integer.toString(ruleNum));
             sb.append(") guards)");

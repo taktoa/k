@@ -23,6 +23,7 @@ import com.google.common.collect.HashBiMap;
 import org.kframework.definition.Production;
 import org.kframework.utils.algorithms.SCCTarjan;
 
+import java.util.Collection;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -60,8 +61,7 @@ public final class PreprocessedKORE {
     public final Map<String, Map<KLabel, String>> attrLabels;
     public final Map<String, Map<Sort, String>> attrSorts;
     public final Map<KLabel, KLabel> collectionFor;
-    public final Set<Rule> nonLookupRules;
-    public final Set<Rule> hasLookupRules;
+    public final Map<Rule, Set<String>> indexedRules;
 
     private final Module mainModule;
     private final Set<Rule> rules;
@@ -128,9 +128,7 @@ public final class PreprocessedKORE {
         attrLabels    = getAttrLabels(attributesFor);
         attrSorts     = getAttrSorts(sortAttributesFor);
 
-        Tuple2<Set<Rule>, Set<Rule>> lr = partitionLookupRules(rules);
-        hasLookupRules = lr._1();
-        nonLookupRules = lr._2();
+        indexedRules = getIndexedRules(rules);
     }
 
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
@@ -220,7 +218,8 @@ public final class PreprocessedKORE {
         return ret;
     }
 
-    private void prettyPrint(StringBuilder sb, String eol, Att a) {
+    private String renderAtt(Att a) {
+        StringBuilder sb = new StringBuilder();
         Set<String> banned = new HashSet<>();
         banned.add("Location");
         banned.add("Source");
@@ -238,32 +237,44 @@ public final class PreprocessedKORE {
             isFirst = attPairPrint(sb, isFirst, am.get(key));
         }
         sb.append("]");
+        return sb.toString();
     }
 
-    private void prettyPrint(StringBuilder sb, String eol, K k) {
-        sb.append((new CST(k)).render());
+    private String renderK(K k) {
+        return new CST(k).render();
     }
     
-    private void prettyPrint(StringBuilder sb, String eol, Rule r) {        
-        sb.append(eol);
-        sb.append("Body: ");
-        sb.append(eol);
-        prettyPrint(sb, eol + "    ", r.body());
+    private void prettyPrint(StringBuilder sb, String eol, Rule r) {
+        String bodyStr = renderK(r.body());
+        String requiresStr = renderK(r.requires());
+        String ensuresStr = renderK(r.ensures());
+        String attStr = renderAtt(r.att());
 
-        sb.append(eol);
-        sb.append("Requires: ");
-        sb.append(eol);
-        prettyPrint(sb, eol + "    ", r.requires());
-
-        sb.append(eol);
-        sb.append("Ensures: ");
-        sb.append(eol);
-        prettyPrint(sb, eol + "    ", r.ensures());
+        String defaultRequires = "'(token true Bool)";
+        String defaultEnsures = "'(token true Bool)";
+        String defaultAtt = "[]";
         
         sb.append(eol);
-        sb.append("Attributes: ");
-        sb.append(eol);
-        prettyPrint(sb, eol + "    ", r.att());
+        sb.append("Body: ");
+        sb.append(bodyStr);
+
+        if(! defaultRequires.equals(requiresStr)) {
+            sb.append(eol);
+            sb.append("Requires: ");
+            sb.append(requiresStr);
+        }
+
+        if(! defaultEnsures.equals(ensuresStr)) {
+            sb.append(eol);
+            sb.append("Ensures: ");
+            sb.append(ensuresStr);
+        }
+
+        if(! defaultAtt.equals(attStr)) {
+            sb.append(eol);
+            sb.append("Attributes: ");
+            sb.append(attStr);
+        }
     }
 
     private void prettyPrint(StringBuilder sb, String eol, Sort s) {
@@ -278,6 +289,7 @@ public final class PreprocessedKORE {
             prettyPrint(sb, eol, s);
         }
         sb.append(eol);
+        sb.append(eol);
 
         sb.append("KLabels:");
         sb.append(eol);
@@ -285,6 +297,7 @@ public final class PreprocessedKORE {
             sb.append(l.toString());
             sb.append(eol);
         }
+        sb.append(eol);
         sb.append(eol);
 
         sb.append("Function Rules:");
@@ -295,6 +308,7 @@ public final class PreprocessedKORE {
             prettyPrint(sb, eol + "    ", e.getValue());
             sb.append(eol);
         }
+        sb.append(eol);
         sb.append(eol);
 
         sb.append("Function Set:");
@@ -310,19 +324,6 @@ public final class PreprocessedKORE {
             sb.append(eol);
         }
         sb.append(eol);
-
-        sb.append("Rules with Lookups:");
-        sb.append(eol);
-        for(Rule r : hasLookupRules) {
-            prettyPrint(sb, eol, r);
-        }
-        sb.append(eol);
-
-        sb.append("Rules without Lookups:");
-        sb.append(eol);
-        for(Rule r : nonLookupRules) {
-            prettyPrint(sb, eol, r);
-        }
         sb.append(eol);
 
         sb.append("collectionFor:");
@@ -334,23 +335,35 @@ public final class PreprocessedKORE {
             sb.append(eol);
         }
         sb.append(eol);
-
-        sb.append("attributesFor:");
         sb.append(eol);
-        for(KLabel key : attributesFor.keySet()) {
+
+        sb.append("attrLabels:");
+        sb.append(eol);
+        for(String key : attrLabels.keySet()) {
             sb.append(key.toString());
             sb.append(" -> ");
-            prettyPrint(sb, eol, attributesFor.get(key));
+            for(KLabel innerKey : attrLabels.get(key).keySet()) {
+                sb.append(eol + "    ");
+                sb.append(innerKey);
+                sb.append(" -> ");
+                sb.append(attrLabels.get(key).get(innerKey));
+            }
             sb.append(eol);
         }
         sb.append(eol);
-
-        sb.append("sortAttributesFor:");
         sb.append(eol);
-        for(Sort key : sortAttributesFor.keySet()) {
+
+        sb.append("attrSorts:");
+        sb.append(eol);
+        for(String key : attrSorts.keySet()) {
             sb.append(key.toString());
             sb.append(" -> ");
-            prettyPrint(sb, eol, sortAttributesFor.get(key));
+            for(Sort innerKey : attrSorts.get(key).keySet()) {
+                sb.append(eol + "    ");
+                sb.append(innerKey);
+                sb.append(" -> ");
+                sb.append(attrSorts.get(key).get(innerKey));
+            }
             sb.append(eol);
         }
         sb.append(eol);
@@ -451,12 +464,23 @@ public final class PreprocessedKORE {
                .collect(Collectors.toList());
     }
 
-    private Tuple2<Set<Rule>, Set<Rule>> partitionLookupRules(Set<Rule> rs) {
-        Map<Boolean, Set<Rule>> sr
-            = rs.stream().collect(Collectors.groupingBy(this::hasLookups, Collectors.toSet()));
-        Set<Rule> yes = sr.get(Boolean.TRUE);
-        Set<Rule> no = sr.get(Boolean.FALSE);
-        return new Tuple2<Set<Rule>, Set<Rule>>(yes, no);
+    private Map<Rule, Set<String>> getIndexedRules(Set<Rule> rs) {
+        Map<Rule, Set<String>> ret = new HashMap<>();
+        Set<Rule> funcRules = new HashSet<>();
+        for(Map.Entry<KLabel, Rule> e : functionRules.entries()) {
+            funcRules.add(e.getValue());
+        }
+        for(Rule r : rs) {
+            Set<String> tmp = new HashSet<>();
+            if(hasLookups(r)) {
+                tmp.add("lookup");
+            }
+            if(funcRules.contains(r)) {
+                tmp.add("function");
+            }
+            ret.put(r, tmp);
+        }
+        return ret;
     }
 
     public Boolean hasLookups(Rule r) {
