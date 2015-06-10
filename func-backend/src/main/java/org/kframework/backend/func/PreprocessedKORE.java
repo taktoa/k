@@ -25,6 +25,7 @@ import org.kframework.utils.algorithms.SCCTarjan;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
@@ -56,14 +57,16 @@ public final class PreprocessedKORE {
     public final List<List<KLabel>> functionOrder;
     public final Set<Sort> definedSorts;
     public final Set<KLabel> definedKLabels;
-    public final Map<Sort, Att> sortAttributesFor;
-    public final Map<KLabel, Att> attributesFor;
+    public final Map<String, Map<KLabel, String>> attrLabels;
+    public final Map<String, Map<Sort, String>> attrSorts;
     public final Map<KLabel, KLabel> collectionFor;
     public final Set<Rule> nonLookupRules;
     public final Set<Rule> hasLookupRules;
 
     private final Module mainModule;
     private final Set<Rule> rules;
+    private final Map<Sort, Att> sortAttributesFor;
+    private final Map<KLabel, Att> attributesFor;
 
     private final ConvertDataStructureToLookup convertLookupsObj;
     private final GenerateSortPredicateRules   generatePredicatesObj;
@@ -122,16 +125,66 @@ public final class PreprocessedKORE {
         functionRules = getFunctionRules();
         functionSet   = getFunctionSet(functionRules);
         functionOrder = getFunctionOrder(functionSet, functionRules);
+        attrLabels    = getAttrLabels(attributesFor);
+        attrSorts     = getAttrSorts(sortAttributesFor);
 
         Tuple2<Set<Rule>, Set<Rule>> lr = partitionLookupRules(rules);
         hasLookupRules = lr._1();
         nonLookupRules = lr._2();
     }
 
+    private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
+        Map<KLabel, String> res = new HashMap<>();
+        for(Map.Entry<KLabel, Att> e : af.entrySet()) {
+            String h = e.getValue().<String>getOptional(Attribute.HOOK_KEY).orElse("");
+            if(! "".equals(h)) {
+                res.put(e.getKey(), h);
+            }
+        }
+        return res;
+    }
+
+    private Map<String, Map<KLabel, String>> getAttrLabels(Map<KLabel, Att> af) {
+        Map<String, Map<KLabel, String>> res = new HashMap<>();
+        Map<KLabel, String> hm = new HashMap<>();
+        Map<KLabel, String> pm = new HashMap<>();
+        for(Map.Entry<KLabel, Att> e : af.entrySet()) {
+            String h = e.getValue().<String>getOptional(Attribute.HOOK_KEY).orElse("");
+            String p = e.getValue().<String>getOptional(Attribute.PREDICATE_KEY).orElse("");
+            if(! "".equals(h)) {
+                hm.put(e.getKey(), h);
+            }
+            if(! "".equals(p)) {
+                pm.put(e.getKey(), p);
+            }
+        }
+        res.put(Attribute.HOOK_KEY, hm);
+        res.put(Attribute.PREDICATE_KEY, pm);
+        return res;
+    }
+
+    private Map<String, Map<Sort, String>> getAttrSorts(Map<Sort, Att> saf) {
+        Map<String, Map<Sort, String>> res = new HashMap<>();
+        Map<Sort, String> hm = new HashMap<>();
+        Map<Sort, String> pm = new HashMap<>();
+        for(Map.Entry<Sort, Att> e : saf.entrySet()) {
+            String h = e.getValue().<String>getOptional(Attribute.HOOK_KEY).orElse("");
+            String p = e.getValue().<String>getOptional(Attribute.PREDICATE_KEY).orElse("");
+            if(! "".equals(h)) {
+                hm.put(e.getKey(), h);
+            }
+            if(! "".equals(p)) {
+                pm.put(e.getKey(), p);
+            }
+        }
+        res.put(Attribute.HOOK_KEY, hm);
+        res.put(Attribute.PREDICATE_KEY, pm);
+        return res;
+    }
+
     public K runtimeProcess(K k) {
         return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
-
 
     private boolean attPairPrint(StringBuilder sb, boolean isFirst, KApply ka) {
         Set<KLabel> bannedKLabels = new HashSet<>();

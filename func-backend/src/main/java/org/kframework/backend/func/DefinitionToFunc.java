@@ -279,7 +279,7 @@ public class DefinitionToFunc {
                 sb.endLetDefinitions();
                 sb.beginLetScope();
                 sb.beginMatchExpression("c");
-                String hook = ppk.attributesFor.get(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse("");
+                String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(functionLabel, "");
                 if (hooks.containsKey(hook)) {
                     sb.beginMatchEquation();
                     sb.append(hooks.get(hook));
