@@ -7,6 +7,7 @@ import org.kframework.kore.compile.ConvertDataStructureToLookup;
 import org.kframework.kore.compile.DeconstructIntegerLiterals;
 import org.kframework.kore.compile.GenerateSortPredicateRules;
 import org.kframework.kore.compile.LiftToKSequence;
+import org.kframework.kore.compile.SimplifyConditions;
 import org.kframework.backend.java.kore.compile.ExpandMacros;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.errorsystem.KExceptionManager;
@@ -69,6 +70,7 @@ public final class PreprocessedKORE {
     private final LiftToKSequence              liftToKSequenceObj;
     private final DeconstructIntegerLiterals   deconstructIntsObj;
     private final ExpandMacros                 expandMacrosObj;
+    private final SimplifyConditions           simplifyConditionsObj;
 
     private final Definition kompiledDefinition;
 
@@ -77,6 +79,7 @@ public final class PreprocessedKORE {
     private static final String liftToKSequenceStr    = "Lift K into KSequence";
     private static final String deconstructIntsStr    = "Remove matches on integer literals in left hand side";
     private static final String expandMacrosStr       = "Expand macros rules";
+    private static final String simplifyConditionsStr = "Simplify side conditions";
 
     public PreprocessedKORE(CompiledDefinition def,
                             KExceptionManager kem,
@@ -98,12 +101,14 @@ public final class PreprocessedKORE {
                                                  files,
                                                  globalOptions,
                                                  kompileOptions);
+        simplifyConditionsObj = new SimplifyConditions();
 
         pipeline =        deconstructIntsMT()
                  .andThen(convertLookupsMT())
                  .andThen(expandMacrosMT())
                  .andThen(generatePredicatesMT())
-                 .andThen(liftToKSequenceMT());
+                 .andThen(liftToKSequenceMT())
+                 .andThen(simplifyConditionsMT());
 
         mainModule = pipeline.apply(executionModule);
 
@@ -429,6 +434,10 @@ public final class PreprocessedKORE {
 
     private ModuleTransformer liftToKSequenceMT() {
         return ModuleTransformer.fromSentenceTransformer(liftToKSequenceObj::convert, liftToKSequenceStr);
+    }
+
+    private ModuleTransformer simplifyConditionsMT() {
+        return ModuleTransformer.fromSentenceTransformer(simplifyConditionsObj::convert, simplifyConditionsStr);
     }
 
     private ModuleTransformer deconstructIntsMT() {

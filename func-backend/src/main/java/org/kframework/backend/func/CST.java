@@ -4,7 +4,7 @@ import org.kframework.kore.K;
 
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Optional;
 
 import org.kframework.utils.errorsystem.KEMException;
@@ -41,32 +41,40 @@ public class CST {
             for(CST c : list.get()) {
                 ls.add(c.render());
             }
-            return renderList(ls);
+            return renderList(ls.listIterator());
         } else {
             throw KEMException.criticalError("Failed rendering CST");
         }
     }
 
-    private String renderList(List<String> ls) {
-        if(ls.isEmpty()) {
+    private String renderList(ListIterator<String> ls) {
+        if(! ls.hasNext()) {
             return "()";
         }
 
-        if(ls.size() == 1) {
-            return "(" + ls.get(0) + ")";
+        String fst = ls.next();
+
+        if(! ls.hasNext()) {
+            return fst;
+        }
+
+        if(fst == "quote") {
+            return renderQuoted(ls);
         }
 
         StringBuilder sb = new StringBuilder();
 
         sb.append("(");
-        sb.append(ls.get(0));
-        Iterator<String> i = ls.listIterator(1);
-        while(i.hasNext()) {
+        sb.append(fst);
+        while(ls.hasNext()) {
             sb.append(" ");
-            sb.append(i.next());
+            sb.append(ls.next());
         }
         sb.append(")");
         return sb.toString();
     }
-}
 
+    private String renderQuoted(ListIterator<String> ls) {
+        return "'" + renderList(ls);
+    }
+}

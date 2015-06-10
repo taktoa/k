@@ -23,7 +23,6 @@ public class KPrettyVisitor extends AbstractKORETransformer<CST> {
     @Override
     public CST apply(KApply k) {
         List<CST> l = new ArrayList<>();
-        l.add(new CST("apply"));
         l.add(apply(k.klabel()));
         for(K i : k.klist().items()) {
             l.add(apply(i));
@@ -34,7 +33,7 @@ public class KPrettyVisitor extends AbstractKORETransformer<CST> {
     @Override
     public CST apply(KRewrite k) {
         List<CST> l = new ArrayList<>();
-        l.add(new CST("rewrite"));
+        l.add(new CST("=>"));
         l.add(apply(k.left()));
         l.add(apply(k.right()));
         l.add(apply(k.att()));
@@ -45,14 +44,14 @@ public class KPrettyVisitor extends AbstractKORETransformer<CST> {
     public CST apply(KToken k) {
         List<CST> l = new ArrayList<>();
         l.add(new CST("token"));
-        l.add(new CST(k.toString()));
+        l.add(new CST(k.s()));
+        l.add(new CST(k.sort().toString()));
         return new CST(l);
     }
 
     @Override
     public CST apply(KVariable k) {
         List<CST> l = new ArrayList<>();
-        l.add(new CST("variable"));
         l.add(new CST(k.toString()));
         return new CST(l);
     }
@@ -60,7 +59,7 @@ public class KPrettyVisitor extends AbstractKORETransformer<CST> {
     @Override
     public CST apply(KSequence k) {
         List<CST> l = new ArrayList<>();
-        l.add(new CST("sequence"));
+        l.add(new CST("quote"));
         for(K i : k.items()) {
             l.add(apply(i));
         }
@@ -70,7 +69,7 @@ public class KPrettyVisitor extends AbstractKORETransformer<CST> {
     @Override
     public CST apply(InjectedKLabel k) {
         List<CST> l = new ArrayList<>();
-        l.add(new CST("inject"));
+        l.add(new CST("quote"));
         l.add(new CST(k.toString()));
         return new CST(l);
     }
