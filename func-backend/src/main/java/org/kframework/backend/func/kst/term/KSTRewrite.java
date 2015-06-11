@@ -9,6 +9,14 @@ public class KSTRewrite extends KSTTerm {
         rhs = r;
     }
 
+    public KSTTerm getLHS() {
+        return lhs;
+    }
+
+    public KSTTerm getRHS() {
+        return rhs;
+    }
+
     public String toString() {
         return String.format("(rewrite %s %s)", lhs, rhs);
     }

@@ -19,6 +19,14 @@ public class KSTApply extends KSTTerm {
         sort = s;
     }
 
+    public KSTLabel getLabel() {
+        return label;
+    }
+
+    public List<KSTTerm> getArgs() {
+        return args;
+    }
+
     public KSTSort getSort() {
         return sort;
     }
