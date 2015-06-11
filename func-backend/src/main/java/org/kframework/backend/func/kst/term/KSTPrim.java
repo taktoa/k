@@ -15,6 +15,6 @@ public class KSTPrim<Prim> extends KSTTerm {
     }
 
     public String toString() {
-        return String.format("((prim %s) : %s)", prim, sort);
+        return String.format("(prim %s : %s)", prim, sort);
     }
 }

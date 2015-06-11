@@ -37,6 +37,6 @@ public class KSTApply extends KSTTerm {
             sb.append(" ");
             sb.append(t);
         }
-        return String.format("((apply %s %s) : %s)", label, sb.toString(), sort);
+        return String.format("(apply %s %s : %s)", label, sb.toString(), sort);
     }
 }

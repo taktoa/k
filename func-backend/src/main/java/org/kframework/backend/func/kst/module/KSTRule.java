@@ -15,6 +15,22 @@ public class KSTRule extends KST {
         atts = a;
     }
 
+    public KSTTerm getBody() {
+        return body;
+    }
+
+    public KSTTerm getRequires() {
+        return requires;
+    }
+
+    public KSTTerm getEnsures() {
+        return ensures;
+    }
+
+    public Set<KSTAtt> getAtts() {
+        return atts;
+    }
+
     public String toString() {
         return String.format("(rule %s %s %s %s)", body, requires, ensures, atts);
     }

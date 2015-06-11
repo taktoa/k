@@ -19,6 +19,6 @@ public class KSTVariable extends KSTTerm {
     }
 
     public String toString() {
-        return String.format("((variable %s) : %s)", name, sort);
+        return String.format("(variable %s : %s)", name, sort);
     }
 }

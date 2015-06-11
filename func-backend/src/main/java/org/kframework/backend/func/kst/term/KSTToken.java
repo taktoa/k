@@ -19,6 +19,6 @@ public class KSTToken extends KSTTerm {
     }
 
     public String toString() {
-        return String.format("((token %s) : %s)", token, sort);
+        return String.format("(token %s : %s)", token, sort);
     }
 }

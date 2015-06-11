@@ -7,7 +7,11 @@ public class KSTLabel extends KSTTerm {
         name = n;
     }
 
-    public String toString() {
+    public String getName() {
         return name;
+    }
+
+    public String toString() {
+        return getName();
     }
 }
