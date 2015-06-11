@@ -64,6 +64,8 @@ public class DefinitionToFunc {
 
     private FuncAST runtimeCodeToFunc(K k, int depth) {
         SyntaxBuilder sb = new SyntaxBuilder();
+        System.out.println("Example:");
+        System.out.println(new KOREtoKSTVisitor().apply(k).toString());
         sb.addImport("Def");
         sb.addImport("K");
         sb.addImport("Big_int");
