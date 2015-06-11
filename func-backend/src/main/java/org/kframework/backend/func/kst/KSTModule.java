@@ -11,6 +11,14 @@ public class KSTModule {
         rules = r;
     }
 
+    public Set<KSTSyntax> getSyntax() {
+        return syntax;
+    }
+
+    public Set<KSTRule> getRules() {
+        return rules;
+    }
+
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("module:");

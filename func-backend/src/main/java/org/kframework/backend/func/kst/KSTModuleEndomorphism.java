@@ -1,16 +1,18 @@
 package org.kframework.backend.func.kst;
 
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 
-public class KSTModuleEndomorphism implements UnaryOperator<KSTModule> {
-    private final KSTSyntaxEndomorphism syntaxEndo;
-    private final KSTRuleEndomorphism   ruleEndo;
+public class KSTModuleEndomorphism <ST extends UnaryOperator<KSTSyntax>,
+                                    RT extends UnaryOperator<KSTRule>>
+                                   implements UnaryOperator<KSTModule> {
+    private final ST syntaxEndo;
+    private final RT ruleEndo;
 
-    public KSTModuleEndomorphism(KSTSyntaxEndomorphism kse,
-                                  KSTRuleEndomorphism kre) {
+    public KSTModuleEndomorphism(ST kse, RT kre) {
         syntaxEndo = kse;
         ruleEndo = kre;
-        next = nxt;
     }
 
     @Override
