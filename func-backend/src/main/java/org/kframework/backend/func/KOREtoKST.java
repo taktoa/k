@@ -26,9 +26,9 @@ import org.kframework.backend.func.kst.KSTRewrite;
 import org.kframework.backend.func.kst.KSTRule;
 import org.kframework.backend.func.kst.KSTSyntax;
 import org.kframework.backend.func.kst.KSTModule;
-import org.kframework.backend.func.kst.sort.KSTSortAny;
-import org.kframework.backend.func.kst.label.KSTLabelSeq;
-import org.kframework.backend.func.kst.label.KSTLabelInj;
+import org.kframework.backend.func.kst.KSTSortAny;
+import org.kframework.backend.func.kst.KSTLabelSeq;
+import org.kframework.backend.func.kst.KSTLabelInj;
 
 import java.util.List;
 import java.util.Map;

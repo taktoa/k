@@ -1,6 +1,4 @@
-package org.kframework.backend.func.kst.sort;
-
-import org.kframework.backend.func.kst.KSTSort;
+package org.kframework.backend.func.kst;
 
 public class KSTSortArrow extends KSTSort {
     private final KSTSort from;

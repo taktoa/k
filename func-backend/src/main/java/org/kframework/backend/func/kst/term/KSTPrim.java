@@ -1,7 +1,5 @@
 package org.kframework.backend.func.kst;
 
-import org.kframework.backend.func.kst.sort.KSTSortAny;
-
 public class KSTPrim<Prim> extends KSTTerm {
     private final Prim prim;
     private final KSTSort sort;

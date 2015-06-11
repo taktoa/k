@@ -1,7 +1,5 @@
 package org.kframework.backend.func.kst;
 
-import org.kframework.backend.func.kst.sort.KSTSortAny;
-
 public class KSTToken extends KSTTerm {
     private final String token;
     private final KSTSort sort;

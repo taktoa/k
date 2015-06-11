@@ -1,7 +1,6 @@
 package org.kframework.backend.func.kst;
 
 import java.util.List;
-import org.kframework.backend.func.kst.sort.KSTSortAny;
 
 public class KSTApply extends KSTTerm {
     private final KSTLabel label;

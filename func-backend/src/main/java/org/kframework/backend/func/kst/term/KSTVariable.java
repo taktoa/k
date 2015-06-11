@@ -1,7 +1,5 @@
 package org.kframework.backend.func.kst;
 
-import org.kframework.backend.func.kst.sort.KSTSortAny;
-
 public class KSTVariable extends KSTTerm {
     private final String name;
     private final KSTSort sort;

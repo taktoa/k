@@ -1,6 +1,4 @@
-package org.kframework.backend.func.kst.label;
-
-import org.kframework.backend.func.kst.KSTLabel;
+package org.kframework.backend.func.kst;
 
 public class KSTLabelInj extends KSTLabel {
     public KSTLabelInj() {
