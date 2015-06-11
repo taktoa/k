@@ -19,6 +19,7 @@ import scala.Function1;
 import scala.Tuple2;
 
 import org.kframework.backend.func.kst.KSTModule;
+import org.kframework.backend.func.kst.RemoveKSequence;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -114,7 +115,7 @@ public final class PreprocessedKORE {
                  .andThen(convertLookupsMT())
                  .andThen(expandMacrosMT())
                  .andThen(generatePredicatesMT())
-                 .andThen(liftToKSequenceMT())
+            //      .andThen(liftToKSequenceMT())
                  .andThen(simplifyConditionsMT());
 
         mainModule = pipeline.apply(executionModule);
@@ -141,8 +142,9 @@ public final class PreprocessedKORE {
         return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
 
-    private KSTModule getKSTModule() {
-        return KOREtoKST.convert(mainModule);
+    public KSTModule getKSTModule() {
+        return RemoveKSequence.getModuleEndo().apply(KOREtoKST.convert(mainModule));
+        //return KOREtoKST.convert(mainModule);
     }
     
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
