@@ -43,6 +43,6 @@ func-test:
 	        --main-module $(TEST_MODULE) \
 	        --kore --backend func \
 	        --debug; \
-	krun $(TEST_INPUT) --kore; \
+	krun $(TEST_INPUT) --kore --debug; \
 	cd $$OLDDIR; \
 	rm -rf $$TMPDIR

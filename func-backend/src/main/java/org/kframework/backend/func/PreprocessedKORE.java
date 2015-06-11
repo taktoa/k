@@ -18,6 +18,8 @@ import org.kframework.kore.K;
 import scala.Function1;
 import scala.Tuple2;
 
+import org.kframework.backend.func.kst.KSTModule;
+
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import org.kframework.definition.Production;
@@ -139,6 +141,10 @@ public final class PreprocessedKORE {
         return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
 
+    private KSTModule getKSTModule() {
+        return KOREtoKST.convert(mainModule);
+    }
+    
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
         Map<KLabel, String> res = new HashMap<>();
         for(Map.Entry<KLabel, Att> e : af.entrySet()) {
@@ -400,7 +406,11 @@ public final class PreprocessedKORE {
         }
         sb.append(eol);
 
-
+        sb.append(eol);
+        sb.append(eol);
+        sb.append(getKSTModule().toString());
+        sb.append(eol);
+        sb.append(eol);
     }
 
     public String prettyPrint() {
