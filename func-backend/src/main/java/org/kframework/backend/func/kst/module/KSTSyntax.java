@@ -13,6 +13,18 @@ public class KSTSyntax extends KST {
         args = a;
     }
 
+    public KSTSort getSort() {
+        return sort;
+    }
+
+    public KSTLabel getLabel() {
+        return label;
+    }
+
+    public List<KSTSort> getArgs() {
+        return args;
+    }
+    
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for(KSTSort a : args) {

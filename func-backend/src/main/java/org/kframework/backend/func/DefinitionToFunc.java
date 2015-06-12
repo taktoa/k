@@ -94,7 +94,7 @@ public class DefinitionToFunc {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        System.out.println(preproc.getKSTModule().toString());
+        System.out.println(new KOREtoKST().sortCheckStrMod(preproc.getKSTModule()));
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         

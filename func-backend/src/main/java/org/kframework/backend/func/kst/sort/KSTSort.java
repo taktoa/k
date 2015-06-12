@@ -7,6 +7,10 @@ public class KSTSort {
         name = n;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public String toString() {
         return name;
     }

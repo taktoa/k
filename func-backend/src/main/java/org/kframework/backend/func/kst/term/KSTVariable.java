@@ -14,6 +14,10 @@ public class KSTVariable extends KSTTerm {
         super.setSort(s);
     }
 
+    public String getName() {
+        return name;
+    }
+    
     public String toString() {
         return String.format("(variable %s : %s)", name, super.getSort());
     }
