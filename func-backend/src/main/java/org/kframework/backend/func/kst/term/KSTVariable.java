@@ -2,23 +2,19 @@ package org.kframework.backend.func.kst;
 
 public class KSTVariable extends KSTTerm {
     private final String name;
-    private final KSTSort sort;
     
     public KSTVariable(String n) {
+        super();
         name = n;
-        sort = new KSTSortAny();
     }
 
     public KSTVariable(String n, KSTSort s) {
+        super();
         name = n;
-        sort = s;
-    }
-
-    public KSTSort getSort() {
-        return sort;
+        super.setSort(s);
     }
 
     public String toString() {
-        return String.format("(variable %s : %s)", name, sort);
+        return String.format("(variable %s : %s)", name, super.getSort());
     }
 }

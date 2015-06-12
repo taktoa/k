@@ -2,19 +2,19 @@ package org.kframework.backend.func.kst;
 
 public class KSTPrim<Prim> extends KSTTerm {
     private final Prim prim;
-    private final KSTSort sort;
     
     public KSTPrim(Prim p) {
+        super();
         prim = p;
-        sort = new KSTSortAny();
     }
 
     public KSTPrim(Prim p, KSTSort s) {
+        super();
         prim = p;
-        sort = s;
+        super.setSort(s);
     }
 
     public String toString() {
-        return String.format("(prim %s : %s)", prim, sort);
+        return String.format("(prim %s : %s)", prim, super.getSort());
     }
 }

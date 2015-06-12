@@ -115,7 +115,7 @@ public final class PreprocessedKORE {
                  .andThen(convertLookupsMT())
                  .andThen(expandMacrosMT())
                  .andThen(generatePredicatesMT())
-            //      .andThen(liftToKSequenceMT())
+                 .andThen(liftToKSequenceMT())
                  .andThen(simplifyConditionsMT());
 
         mainModule = pipeline.apply(executionModule);
@@ -144,7 +144,6 @@ public final class PreprocessedKORE {
 
     public KSTModule getKSTModule() {
         return RemoveKSequence.getModuleEndo().apply(KOREtoKST.convert(mainModule));
-        //return KOREtoKST.convert(mainModule);
     }
     
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {

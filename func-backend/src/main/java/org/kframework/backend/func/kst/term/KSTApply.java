@@ -5,18 +5,18 @@ import java.util.List;
 public class KSTApply extends KSTTerm {
     private final KSTLabel label;
     private final List<KSTTerm> args;
-    private final KSTSort sort;
     
     public KSTApply(KSTLabel l, List<KSTTerm> a) {
+        super();
         label = l;
         args = a;
-        sort = new KSTSortAny();
     }
-
+    
     public KSTApply(KSTLabel l, List<KSTTerm> a, KSTSort s) {
+        super();
         label = l;
         args = a;
-        sort = s;
+        super.setSort(s);
     }
 
     public KSTLabel getLabel() {
@@ -27,16 +27,12 @@ public class KSTApply extends KSTTerm {
         return args;
     }
 
-    public KSTSort getSort() {
-        return sort;
-    }
-
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for(KSTTerm t : args) {
             sb.append(" ");
             sb.append(t);
         }
-        return String.format("(apply %s %s : %s)", label, sb.toString(), sort);
+        return String.format("(apply %s %s : %s)", label, sb, super.getSort());
     }
 }
