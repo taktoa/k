@@ -20,11 +20,15 @@ import scala.Tuple2;
 
 import org.kframework.backend.func.kst.KSTModule;
 import org.kframework.backend.func.kst.RemoveKSequence;
+import org.kframework.backend.func.kst.SyntaxToType;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import org.kframework.definition.Production;
 import org.kframework.utils.algorithms.SCCTarjan;
+
+import java.util.function.UnaryOperator;
+import java.util.function.Function;
 
 import java.util.Collection;
 import java.util.ArrayList;
@@ -143,7 +147,12 @@ public final class PreprocessedKORE {
     }
 
     public KSTModule getKSTModule() {
-        return RemoveKSequence.getModuleEndo().apply(KOREtoKST.convert(mainModule));
+        Function<KSTModule, KSTModule> removeKSequence, syntaxToType, pipeline;
+        removeKSequence = RemoveKSequence.getModuleEndo();
+        syntaxToType    = SyntaxToType.getModuleEndo();
+        pipeline        =          removeKSequence
+                          .andThen(syntaxToType);
+        return pipeline.apply(KOREtoKST.convert(mainModule));
     }
     
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {

@@ -6,12 +6,20 @@ public class KSTSort {
     public KSTSort(String n) {
         name = n;
     }
-
+    
     public String getName() {
         return name;
     }
 
     public String toString() {
         return name;
+    }
+
+    public boolean equals(KSTSort s) {
+        return name.equals(s.getName());
+    }
+
+    public int hashCode() {
+        return name.hashCode();
     }
 }

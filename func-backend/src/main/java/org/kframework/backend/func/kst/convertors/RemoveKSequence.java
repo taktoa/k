@@ -10,10 +10,11 @@ public class RemoveKSequence extends KSTTermEndomorphism {
             && k.getArgs().size() == 1;
     }
 
-    public static final KSTModuleEndomorphism getModuleEndo() {
+    public static final UnaryOperator<KSTModule> getModuleEndo() {
         KSTTermEndomorphism te = new RemoveKSequence();
         KSTRuleEndomorphism re = new KSTRuleEndomorphism(te, UnaryOperator.identity());
-        return new KSTModuleEndomorphism(new KSTModuleTermEndomorphism(KSTRule.class, re));
+        KSTModuleTermEndomorphism mte = new KSTModuleTermEndomorphism(KSTRule.class, re);
+        return (UnaryOperator<KSTModule>) new KSTModuleEndomorphism(mte);
     }
     
     @Override
