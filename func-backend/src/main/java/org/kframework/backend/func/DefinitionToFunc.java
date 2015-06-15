@@ -91,17 +91,11 @@ public class DefinitionToFunc {
     }
 
     public String convert(CompiledDefinition def) {
-        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println(new KOREtoKST().sortCheckStrMod(preproc.getKSTModule()));
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        
+        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);        
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        String p = preproc.prettyPrint(); // DEBUG
-        System.out.println(p); // DEBUG
+        System.out.println(preproc.prettyPrint()); // DEBUG
+        System.out.println(SortCheck.sortCheck(preproc.getKSTModule())); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         return langDefToFunc(preproc).render();
