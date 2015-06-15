@@ -1,25 +1,25 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 import com.google.common.collect.ImmutableList;
 /**
  * @author: Sebastian Conybeare
  */
-public class Match extends Exp {
+public class FMatch extends FExp {
 
-    private final ImmutableList<PatternBinding> cases;
+    private final ImmutableList<FPatternBinding> cases;
 
-    public Match(Target target, ImmutableList<PatternBinding> cases) {
+    public FMatch(FTarget target, ImmutableList<FPatternBinding> cases) {
         super(target);
         this.cases = cases;
     }
 
-    public Match(Target target, PatternBinding... cases) {
+    public FMatch(FTarget target, FPatternBinding... cases) {
         super(target);
         this.cases = ImmutableList.copyOf(cases);
     }
 
-    public ImmutableList<PatternBinding> getCases() {
+    public ImmutableList<FPatternBinding> getCases() {
         return cases;
     }
 

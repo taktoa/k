@@ -1,33 +1,33 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class HaskellTarget extends Target {
+public abstract class HaskellFTarget extends FTarget {
     private int constructorNameCount;
     private int typeNameCount;
     private int variableNameCount;
     private static int catamorphismNameCount = 0;
     
-    public HaskellTarget() {
+    public HaskellFTarget() {
         constructorNameCount = 0;
         typeNameCount = 0;
         variableNameCount = 0;
     }
 
     @Override
-    public String unparse(App a) {
+    public String unparse(FApp a) {
         return String.format("(%s) (%s)", a.getFunction().unparse(), a.getArgument().unparse());
     }
 
     @Override
-    public String unparse(Constructor c) {
-        return c.getConstructorName().toString();
+    public String unparse(FConstructor c) {
+        return c.getFConstructorName().toString();
     }
 
     @Override
-    public String unparse(If i) {
+    public String unparse(FIf i) {
         return String.format("if (%s) then (%s) else (%s)",
                              i.getCondition().unparse(),
                              i.getTrueBranch().unparse(),
@@ -35,22 +35,22 @@ public abstract class HaskellTarget extends Target {
     }
 
     @Override
-    public String unparse(LitBool b) {
+    public String unparse(FLitBool b) {
         return b.getValue() ? "True" : "False";
     }
 
     @Override
-    public String unparse(LitInt i) {
+    public String unparse(FLitInt i) {
         return String.format("%i", i.getValue());
     }
 
     @Override
-    public String unparse(LitString s) {
+    public String unparse(FLitString s) {
         return String.format("\"%s\"", s.getValue());
     }
 
     @Override
-    public String unparse(Variable v) {
+    public String unparse(FVariable v) {
         return v.toString();
     }
 
@@ -60,15 +60,15 @@ public abstract class HaskellTarget extends Target {
     
 
     @Override
-    public String newConstructorName() {
-        String name = String.format("Constructor%i",
+    public String newFConstructorName() {
+        String name = String.format("FConstructor%i",
                                        constructorNameCount);
         constructorNameCount++;
         return name;
     }
 
     @Override
-    public String newTypeName() {
+    public String newFTypeName() {
         String rawName = String.format("Type%i",
                                        typeNameCount);
         typeNameCount++;
@@ -76,7 +76,7 @@ public abstract class HaskellTarget extends Target {
     }
 
     @Override
-    public String newVariable() {
+    public String newFVariable() {
         String rawName = String.format("var%i",
                                        variableNameCount);
         variableNameCount++;
@@ -91,26 +91,26 @@ public abstract class HaskellTarget extends Target {
     }
 
     @Override
-    public String declare(ADT a) {
+    public String declare(FADT a) {
         return "";
     }
 
     @Override
-    protected Exp createCatamorphism(ADT a, TypeExp e) {
-        return new Variable(this); //TODO implement polymorphic pattern matching.
+    protected FExp createCatamorphism(FADT a, TypeFExp e) {
+        return new FVariable(this); //TODO implement polymorphic pattern matching.
     }
 
-    private class Catamorphism extends Exp {
-        private final ADT domain;
+    private class Catamorphism extends FExp {
+        private final FADT domain;
         private final CatamorphismName name;
 
-        public Catamorphism(ADT domain, Target target) {
+        public Catamorphism(FADT domain, FTarget target) {
             super(target);
             this.domain = domain;
             name = new CatamorphismName(target);
         }
 
-        public ADT getDomain() {
+        public FADT getDomain() {
             return domain;
         }
 
@@ -124,9 +124,9 @@ public abstract class HaskellTarget extends Target {
         }
     }
 
-    private class CatamorphismName extends Identifier {
-        public CatamorphismName(Target target) {
-            super(HaskellTarget.newCatamorphismName());
+    private class CatamorphismName extends FIdentifier {
+        public CatamorphismName(FTarget target) {
+            super(HaskellFTarget.newCatamorphismName());
         }
     }
     

@@ -1,16 +1,16 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class Variable extends Exp {
+public class FVariable extends FExp {
 
-    private final VariableName name;
+    private final FVariableName name;
 
-    public Variable(Target target) {
+    public FVariable(FTarget target) {
         super(target);
-        name = new VariableName(target);
+        name = new FVariableName(target);
     }
 
     public String getName() {

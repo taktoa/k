@@ -1,19 +1,19 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class LitInt extends Exp {
-    
-    private final int val;
-    
-    public LitInt(int i, Target target) {
+public class FLitString extends FExp {
+
+    private final String val;
+
+    public FLitString(String val, FTarget target) {
         super(target);
-        val = i;
+        this.val = val;
     }
 
-    public int getValue() {
+    public String getValue() {
         return val;
     }
 

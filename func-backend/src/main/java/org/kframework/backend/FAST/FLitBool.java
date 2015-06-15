@@ -1,19 +1,19 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class LitString extends Exp {
+public class FLitBool extends FExp {
 
-    private final String val;
+    private final boolean val;
 
-    public LitString(String val, Target target) {
+    public FLitBool(boolean b, FTarget target) {
         super(target);
-        this.val = val;
+        val = b;
     }
 
-    public String getValue() {
+    public boolean getValue() {
         return val;
     }
 
@@ -22,5 +22,5 @@ public class LitString extends Exp {
         return target.unparse(this);
     }
 
-    
+
 }

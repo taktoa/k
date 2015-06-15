@@ -1,14 +1,14 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class Exp extends GenericASTNode {
+public abstract class FExp extends FGenericASTNode {
 
-    protected final Target target;
+    protected final FTarget target;
 
-    public Exp(Target target) {
+    public FExp(FTarget target) {
         super(target);
         this.target = target;
     }

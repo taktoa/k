@@ -1,31 +1,31 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class If extends Exp {
+public class FIf extends FExp {
     
-    private final Exp condition;
-    private final Exp trueBranch;
-    private final Exp falseBranch;
+    private final FExp condition;
+    private final FExp trueBranch;
+    private final FExp falseBranch;
 
-    public If(Exp cond, Exp t, Exp f, Target target) {
+    public FIf(FExp cond, FExp t, FExp f, FTarget target) {
         super(target);
         condition = cond;
         trueBranch = t;
         falseBranch = f;
     }
 
-    public Exp getCondition() {
+    public FExp getCondition() {
         return condition;
     }
 
-    public Exp getTrueBranch() {
+    public FExp getTrueBranch() {
         return trueBranch;
     }
 
-    public Exp getFalseBranch() {
+    public FExp getFalseBranch() {
         return falseBranch;
     }
 

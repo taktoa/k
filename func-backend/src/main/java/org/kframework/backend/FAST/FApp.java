@@ -1,24 +1,24 @@
 // Copyright (c) 2013-2015 K Team. All Rights Reserved.
-package org.kframework.backend.genericAST;
+package org.kframework.backend.FAST;
 
 /**
  * @author: Sebastian Conybeare
  */
-public class App extends Exp {
+public class FApp extends FExp {
 
-    private final Exp func, arg;
+    private final FExp func, arg;
 
-    public App(Exp func, Exp arg, Target target) {
+    public FApp(FExp func, FExp arg, FTarget target) {
         super(target);
         this.func = func;
         this.arg = arg;
     }
 
-    public Exp getFunction() {
+    public FExp getFunction() {
         return func;
     }
 
-    public Exp getArgument() {
+    public FExp getArgument() {
         return arg;
     }
 
