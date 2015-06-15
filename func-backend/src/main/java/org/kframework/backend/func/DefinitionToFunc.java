@@ -32,6 +32,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 import static org.kframework.Collections.*;
@@ -118,91 +120,144 @@ public class DefinitionToFunc {
         sb.endTypeDefinition();
     }
 
-    private void addSortOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("order_sort(s: sort)");
-        sb.beginLetEquationValue();
-        sb.beginMatchExpression("s");
-
-        int i = 0;
-
-        for (Sort s : ppk.definedSorts) {
-            sb.beginMatchEquation();
-            sb.beginMatchEquationPattern();
-            sb.append(encodeStringToIdentifier(s));
-            sb.endMatchEquationPattern();
-            sb.addMatchEquationValue(Integer.toString(i++));
+    private List<Integer> rangeInclusive(int min, int step, int max) {
+        int elements = Math.abs((max - min) / step);
+        int padding = 4;
+        List<Integer> result = new ArrayList<>(elements + padding);
+        for(int i = min; i <= max; i += step) {
+            result.add(new Integer(i));
         }
+        return result;
+    }
 
-        sb.endMatchExpression();
-        sb.endLetEquationValue();
-        sb.endLetDefinitions();
-        sb.endLetEquation();
+    private List<Integer> rangeExclusive(int min, int step, int max) {
+        List<Integer> result = rangeInclusive(min, step, max);
+        result.remove(0);
+        result.remove(result.size() - 1);
+        return result;
+    }
+
+    private List<Integer> rangeInclusive(int min, int max) {
+        return rangeInclusive(min, 1, max);
+    }
+
+    private List<Integer> rangeInclusive(int max) {
+        return rangeInclusive(0, max);
+    }
+
+    private List<Integer> rangeExclusive(int min, int max) {
+        return rangeExclusive(min, 1, max);
+    }
+
+    private List<Integer> rangeExclusive(int max) {
+        return rangeExclusive(0, max);
+    }
+
+    private Function<String, String> wrapPrint(String pfx) {
+        return x -> pfx + encodeStringToAlphanumeric(x);
+    }
+
+    private String addSimpleFunc(Collection<String> pats,
+                                 Collection<String> vals,
+                                 String args,
+                                 String outType,
+                                 String funcName,
+                                 String matchVal) {
+        SyntaxBuilder matchSB = new SyntaxBuilder();
+        matchSB.addMatch(matchVal,
+                         pats.stream().collect(Collectors.toList()),
+                         vals.stream().collect(Collectors.toList()));
+
+        String letName = String.format("%s(%s) : %s",
+                                       funcName, args, outType);
+
+        SyntaxBuilder output = new SyntaxBuilder();
+        output.addGlobalLet(letName, matchSB.toString());
+
+        return output.toString();
+    }
+
+    private String addSimpleFunc(Collection<String> pats,
+                                 Collection<String> vals,
+                                 String inType,
+                                 String outType,
+                                 String funcName) {
+        String varName = String.valueOf(inType.charAt(0));
+        String arg = String.format("%s: %s", varName, inType);
+        return addSimpleFunc(pats, vals, arg, outType, funcName, varName);
+    }
+    
+    private <T> String addOrderFunc(Collection<T> elems,
+                                    Function<T, String> print,
+                                    String pfx,
+                                    String tyName) {
+        String fnName = String.format("order_%s", tyName);
+
+        List<String> pats = elems.stream()
+                                 .map(print)
+                                 .map(wrapPrint(pfx))
+                                 .collect(Collectors.toList());
+        List<String> vals = rangeInclusive(pats.size()).stream()
+                                                       .map(x -> Integer.toString(x))
+                                                       .collect(Collectors.toList());
+
+        return addSimpleFunc(pats, vals, tyName, "int", fnName);
+    }
+
+    private String addType(Collection<String> cons, String tyName) {
+        SyntaxBuilder sb = new SyntaxBuilder();
+        sb.beginTypeDefinition(tyName);
+        for(String c : cons) {
+            sb.addConstructor(c);            
+        }
+        sb.endTypeDefinition();
+        return sb.toString();
+    }
+    
+    private <T> String addEnumType(Collection<T> toEnum,
+                                   Function<T, String> print,
+                                   String pfx,
+                                   String tyName) {
+        List<String> cons = toEnum.stream()
+                                  .map(print)
+                                  .map(wrapPrint(pfx))
+                                  .collect(Collectors.toList());
+        return addType(cons, tyName);
+    }
+
+    private void addSortOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
+        sb.append(addOrderFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }
 
     private void addKLabelType(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginTypeDefinition("klabel");
-        for (KLabel label : ppk.definedKLabels) {
-            sb.beginConstructor();
-            sb.append(encodeStringToIdentifier(label));
-            sb.endConstructor();
-        }
-        sb.endTypeDefinition();
+        sb.append(addEnumType(ppk.definedKLabels, x -> x.name(), "Lbl", "klabel"));
     }
 
     private void addKLabelOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("order_klabel(l: klabel)");
-        sb.beginLetEquationValue();
-
-        sb.beginMatchExpression("l");
-
-        int i = 0;
-
-        for (KLabel label : ppk.definedKLabels) {
-            sb.beginMatchEquation();
-            sb.beginMatchEquationPattern();
-            sb.append(encodeStringToIdentifier(label));
-            sb.endMatchEquationPattern();
-            sb.addMatchEquationValue(Integer.toString(i++));
-            sb.endMatchEquation();
-        }
-        sb.endMatchExpression();
-
-        sb.endLetEquationValue();
-        sb.endLetEquation();
-        sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.append(addOrderFunc(ppk.definedKLabels, x -> x.name(), "Lbl", "klabel"));
     }
 
+    private <T> String addPrintFunc(Collection<T> elems,
+                                    Function<T, String> print,
+                                    String pfx,
+                                    String tyName) {
+        String fnName = String.format("print_%s_string", tyName);
+
+        List<String> pats = elems.stream()
+                                 .map(print)
+                                 .map(wrapPrint(pfx))
+                                 .collect(Collectors.toList());
+        
+        List<String> vals = elems.stream()
+                                 .map(print)
+                                 .map(x -> StringUtil.enquoteCString(StringUtil.enquoteKString(x)))
+                                 .collect(Collectors.toList());
+
+        return addSimpleFunc(pats, vals, tyName, "string", fnName);
+    }
+    
     private void addPrintSortString(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("print_sort_string(c: sort) : string");
-        sb.beginLetEquationValue();
-
-        sb.beginMatchExpression("c");
-
-        for (Sort s : ppk.definedSorts) {
-            sb.beginMatchEquation();
-            sb.beginMatchEquationPattern();
-            sb.append(encodeStringToIdentifier(s));
-            sb.endMatchEquationPattern();
-            sb.addMatchEquationValue(StringUtil.enquoteCString(StringUtil.enquoteKString(s.name())));
-            sb.endMatchEquation();
-        }
-
-        sb.endMatchExpression();
-
-        sb.endLetEquationValue();
-        sb.endLetEquation();
-        sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.append(addPrintFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }
 
     private void addPrintSort(PreprocessedKORE ppk, SyntaxBuilder sb) {
@@ -261,13 +316,12 @@ public class DefinitionToFunc {
         int i = 0;
         for (List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
+            // List<String> names = new ArrayList<>(component.size());
+            // List<String> values = new ArrayList<>(component.size());
+            sb.beginLetrecExpression();
+            sb.beginLetrecDefinitions();
             for (KLabel functionLabel : component) {
-                if(inLetrec) {
-                    sb.addLetrecEquationSeparator();
-                } else {
-                    sb.beginLetrecExpression();
-                    sb.beginLetrecDefinitions();
-                }
+                if(inLetrec) { sb.addLetrecEquationSeparator(); }
                 sb.beginLetrecEquation();
                 String functionName = encodeStringToFunction(functionLabel.name());
                 sb.addLetrecEquationName(functionName + " (c: k list) (guards: Guard.t) : k");

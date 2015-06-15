@@ -1,5 +1,7 @@
 package org.kframework.backend.func;
 
+import java.util.List;
+
 /**
  * @author: Remy Goldschmidt
  */
@@ -30,6 +32,14 @@ public class SyntaxBuilder {
         return render();
     }
 
+    public void addGlobalLet(String name, String value) {
+        beginLetExpression();
+        beginLetDefinitions();
+        addLetEquation(name, value);
+        endLetDefinitions();
+        endLetExpression();
+    }
+    
     public void addLetEquation(String name, String value) {
         beginLetEquation();
         addLetEquationName(name);
@@ -179,6 +189,14 @@ public class SyntaxBuilder {
 
 
 
+    public void addMatch(String value, List<String> pats, List<String> vals) {
+        beginMatchExpression(value);
+        for(int i = Math.min(pats.size(), vals.size()) - 1; i >= 0; i--) {
+            addMatchEquation(pats.get(i), vals.get(i));
+        }
+        endMatchExpression();
+    }
+    
     public void addMatchEquation(String pattern, String value) {
         beginMatchEquation();
         addMatchEquationPattern(pattern);

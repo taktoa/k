@@ -242,7 +242,7 @@ public final class OcamlIncludes {
         return sb.toString();
     }
 
-    private static String encodeStringToAlphanumeric(String name) {
+    public static String encodeStringToAlphanumeric(String name) {
         StringBuilder sb = new StringBuilder();
         boolean inIdentifier = true;
         for (int i = 0; i < name.length(); i++) {
