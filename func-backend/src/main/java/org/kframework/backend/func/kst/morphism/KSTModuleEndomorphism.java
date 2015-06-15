@@ -4,13 +4,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 
-public class KSTModuleEndomorphism <ST extends UnaryOperator<KSTSyntax>,
-                                    RT extends UnaryOperator<KSTRule>>
-                                   implements UnaryOperator<KSTModule> {
-    private final ST syntaxEndo;
-    private final RT ruleEndo;
+public class KSTModuleEndomorphism implements UnaryOperator<KSTModule> {
+    private final UnaryOperator<KSTSyntax> syntaxEndo;
+    private final UnaryOperator<KSTRule>   ruleEndo;
 
-    public KSTModuleEndomorphism(ST kse, RT kre) {
+    public KSTModuleEndomorphism(UnaryOperator<KSTSyntax> kse,
+                                 UnaryOperator<KSTRule> kre) {
         syntaxEndo = kse;
         ruleEndo = kre;
     }

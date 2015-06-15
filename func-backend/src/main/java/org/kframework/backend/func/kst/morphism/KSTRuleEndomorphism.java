@@ -4,13 +4,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 
-public class KSTRuleEndomorphism <TT extends UnaryOperator<KSTTerm>,
-                                  AT extends UnaryOperator<KSTAtt>>
-                                 implements UnaryOperator<KSTRule> {
-    private final TT termEndo;
-    private final AT attEndo;
+public class KSTRuleEndomorphism implements UnaryOperator<KSTRule> {
+    private final UnaryOperator<KSTTerm> termEndo;
+    private final UnaryOperator<KSTAtt>  attEndo;
     
-    public KSTRuleEndomorphism(TT t, AT a) {
+    public KSTRuleEndomorphism(UnaryOperator<KSTTerm> t,
+                               UnaryOperator<KSTAtt> a) {
         termEndo = t;
         attEndo = a;
     }

@@ -2,11 +2,10 @@ package org.kframework.backend.func.kst;
 
 import java.util.function.UnaryOperator;
 
-public class KSTSyntaxEndomorphism <ST extends UnaryOperator<KSTSyntax>>
-                                   implements UnaryOperator<KSTSyntax> {
-    private final ST syntaxFunc;
+public class KSTSyntaxEndomorphism implements UnaryOperator<KSTSyntax> {
+    private final UnaryOperator<KSTSyntax> syntaxFunc;
     
-    public KSTSyntaxEndomorphism(ST sf) {
+    public KSTSyntaxEndomorphism(UnaryOperator<KSTSyntax> sf) {
         syntaxFunc = sf;
     }
 
