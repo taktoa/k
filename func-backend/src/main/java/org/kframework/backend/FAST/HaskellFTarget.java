@@ -61,73 +61,35 @@ public abstract class HaskellFTarget extends FTarget {
 
     @Override
     public String newFConstructorName() {
-        String name = String.format("FConstructor%i",
-                                       constructorNameCount);
-        constructorNameCount++;
-        return name;
+        synchronized(this) {
+            return String.format("Constructor%i", constructorNameCount++);
+        }
     }
 
     @Override
     public String newFTypeName() {
-        String rawName = String.format("Type%i",
-                                       typeNameCount);
-        typeNameCount++;
-        return rawName;
+        synchronized(this) {
+            return String.format("Type%i", typeNameCount++);
+        }
     }
 
     @Override
     public String newFVariable() {
-        String rawName = String.format("var%i",
-                                       variableNameCount);
-        variableNameCount++;
-        return rawName;
+        synchronized(this) {
+            return String.format("var%i", variableNameCount++);
+        }
     }
 
-    static String newCatamorphismName() {
-        String rawName = String.format("cata%d",
-                                       catamorphismNameCount);
-        catamorphismNameCount++;
-        return rawName;
-    }
+    // static String newCatamorphismName() {
+    //     String rawName = String.format("cata%d",
+    //                                    catamorphismNameCount);
+    //     catamorphismNameCount++;
+    //     return rawName;
+    // }
 
     @Override
-    public String declare(FADT a) {
-        return "";
+    public String declare(FDeclarable a) {
+        return a.declare(); //TODO declarations
     }
 
-    @Override
-    protected FExp createCatamorphism(FADT a, TypeFExp e) {
-        return new FVariable(this); //TODO implement polymorphic pattern matching.
-    }
-
-    private class Catamorphism extends FExp {
-        private final FADT domain;
-        private final CatamorphismName name;
-
-        public Catamorphism(FADT domain, FTarget target) {
-            super(target);
-            this.domain = domain;
-            name = new CatamorphismName(target);
-        }
-
-        public FADT getDomain() {
-            return domain;
-        }
-
-        public CatamorphismName getCatamorphismName() {
-            return name;
-        }
-
-        @Override
-        public String unparse() {
-            return name.toString();
-        }
-    }
-
-    private class CatamorphismName extends FIdentifier {
-        public CatamorphismName(FTarget target) {
-            super(HaskellFTarget.newCatamorphismName());
-        }
-    }
-    
 }

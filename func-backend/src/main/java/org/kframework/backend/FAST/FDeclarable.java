@@ -4,13 +4,15 @@ package org.kframework.backend.FAST;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class FPattern extends FASTNode{
+public abstract class FDeclarable extends FASTNode {
 
     protected final FTarget target;
 
-    public FPattern(FTarget target) {
+    protected FDeclarable(FTarget target) {
         super(target);
         this.target = target;
     }
+
+    public abstract String declare();
 
 }

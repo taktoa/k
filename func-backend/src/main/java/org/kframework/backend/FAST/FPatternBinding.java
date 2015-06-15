@@ -4,7 +4,7 @@ package org.kframework.backend.FAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class FPatternBinding extends FGenericASTNode {
+public class FPatternBinding extends FASTNode {
 
     private final FPattern lhs;
     private final FExp rhs;

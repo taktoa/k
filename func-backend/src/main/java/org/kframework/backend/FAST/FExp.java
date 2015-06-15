@@ -4,11 +4,11 @@ package org.kframework.backend.FAST;
 /**
  * @author: Sebastian Conybeare
  */
-public abstract class FExp extends FGenericASTNode {
+public abstract class FExp extends FASTNode {
 
     protected final FTarget target;
 
-    public FExp(FTarget target) {
+    protected FExp(FTarget target) {
         super(target);
         this.target = target;
     }

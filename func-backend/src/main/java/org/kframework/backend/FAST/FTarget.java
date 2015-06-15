@@ -19,7 +19,7 @@ public abstract class FTarget {
     public abstract String newFTypeName();
     public abstract String newFVariable();
 
-    public abstract String declare(FADT a);
+    public abstract String declare(FDeclarable a);
 
     // The implementor should have this method return an expression
     // representing a specialized catamorphism which has, for each
@@ -32,6 +32,6 @@ public abstract class FTarget {
     // We recommend that the implementor create a Catamorphism class
     // internal to the specialized FTarget class in order to accomplish
     // this, with additional unparse and declare methods.
-    protected abstract FExp createCatamorphism(FADT a, TypeFExp e);
+    // protected abstract FExp createCatamorphism(FADT a, TypeFExp e);
 
 }

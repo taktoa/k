@@ -4,11 +4,11 @@ package org.kframework.backend.FAST;
 /**
  * @author: Sebastian Conybeare
  */
-public class FGenericASTNode {
+public class FASTNode {
 
     protected final FTarget target;
 
-    protected FGenericASTNode(FTarget target) {
+    protected FASTNode(FTarget target) {
         this.target = target;
     }
 
