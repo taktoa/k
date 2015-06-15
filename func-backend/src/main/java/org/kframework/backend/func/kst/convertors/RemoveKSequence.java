@@ -13,7 +13,7 @@ public class RemoveKSequence extends KSTTermEndomorphism {
     public static final KSTModuleEndomorphism getModuleEndo() {
         KSTTermEndomorphism te = new RemoveKSequence();
         KSTRuleEndomorphism re = new KSTRuleEndomorphism(te, UnaryOperator.identity());
-        return new KSTModuleEndomorphism(UnaryOperator.identity(), re);
+        return new KSTModuleEndomorphism(new KSTModuleTermEndomorphism(KSTRule.class, re));
     }
     
     @Override

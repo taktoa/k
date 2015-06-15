@@ -2,7 +2,7 @@ package org.kframework.backend.func.kst;
 
 import java.util.Set;
 
-public class KSTRule extends KST {
+public class KSTRule extends KSTModuleTerm {
     private final KSTTerm body;
     private final KSTTerm requires;
     private final KSTTerm ensures;

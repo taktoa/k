@@ -5,25 +5,18 @@ import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 
 public class KSTModuleEndomorphism implements UnaryOperator<KSTModule> {
-    private final UnaryOperator<KSTSyntax> syntaxEndo;
-    private final UnaryOperator<KSTRule>   ruleEndo;
+    private final UnaryOperator<KSTModuleTerm> mtEndo;
 
-    public KSTModuleEndomorphism(UnaryOperator<KSTSyntax> kse,
-                                 UnaryOperator<KSTRule> kre) {
-        syntaxEndo = kse;
-        ruleEndo = kre;
+    public KSTModuleEndomorphism(UnaryOperator<KSTModuleTerm> mte) {
+        mtEndo = mte;
     }
 
     @Override
     public KSTModule apply(KSTModule km) {
-        Set<KSTSyntax> newStx = km.getSyntax()
-                                  .stream()
-                                  .map(syntaxEndo::apply)
-                                  .collect(Collectors.toSet());
-        Set<KSTRule>   newRls = km.getRules()
-                                  .stream()
-                                  .map(ruleEndo::apply)
-                                  .collect(Collectors.toSet());
-        return new KSTModule(newStx, newRls);
+        Set<KSTModuleTerm> newMts = km.getTerms()
+                                      .stream()
+                                      .map(mtEndo::apply)
+                                      .collect(Collectors.toSet());
+        return new KSTModule(newMts);
     }
 }

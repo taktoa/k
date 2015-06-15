@@ -29,13 +29,17 @@ public final class SortCheck {
     }
 
     private String sortCheckStrMod(KSTModule m) {
-        String stx = m.getSyntax()
+        String stx = m.getTerms()
                       .stream()
+                      .filter(x -> x instanceof KSTSyntax)
+                      .map(x -> (KSTSyntax) x)
                       .map(this::sortCheckStrSyn)
                       .collect(Collectors.joining("\n", "", "\n"));
 
-        String rls = m.getRules()
+        String rls = m.getTerms()
                       .stream()
+                      .filter(x -> x instanceof KSTRule)
+                      .map(x -> (KSTRule) x)
                       .map(this::sortCheckStrRule)
                       .collect(Collectors.joining("\n", "", "\n"));
 

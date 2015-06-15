@@ -2,7 +2,7 @@ package org.kframework.backend.func.kst;
 
 import java.util.List;
 
-public class KSTSyntax extends KST {
+public class KSTSyntax extends KSTModuleTerm {
     private final KSTSort sort;
     private final KSTLabel label;
     private final List<KSTSort> args;

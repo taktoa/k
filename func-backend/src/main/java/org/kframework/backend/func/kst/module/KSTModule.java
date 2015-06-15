@@ -1,36 +1,24 @@
 package org.kframework.backend.func.kst;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class KSTModule {
-    private final Set<KSTSyntax> syntax;
-    private final Set<KSTRule> rules;
+    private final Set<KSTModuleTerm> modTerms;
 
-    public KSTModule(Set<KSTSyntax> s, Set<KSTRule> r) {
-        syntax = s;
-        rules = r;
+    public KSTModule(Set<KSTModuleTerm> t) {
+        modTerms = t;
     }
 
-    public Set<KSTSyntax> getSyntax() {
-        return syntax;
-    }
-
-    public Set<KSTRule> getRules() {
-        return rules;
+    public Set<KSTModuleTerm> getTerms() {
+        return modTerms;
     }
 
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("module:");
-        for(KSTSyntax s : syntax) {
-            sb.append("\n");
-            sb.append(s);
-        }
-        for(KSTRule r : rules) {
-            sb.append("\n");
-            sb.append(r);
-        }
-        sb.append("\n");
-        return sb.toString();
+        return modTerms.stream()
+                       .map(x -> x.toString())
+                       .collect(Collectors.joining("\n",
+                                                   "module:\n",
+                                                   "\n"));
     }
 }

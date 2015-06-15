@@ -15,6 +15,7 @@ import org.kframework.kore.Sort;
 import org.kframework.kore.KLabel;
 import org.kframework.kore.AbstractKORETransformer;
 import org.kframework.backend.func.kst.KST;
+import org.kframework.backend.func.kst.KSTModuleTerm;
 import org.kframework.backend.func.kst.KSTApply;
 import org.kframework.backend.func.kst.KSTAtt;
 import org.kframework.backend.func.kst.KSTLabel;
@@ -76,8 +77,9 @@ public final class KOREtoKST {
     }
     
     public static KSTModule convert(Module m) {
-        Set<KSTSyntax> stx = new HashSet<>();
-        Set<KSTRule> rls = new HashSet<>();
+        Set<KSTModuleTerm> mts = new HashSet<>();
+        KSTSyntax stx;
+        KSTRule rl;
         
         Map<KLabel, scala.collection.immutable.Set<Tuple2<scala.collection.Seq<Sort>, Sort>>> rawSigs;
         Set<Tuple2<scala.collection.Seq<Sort>, Sort>> sigSet;
@@ -87,14 +89,16 @@ public final class KOREtoKST {
             sigSet = stream(rawSigs.get(kl)).collect(Collectors.toSet());
             
             for(Tuple2<scala.collection.Seq<Sort>, Sort> tup : sigSet) {
-                stx.add(convertSyntax(kl, tup._2, stream(tup._1).collect(Collectors.toList())));
+                stx = convertSyntax(kl, tup._2, stream(tup._1).collect(Collectors.toList()));
+                mts.add((KSTModuleTerm) stx);
             }
         }
 
         for(Rule r : stream(m.rules()).collect(Collectors.toList())) {
-            rls.add(convertRule(r));
+            rl = convertRule(r);
+            mts.add((KSTModuleTerm) rl);
         }
 
-        return new KSTModule(stx, rls);
+        return new KSTModule(mts);
     }
 }
