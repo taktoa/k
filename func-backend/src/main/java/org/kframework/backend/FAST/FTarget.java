@@ -21,17 +21,4 @@ public abstract class FTarget {
 
     public abstract String declare(FDeclarable a);
 
-    // The implementor should have this method return an expression
-    // representing a specialized catamorphism which has, for each
-    // constructor C with argument type A, an argument of type:
-    // ((a -> e) -> A -> e).
-    // For example, if the first argument a is the Nat FADT defined by
-    // data Nat = Z | S Nat, we have the catamorphism, whose type is:
-    // ((Nat -> e) -> e) -> ((Nat -> e) -> Nat -> e) -> (Nat -> e)
-    //
-    // We recommend that the implementor create a Catamorphism class
-    // internal to the specialized FTarget class in order to accomplish
-    // this, with additional unparse and declare methods.
-    // protected abstract FExp createCatamorphism(FADT a, TypeFExp e);
-
 }
