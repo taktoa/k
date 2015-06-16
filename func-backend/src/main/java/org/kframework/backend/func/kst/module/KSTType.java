@@ -28,6 +28,7 @@ public class KSTType extends KSTModuleTerm {
         sb.append(" ");
         for(Map.Entry<KSTLabel, List<KSTSort>> e : cons.entrySet()) {
             kl = e.getKey();
+            sb.append("\n      ");
             sb.append("(");
             sb.append(kl);
             for(KSTSort s : e.getValue()) {
@@ -35,7 +36,6 @@ public class KSTType extends KSTModuleTerm {
                 sb.append(s);
             }
             sb.append(")");
-            sb.append("\n      ");
         }
         sb.append(")\n");
         return sb.toString();
