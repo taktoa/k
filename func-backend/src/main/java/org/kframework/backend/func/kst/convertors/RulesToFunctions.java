@@ -20,7 +20,6 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
     @Override
     public KSTModule apply(KSTModule k) {
         Set<KSTLabel> fls = getFunctionLabels(k);
-        System.out.println("DBG: " + fls.toString());
         return new KSTModule(k.getTerms()
                               .stream()
                               .map(x -> moduleTermTransformer(x, fls))
@@ -38,16 +37,10 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
 
     private static KSTModuleTerm moduleTermTransformer(KSTModuleTerm kmt,
                                                        Set<KSTLabel> fls) {
-//        if(! isFunctionRule(kmt)) {
-//            return ruleToFunction((KSTRule) kmt, fls);
-//        } else {
-//            return kmt;
-//        }
         if(! (kmt instanceof KSTRule)) {
             return kmt;
         }
 
-        //        System.out.println("DBG: ISRULE: " + kmt.toString());
         return ruleToFunction((KSTRule) kmt, fls, kmt);
     }
 
@@ -80,20 +73,18 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
             return fail;
         }
 
-        System.out.println("DBG: " + funcLabel + " is a function label");
-        KSTModuleTerm test = applyToFunction(leftApp, right, funcLabel, fail);
-        System.out.println("DBG: Result: " + test);
-        return test;
+        return applyToFunction(leftApp, right, funcLabel, fls, fail);
     }
 
     private static KSTModuleTerm applyToFunction(KSTApply leftApp,
-                                                KSTTerm funcBody,
-                                                KSTLabel funcLabel,
-                                                KSTModuleTerm fail) {
+                                                 KSTTerm funcBody,
+                                                 KSTLabel funcLabel,
+                                                 Set<KSTLabel> fls,
+                                                 KSTModuleTerm fail) {
         List<KSTTerm> funcArgs = new ArrayList<>(leftApp.getArgs().size());
 
         for(KSTTerm t : leftApp.getArgs()) {
-            if(! checkIfValidPattern(t)) {
+            if(! checkIfValidPattern(t, fls)) {
                 return fail;
             }
 
@@ -114,8 +105,28 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
         return false;
     }
 
-    private static boolean checkIfValidPattern(KSTTerm t) {
-        return true; // FIXME
+    private static boolean checkIfValidPattern(KSTTerm term,
+                                               Set<KSTLabel> fls) {
+        if(term instanceof KSTToken) {
+            return true;
+        } else if(term instanceof KSTPrim) {
+            return true;
+        } else if(term instanceof KSTRewrite) {
+            return false;
+        } else if(term instanceof KSTVariable) {
+            return true;
+        } else if(term instanceof KSTApply) {
+            KSTApply app = (KSTApply) term;
+            if(fls.contains(app.getLabel())) {
+                return false;
+            }
+            boolean result = true;
+            for(KSTTerm t : app.getArgs()) {
+                result &= checkIfValidPattern(t, fls);
+            }
+            return result;
+        }
+        return false;
     }
 
     private static boolean hasNoSideConditions(KSTRule kr) {
@@ -132,12 +143,6 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
     }
 
     private static Boolean isFunction(KSTAtt att) {
-        boolean test = "function".equals(att.getLabel().getName());
-//        if(test) {
-//            System.out.format("DBG: function == %s\n", att);
-//        } else {
-//            System.out.format("DBG: function =/= %s\n", att.getLabel().getName());
-//        }
-        return Boolean.valueOf(test);
+        return Boolean.valueOf("function".equals(att.getLabel().getName()));
     }
 }

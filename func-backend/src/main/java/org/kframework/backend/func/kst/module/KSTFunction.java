@@ -59,6 +59,6 @@ public class KSTFunction extends KSTModuleTerm {
                             .map(v -> v.toString())
                             .collect(Collectors.joining(" ", "(", ")"));
 
-        return String.format("(function %s %s : %s)\n", argStr, body, fs);
+        return String.format("(function %s %s %s : %s)\n", label, argStr, body, fs);
     }
 }
