@@ -17,7 +17,8 @@ public class KSTVariable extends KSTTerm {
     public String getName() {
         return name;
     }
-    
+
+    @Override
     public String toString() {
         return String.format("(variable %s : %s)", name, super.getSort());
     }

@@ -57,23 +57,36 @@ public final class KOREtoKST {
         return new KSTLabel(kl.name());
     }
     
-    private static KSTSyntax convertSyntax(KLabel kl, Sort s, List<Sort> a) {
+    private static KSTSyntax convertSyntax(KLabel kl,
+                                           Sort s,
+                                           List<Sort> a,
+                                           Att att) {
         return new KSTSyntax(convertSort(s),
                              convertLabel(kl),
                              a.stream()
                               .map(srt -> new KSTSort(srt.name()))
-                              .collect(Collectors.toList()));
+                              .collect(Collectors.toList()),
+                             convertAtt(att));
     }
 
     private static KSTRule convertRule(Rule r) {
         KOREtoKSTVisitor v = new KOREtoKSTVisitor();
 
-        KSTTerm bod = v.applyAsTerm(r.body());
-        KSTTerm req = v.applyAsTerm(r.requires());
-        KSTTerm ens = v.applyAsTerm(r.ensures());
-        Set<KSTAtt> atts = new HashSet<>();
+        KSTTerm bod      = v.applyAsTerm(r.body());
+        KSTTerm req      = v.applyAsTerm(r.requires());
+        KSTTerm ens      = v.applyAsTerm(r.ensures());
+        Set<KSTAtt> atts = convertAtt(r.att());
 
         return new KSTRule(bod, req, ens, atts);
+    }
+
+    private static Set<KSTAtt> convertAtt(Att a) {
+        KOREtoKSTVisitor v = new KOREtoKSTVisitor();
+        return a.stream()
+                .filter(x -> x instanceof KApply)
+                .map(v::applyAsApply)
+                .map(x -> new KSTAtt(x))
+                .collect(Collectors.toSet());
     }
     
     public static KSTModule convert(Module m) {
@@ -84,12 +97,16 @@ public final class KOREtoKST {
         Map<KLabel, scala.collection.immutable.Set<Tuple2<scala.collection.Seq<Sort>, Sort>>> rawSigs;
         Set<Tuple2<scala.collection.Seq<Sort>, Sort>> sigSet;
         rawSigs = scalaMapAsJava(m.signatureFor());
+        Map<KLabel, Att> attMap = scalaMapAsJava(m.attributesFor());
         
         for(KLabel kl : rawSigs.keySet()) {
             sigSet = stream(rawSigs.get(kl)).collect(Collectors.toSet());
             
             for(Tuple2<scala.collection.Seq<Sort>, Sort> tup : sigSet) {
-                stx = convertSyntax(kl, tup._2, stream(tup._1).collect(Collectors.toList()));
+                stx = convertSyntax(kl,
+                                    tup._2,
+                                    stream(tup._1).collect(Collectors.toList()),
+                                    attMap.get(kl));
                 mts.add((KSTModuleTerm) stx);
             }
         }

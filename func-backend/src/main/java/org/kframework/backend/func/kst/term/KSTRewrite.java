@@ -17,6 +17,7 @@ public class KSTRewrite extends KSTTerm {
         return rhs;
     }
 
+    @Override
     public String toString() {
         return String.format("(rewrite %s %s)", lhs, rhs);
     }

@@ -14,6 +14,20 @@ public class KSTToken extends KSTTerm {
         super.setSort(s);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof KSTToken) {
+            return o.hashCode() == hashCode();
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return token.hashCode();
+    }
+
+    @Override
     public String toString() {
         return String.format("(token %s : %s)", token, super.getSort());
     }

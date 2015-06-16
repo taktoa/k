@@ -11,6 +11,21 @@ public class KSTLabel extends KSTTerm {
         return name;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof KSTLabel) {
+            return name.equals(((KSTLabel) o).getName());
+        } else {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode() {
+        return name.hashCode();
+    }
+
+    @Override
     public String toString() {
         return getName();
     }

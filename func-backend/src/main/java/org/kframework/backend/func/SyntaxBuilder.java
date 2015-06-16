@@ -28,6 +28,7 @@ public class SyntaxBuilder {
         return sb.toString();
     }
 
+    @Override
     public String toString() {
         return render();
     }

@@ -27,6 +27,20 @@ public class KSTApply extends KSTTerm {
         return args;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof KSTApply) {
+            return o.hashCode() == hashCode();
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return label.hashCode() + 2 * args.hashCode();
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for(KSTTerm t : args) {

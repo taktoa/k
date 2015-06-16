@@ -14,6 +14,7 @@ public class KSTPrim<Prim> extends KSTTerm {
         super.setSort(s);
     }
 
+    @Override
     public String toString() {
         return String.format("(prim %s : %s)", prim, super.getSort());
     }

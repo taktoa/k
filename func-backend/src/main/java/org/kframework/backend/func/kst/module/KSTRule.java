@@ -6,13 +6,24 @@ public class KSTRule extends KSTModuleTerm {
     private final KSTTerm body;
     private final KSTTerm requires;
     private final KSTTerm ensures;
-    private final Set<KSTAtt> atts;
     
-    public KSTRule(KSTTerm b, KSTTerm r, KSTTerm e, Set<KSTAtt> a) {
-        body = b;
-        requires = r;
-        ensures = e;
-        atts = a;
+    public KSTRule(KSTTerm body,
+                   KSTTerm requires,
+                   KSTTerm ensures) {
+        super();
+        this.body = body;
+        this.requires = requires;
+        this.ensures = ensures;
+    }
+
+    public KSTRule(KSTTerm body,
+                   KSTTerm requires,
+                   KSTTerm ensures,
+                   Set<KSTAtt> atts) {
+        super(atts);
+        this.body = body;
+        this.requires = requires;
+        this.ensures = ensures;
     }
 
     public KSTTerm getBody() {
@@ -27,11 +38,8 @@ public class KSTRule extends KSTModuleTerm {
         return ensures;
     }
 
-    public Set<KSTAtt> getAtts() {
-        return atts;
-    }
-
+    @Override
     public String toString() {
-        return String.format("(rule %s %s %s %s)", body, requires, ensures, atts);
+        return String.format("(rule %s %s %s %s)\n", body, requires, ensures, getAtts());
     }
 }

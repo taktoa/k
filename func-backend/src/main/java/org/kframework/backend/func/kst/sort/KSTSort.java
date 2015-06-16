@@ -11,14 +11,21 @@ public class KSTSort {
         return name;
     }
 
+    @Override
     public String toString() {
         return name;
     }
 
-    public boolean equals(KSTSort s) {
-        return name.equals(s.getName());
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof KSTSort) {
+            return name.equals(((KSTSort) o).getName());
+        } else {
+            return false;
+        }
     }
 
+    @Override
     public int hashCode() {
         return name.hashCode();
     }

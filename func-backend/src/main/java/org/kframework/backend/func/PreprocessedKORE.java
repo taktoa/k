@@ -21,6 +21,7 @@ import scala.Tuple2;
 import org.kframework.backend.func.kst.KSTModule;
 import org.kframework.backend.func.kst.RemoveKSequence;
 import org.kframework.backend.func.kst.SyntaxToType;
+import org.kframework.backend.func.kst.RulesToFunctions;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -147,12 +148,21 @@ public final class PreprocessedKORE {
     }
 
     public KSTModule getKSTModule() {
-        Function<KSTModule, KSTModule> removeKSequence, syntaxToType, pipeline;
-        removeKSequence = RemoveKSequence.getModuleEndo();
-        syntaxToType    = SyntaxToType.getModuleEndo();
-        pipeline        =          removeKSequence
-                          .andThen(syntaxToType);
-        return pipeline.apply(KOREtoKST.convert(mainModule));
+        Function<KSTModule, KSTModule>
+            removeKSequence, rulesToFunctions,
+            syntaxToType, pipeline;
+        removeKSequence  = RemoveKSequence.getModuleEndo();
+        rulesToFunctions = RulesToFunctions.getModuleEndo();
+        syntaxToType     = SyntaxToType.getModuleEndo();
+//        pipeline         =          removeKSequence
+//                           .andThen(rulesToFunctions)
+//                           .andThen(syntaxToType);
+//        return pipeline.apply(KOREtoKST.convert(mainModule));
+        KSTModule a = KOREtoKST.convert(mainModule);
+        KSTModule b = removeKSequence.apply(a);
+        KSTModule c = rulesToFunctions.apply(b);
+        KSTModule d = syntaxToType.apply(c);
+        return d;
     }
     
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
