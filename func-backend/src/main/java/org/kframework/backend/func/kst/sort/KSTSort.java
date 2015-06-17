@@ -19,7 +19,15 @@ public class KSTSort {
     @Override
     public boolean equals(Object o) {
         if(o instanceof KSTSort) {
-            return name.equals(((KSTSort) o).getName());
+            // FIXME(remy): a hack to simulate subsorting on Any
+            String on = ((KSTSort) o).getName();
+            if("Any".equals(on)) {
+                return true;
+            } else if("Any".equals(name)) {
+                return true;
+            } else {
+                return name.equals(on);
+            }
         } else {
             return false;
         }

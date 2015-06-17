@@ -8,10 +8,10 @@ import com.google.common.collect.Lists;
 import org.kframework.utils.errorsystem.KEMException;
 
 public final class KSTMatch extends KSTExpr {
-    private final List<KSTPattern> pats;
+    private final List<List<KSTPattern>> pats;
     private final List<KSTExpr> vals;
 
-    public KSTMatch(List<KSTPattern> pats,
+    public KSTMatch(List<List<KSTPattern>> pats,
                     List<KSTExpr> vals) {
         if(pats.size() != vals.size()) {
             throw KEMException.criticalError("KSTMatch: pattern and value list lengths do not match");
@@ -21,7 +21,7 @@ public final class KSTMatch extends KSTExpr {
         this.vals = vals;
     }
 
-    public List<KSTPattern> getPats() {
+    public List<List<KSTPattern>> getPats() {
         return pats;
     }
 
@@ -33,7 +33,7 @@ public final class KSTMatch extends KSTExpr {
         return pats.size();
     }
 
-    public <T> List<T> indexedMap(Function<Integer, BiFunction<KSTPattern, KSTExpr, T>> func) {
+    public <T> List<T> indexedMap(Function<Integer, BiFunction<List<KSTPattern>, KSTExpr, T>> func) {
         List<T> result = Lists.newArrayListWithCapacity(size());
         for(int i = 0; i < size(); i++) {
             result.add(func.apply(Integer.valueOf(i)).apply(pats.get(i), vals.get(i)));
@@ -41,11 +41,11 @@ public final class KSTMatch extends KSTExpr {
         return result;
     }
 
-    public <T> List<T> map(BiFunction<KSTPattern, KSTExpr, T> func) {
+    public <T> List<T> map(BiFunction<List<KSTPattern>, KSTExpr, T> func) {
         return indexedMap(i -> func);
     }
 
-    public <T> List<T> mapPats(Function<KSTPattern, T> func) {
+    public <T> List<T> mapPats(Function<List<KSTPattern>, T> func) {
         return map((p, v) -> func.apply(p));
     }
 
@@ -57,7 +57,7 @@ public final class KSTMatch extends KSTExpr {
     public boolean equals(Object o) {
         if(o instanceof KSTMatch) {
             KSTMatch km = (KSTMatch) o;
-            List<KSTPattern> kmPats = km.getPats();
+            List<List<KSTPattern>> kmPats = km.getPats();
             List<KSTExpr> kmVals = km.getVals();
             List<Boolean> bools = indexedMap(i ->
                                              (p, v) ->

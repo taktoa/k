@@ -49,16 +49,18 @@ public class KSTFunction extends KSTModuleTerm {
         return body;
     }
 
-    @Override
-    public String toString() {
+    public KSTSort getSort() {
         List<KSTSort> sortL = args.stream().map(v -> v.getTerm().getSort()).collect(Collectors.toList());
         sortL.add(resultSort);
-        KSTSort fs = KSTSortArrow.createFromSortList(sortL);
+        return KSTSortArrow.createFromSortList(sortL);
+    }
 
+    @Override
+    public String toString() {
         String argStr = args.stream()
                             .map(v -> v.toString())
                             .collect(Collectors.joining(" "));
 
-        return String.format("(function %s (%s) %s : %s)\n", label, argStr, body, fs);
+        return String.format("(function %s (%s) %s : %s)\n", label, argStr, body, getSort());
     }
 }

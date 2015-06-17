@@ -43,6 +43,21 @@ public class KSTSortArrow extends KSTSort {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if(o instanceof KSTSortArrow) {
+            KSTSortArrow arrow = (KSTSortArrow) o;
+            return from.equals(arrow.getFromSort())
+                &&   to.equals(arrow.getToSort());
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return from.hashCode() + 2 * to.hashCode();
+    }
+
+    @Override
     public String toString() {
         return String.format("%s -> %s", from, to);
     }
