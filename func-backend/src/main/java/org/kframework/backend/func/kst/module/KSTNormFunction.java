@@ -4,16 +4,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-public class KSTFunction extends KSTModuleTerm {
+public class KSTNormFunction extends KSTModuleTerm {
     private final KSTLabel label;
     private final KSTSort resultSort;
-    private final List<KSTPattern> args;
-    private final KSTTerm body;
+    private final List<KSTVariable> args;
+    private final KSTExpr body;
 
-    public KSTFunction(KSTLabel label,
-                       KSTSort resultSort,
-                       List<KSTPattern> args,
-                       KSTTerm body) {
+    public KSTNormFunction(KSTLabel label,
+                           KSTSort resultSort,
+                           List<KSTVariable> args,
+                           KSTExpr body) {
         super();
         this.label      = label;
         this.resultSort = resultSort;
@@ -21,11 +21,11 @@ public class KSTFunction extends KSTModuleTerm {
         this.body       = body;
     }
 
-    public KSTFunction(KSTLabel label,
-                       KSTSort resultSort,
-                       List<KSTPattern> args,
-                       KSTTerm body,
-                       Set<KSTAtt> atts) {
+    public KSTNormFunction(KSTLabel label,
+                           KSTSort resultSort,
+                           List<KSTVariable> args,
+                           KSTExpr body,
+                           Set<KSTAtt> atts) {
         super(atts);
         this.label      = label;
         this.resultSort = resultSort;
@@ -41,24 +41,24 @@ public class KSTFunction extends KSTModuleTerm {
         return resultSort;
     }
 
-    public List<KSTPattern> getArgs() {
+    public List<KSTVariable> getArgs() {
         return args;
     }
 
-    public KSTTerm getBody() {
+    public KSTExpr getBody() {
         return body;
     }
 
     @Override
     public String toString() {
-        List<KSTSort> sortL = args.stream().map(v -> v.getTerm().getSort()).collect(Collectors.toList());
+        List<KSTSort> sortL = args.stream().map(v -> v.getSort()).collect(Collectors.toList());
         sortL.add(resultSort);
         KSTSort fs = KSTSortArrow.createFromSortList(sortL);
 
         String argStr = args.stream()
-                            .map(v -> v.toString())
+                            .map(v -> v.getName())
                             .collect(Collectors.joining(" "));
 
-        return String.format("(function %s (%s) %s : %s)\n", label, argStr, body, fs);
+        return String.format("(func %s (%s) %s : %s)\n", label, argStr, body, fs);
     }
 }

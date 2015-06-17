@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
 import com.google.common.collect.Sets;
+import java.util.Optional;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -81,14 +82,16 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
                                                  KSTLabel funcLabel,
                                                  Set<KSTLabel> fls,
                                                  KSTModuleTerm fail) {
-        List<KSTTerm> funcArgs = new ArrayList<>(leftApp.getArgs().size());
+        List<KSTPattern> funcArgs = new ArrayList<>(leftApp.getArgs().size());
 
         for(KSTTerm t : leftApp.getArgs()) {
-            if(! checkIfValidPattern(t, fls)) {
+            Optional<KSTPattern> pat = KSTPattern.of(t, x -> ! fls.contains(x));
+            
+            if(! pat.isPresent()) {
                 return fail;
             }
 
-            funcArgs.add(t);
+            funcArgs.add(pat.get());
         }
 
         return (KSTModuleTerm) new KSTFunction(funcLabel,
@@ -101,30 +104,6 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
         if(kmt instanceof KSTRule) {
             return isFunction(kmt.getAtts()) ? hasNoSideConditions((KSTRule) kmt)
                                              : false;
-        }
-        return false;
-    }
-
-    private static boolean checkIfValidPattern(KSTTerm term,
-                                               Set<KSTLabel> fls) {
-        if(term instanceof KSTToken) {
-            return true;
-        } else if(term instanceof KSTPrim) {
-            return true;
-        } else if(term instanceof KSTRewrite) {
-            return false;
-        } else if(term instanceof KSTVariable) {
-            return true;
-        } else if(term instanceof KSTApply) {
-            KSTApply app = (KSTApply) term;
-            if(fls.contains(app.getLabel())) {
-                return false;
-            }
-            boolean result = true;
-            for(KSTTerm t : app.getArgs()) {
-                result &= checkIfValidPattern(t, fls);
-            }
-            return result;
         }
         return false;
     }
