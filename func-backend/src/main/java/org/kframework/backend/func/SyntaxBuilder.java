@@ -40,7 +40,7 @@ public class SyntaxBuilder {
         endLetDefinitions();
         endLetExpression();
     }
-    
+
     public void addLetEquation(String name, String value) {
         beginLetEquation();
         addLetEquationName(name);
@@ -197,7 +197,7 @@ public class SyntaxBuilder {
         }
         endMatchExpression();
     }
-    
+
     public void addMatchEquation(String pattern, String value) {
         beginMatchEquation();
         addMatchEquationPattern(pattern);

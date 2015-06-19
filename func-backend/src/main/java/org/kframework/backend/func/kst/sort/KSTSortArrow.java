@@ -22,18 +22,18 @@ public class KSTSortArrow extends KSTSort {
         if(sortL.size() == 1) {
             return sortL.get(0);
         }
-        
+
         if(sortL.size() == 2) {
             return new KSTSortArrow(sortL.get(0), sortL.get(1));
         }
-        
+
         List<KSTSort> init = new ArrayList<>(sortL);
         int idx = init.size() - 1;
         KSTSort last = init.get(idx);
         init.remove(idx);
         return new KSTSortArrow(createFromSortList(init), last);
     }
-    
+
     public KSTSort getFromSort() {
         return from;
     }

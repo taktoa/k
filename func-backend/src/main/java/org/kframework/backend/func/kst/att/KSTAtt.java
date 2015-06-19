@@ -40,7 +40,7 @@ public class KSTAtt {
     public int hashCode() {
         return label.hashCode() + (2 * args.hashCode());
     }
-    
+
     @Override
     public String toString() {
         String argStr = args.stream()

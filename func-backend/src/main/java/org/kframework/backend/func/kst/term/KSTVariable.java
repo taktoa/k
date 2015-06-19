@@ -2,7 +2,7 @@ package org.kframework.backend.func.kst;
 
 public class KSTVariable extends KSTTerm {
     private final String name;
-    
+
     public KSTVariable(String n) {
         super();
         name = n;

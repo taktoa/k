@@ -165,7 +165,7 @@ public final class PreprocessedKORE {
                              .andThen(normalizeFunctions);
         return pipeline.apply(KOREtoKST.convert(mainModule));
     }
-    
+
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
         Map<KLabel, String> res = new HashMap<>();
         for(Map.Entry<KLabel, Att> e : af.entrySet()) {
@@ -274,7 +274,7 @@ public final class PreprocessedKORE {
     private String renderK(K k) {
         return new CST(k).render();
     }
-    
+
     private void prettyPrint(StringBuilder sb, String eol, Rule r) {
         String bodyStr = renderK(r.body());
         String requiresStr = renderK(r.requires());
@@ -284,7 +284,7 @@ public final class PreprocessedKORE {
         String defaultRequires = "'(token true Bool)";
         String defaultEnsures = "'(token true Bool)";
         String defaultAtt = "[]";
-        
+
         sb.append(eol);
         sb.append("Body: ");
         sb.append(bodyStr);
@@ -338,10 +338,10 @@ public final class PreprocessedKORE {
             sb.append(eol);
             sb.append("Indices: ");
             sb.append(indexedRules.get(r));
-            sb.append(eol);            
+            sb.append(eol);
         }
         sb.append(eol);
-       
+
         sb.append("Function Rules:");
         sb.append(eol);
         for(KLabel k : functionRulesOrdered.keySet()) {
@@ -448,7 +448,7 @@ public final class PreprocessedKORE {
         }
         return out;
     }
-    
+
     private Optional<KLabel> getKLabelIfFunctionRule(Rule r) {
         K left = RewriteToTop.toLeft(r.body());
         boolean is = false;
@@ -482,7 +482,7 @@ public final class PreprocessedKORE {
     private Map<KLabel, List<Rule>> getFunctionRulesOrdered(SetMultimap<KLabel, Rule> fr) {
         Map<KLabel, List<Rule>> result = new HashMap<>();
         List<Rule> rl;
-        
+
         for(KLabel k : fr.keySet()) {
             rl = fr.get(k)
                    .stream()

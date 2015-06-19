@@ -7,7 +7,7 @@ import java.util.function.UnaryOperator;
 public class KSTRuleEndomorphism implements UnaryOperator<KSTRule> {
     private final UnaryOperator<KSTTerm> termEndo;
     private final UnaryOperator<KSTAtt>  attEndo;
-    
+
     public KSTRuleEndomorphism(UnaryOperator<KSTTerm> t,
                                UnaryOperator<KSTAtt> a) {
         termEndo = t;
@@ -23,7 +23,7 @@ public class KSTRuleEndomorphism implements UnaryOperator<KSTRule> {
                                 .stream()
                                 .map(attEndo::apply)
                                 .collect(Collectors.toSet());
-        
+
         return new KSTRule(newBody, newRequires, newEnsures, newAtts);
     }
 }

@@ -48,7 +48,7 @@ public class NormalizeFunctions implements UnaryOperator<KSTModule> {
                 if(!srt.equals(f.getSort())) {
                     throw KEMException.criticalError("NormalizeFunctions: sort does not match");
                 }
-                
+
                 pats.add(f.getArgs());
                 vals.add(new KSTTermExpr(f.getBody()));
             }
@@ -60,5 +60,5 @@ public class NormalizeFunctions implements UnaryOperator<KSTModule> {
         result.addAll(nonFunctions);
         result.addAll(normFunctions);
         return new KSTModule(result);
-    }    
+    }
 }

@@ -21,7 +21,7 @@ public final class KSTPattern {
     public KSTTerm getTerm() {
         return term;
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if(o instanceof KSTPattern) {

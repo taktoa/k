@@ -16,7 +16,7 @@ public class RemoveKSequence extends KSTTermEndomorphism {
         KSTModuleTermEndomorphism mte = new KSTModuleTermEndomorphism(KSTRule.class, re);
         return (UnaryOperator<KSTModule>) new KSTModuleEndomorphism(mte);
     }
-    
+
     @Override
     public KSTTerm apply(KSTApply k) {
         if(isUnnecessaryKSTSeq(k)) {

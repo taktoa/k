@@ -112,7 +112,7 @@ public class KOREtoKSTVisitor extends AbstractKORETransformer<KST> {
     public KSTLabel applyAsLabel(KLabel k) {
         return coerceKST(KSTLabel.class, apply(k));
     }
-    
+
     private <T extends KST> KST toKST(T k) {
         return (KST) k;
     }

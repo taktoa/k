@@ -93,7 +93,7 @@ public class DefinitionToFunc {
     }
 
     public String convert(CompiledDefinition def) {
-        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);        
+        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         System.out.println(preproc.prettyPrint()); // DEBUG
@@ -186,7 +186,7 @@ public class DefinitionToFunc {
         String arg = String.format("%s: %s", varName, inType);
         return addSimpleFunc(pats, vals, arg, outType, funcName, varName);
     }
-    
+
     private <T> String addOrderFunc(Collection<T> elems,
                                     Function<T, String> print,
                                     String pfx,
@@ -208,12 +208,12 @@ public class DefinitionToFunc {
         SyntaxBuilder sb = new SyntaxBuilder();
         sb.beginTypeDefinition(tyName);
         for(String c : cons) {
-            sb.addConstructor(c);            
+            sb.addConstructor(c);
         }
         sb.endTypeDefinition();
         return sb.toString();
     }
-    
+
     private <T> String addEnumType(Collection<T> toEnum,
                                    Function<T, String> print,
                                    String pfx,
@@ -247,7 +247,7 @@ public class DefinitionToFunc {
                                  .map(print)
                                  .map(wrapPrint(pfx))
                                  .collect(Collectors.toList());
-        
+
         List<String> vals = elems.stream()
                                  .map(print)
                                  .map(x -> StringUtil.enquoteCString(StringUtil.enquoteKString(x)))
@@ -255,7 +255,7 @@ public class DefinitionToFunc {
 
         return addSimpleFunc(pats, vals, tyName, "string", fnName);
     }
-    
+
     private void addPrintSortString(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.append(addPrintFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }

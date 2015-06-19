@@ -56,7 +56,7 @@ public final class KOREtoKST {
     private static KSTLabel convertLabel(KLabel kl) {
         return new KSTLabel(kl.name());
     }
-    
+
     private static KSTSyntax convertSyntax(KLabel kl,
                                            Sort s,
                                            List<Sort> a,
@@ -88,20 +88,20 @@ public final class KOREtoKST {
                 .map(x -> new KSTAtt(x))
                 .collect(Collectors.toSet());
     }
-    
+
     public static KSTModule convert(Module m) {
         Set<KSTModuleTerm> mts = new HashSet<>();
         KSTSyntax stx;
         KSTRule rl;
-        
+
         Map<KLabel, scala.collection.immutable.Set<Tuple2<scala.collection.Seq<Sort>, Sort>>> rawSigs;
         Set<Tuple2<scala.collection.Seq<Sort>, Sort>> sigSet;
         rawSigs = scalaMapAsJava(m.signatureFor());
         Map<KLabel, Att> attMap = scalaMapAsJava(m.attributesFor());
-        
+
         for(KLabel kl : rawSigs.keySet()) {
             sigSet = stream(rawSigs.get(kl)).collect(Collectors.toSet());
-            
+
             for(Tuple2<scala.collection.Seq<Sort>, Sort> tup : sigSet) {
                 stx = convertSyntax(kl,
                                     tup._2,

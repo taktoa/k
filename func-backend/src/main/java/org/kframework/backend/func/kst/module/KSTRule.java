@@ -6,7 +6,7 @@ public class KSTRule extends KSTModuleTerm {
     private final KSTTerm body;
     private final KSTTerm requires;
     private final KSTTerm ensures;
-    
+
     public KSTRule(KSTTerm body,
                    KSTTerm requires,
                    KSTTerm ensures) {

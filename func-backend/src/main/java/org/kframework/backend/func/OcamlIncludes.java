@@ -149,7 +149,7 @@ public final class OcamlIncludes {
     public static final ImmutableMap<String, String> hooks;
     public static final ImmutableMap<String, Function<String, String>> sortHooks;
     public static final ImmutableMap<String, String> predicateRules;
-    
+
     static {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.put("#INT:_%Int_", "[Int a] :: [Int b] :: [] -> [Int (mod_big_int a b)]");
@@ -220,7 +220,7 @@ public final class OcamlIncludes {
     public static void addPostlude(SyntaxBuilder sb) {
         sb.append(postlude);
     }
-    
+
     public static String encodeStringToIdentifier(KLabel name) {
         return "Lbl" + encodeStringToAlphanumeric(name.name());
     }

@@ -52,7 +52,7 @@ public final class KSTMatch extends KSTExpr {
     public <T> List<T> mapVals(Function<KSTExpr, T> func) {
         return map((p, v) -> func.apply(v));
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if(o instanceof KSTMatch) {

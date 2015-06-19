@@ -5,13 +5,13 @@ import java.util.List;
 public class KSTApply extends KSTTerm {
     private final KSTLabel label;
     private final List<KSTTerm> args;
-    
+
     public KSTApply(KSTLabel l, List<KSTTerm> a) {
         super();
         label = l;
         args = a;
     }
-    
+
     public KSTApply(KSTLabel l, List<KSTTerm> a, KSTSort s) {
         super();
         label = l;

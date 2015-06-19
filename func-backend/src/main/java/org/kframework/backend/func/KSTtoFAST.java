@@ -20,7 +20,7 @@ import static scala.compat.java8.JFunction.*;
 
 public final class KSTtoFAST {
     FTarget target;
-    
+
     private KSTtoFAST(FTarget tgt) {
         target = tgt;
     }
@@ -29,7 +29,7 @@ public final class KSTtoFAST {
         //return new KSTtoFAST(tgt).convertModule(km);
         return null;
     }
-    
+
     private FConstructor convertCon(KSTLabel label, List<KSTSort> args) {
         return null;
     }

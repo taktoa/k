@@ -86,7 +86,7 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
 
         for(KSTTerm t : leftApp.getArgs()) {
             Optional<KSTPattern> pat = KSTPattern.of(t, x -> ! fls.contains(x));
-            
+
             if(! pat.isPresent()) {
                 return fail;
             }

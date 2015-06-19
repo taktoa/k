@@ -7,7 +7,7 @@ import java.util.Map;
 public class KSTType extends KSTModuleTerm {
     private final KSTSort sort;
     private final Map<KSTLabel, List<KSTSort>> cons;
-    
+
     public KSTType(KSTSort sort,
                    Map<KSTLabel, List<KSTSort>> cons) {
         super();

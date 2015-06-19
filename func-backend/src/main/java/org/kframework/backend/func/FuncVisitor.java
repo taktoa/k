@@ -49,7 +49,7 @@ public class FuncVisitor extends VisitKORE {
     private boolean isLookupKLabel(KApply k) {
         return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
     }
-    
+
     @Override
     public Void apply(KApply k) {
         if (isLookupKLabel(k)) {

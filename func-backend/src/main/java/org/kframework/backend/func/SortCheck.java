@@ -45,7 +45,7 @@ public final class SortCheck {
 
         return stx + rls;
     }
-    
+
     private String sortCheckStrSyn(KSTSyntax t) {
         String pfx = "'" + t.getLabel().getName() + " ~ ";
         String del = " -> ";
@@ -122,11 +122,11 @@ public final class SortCheck {
     private String sortCheckStr(KSTVariable t) {
         return leftoverStr((KSTTerm) t, "'" + t.getName());
     }
-    
+
     private String sortCheckStr(KSTToken t) {
         return leftoverStr((KSTTerm) t, freshVarName());
     }
-    
+
     private String sortCheckStr(KSTLabel t) {
         return leftoverStr((KSTTerm) t, freshVarName());
     }

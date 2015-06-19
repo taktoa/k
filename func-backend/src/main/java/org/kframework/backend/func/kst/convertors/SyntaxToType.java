@@ -14,7 +14,7 @@ public class SyntaxToType implements UnaryOperator<KSTModule> {
     public static UnaryOperator<KSTModule> getModuleEndo() {
         return (UnaryOperator<KSTModule>) new SyntaxToType();
     }
-    
+
     @Override
     public KSTModule apply(KSTModule k) {
         Set<KSTModuleTerm> mts = k.getTerms();
@@ -26,7 +26,7 @@ public class SyntaxToType implements UnaryOperator<KSTModule> {
                        .stream()
                        .map(x -> (KSTSyntax) x)
                        .collect(Collectors.groupingBy(x -> x.getSort().getName()));
-        
+
         Set<KSTModuleTerm> res = isSyntax.get(Boolean.FALSE)
                                          .stream()
                                          .collect(Collectors.toSet());

@@ -5,7 +5,7 @@ import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 import org.kframework.utils.errorsystem.KEMException;
 
-public class KSTTermEndomorphism implements UnaryOperator<KSTTerm> {    
+public class KSTTermEndomorphism implements UnaryOperator<KSTTerm> {
     @Override
     public final KSTTerm apply(KSTTerm t) {
         if(t instanceof KSTApply) {

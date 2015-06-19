@@ -13,7 +13,7 @@ public final class KSTTermExpr extends KSTExpr {
     public KSTTerm getTerm() {
         return term;
     }
-    
+
     @Override
     public boolean equals(Object o) {
         if(o instanceof KSTTermExpr) {

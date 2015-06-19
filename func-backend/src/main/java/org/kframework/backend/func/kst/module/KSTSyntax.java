@@ -6,7 +6,7 @@ import java.util.Set;
 public class KSTSyntax extends KSTModuleDefinition {
     private final KSTSort sort;
     private final List<KSTSort> args;
-    
+
     public KSTSyntax(KSTSort sort,
                      KSTLabel label,
                      List<KSTSort> args) {

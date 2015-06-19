@@ -2,7 +2,7 @@ package org.kframework.backend.func.kst;
 
 public class KSTToken extends KSTTerm {
     private final String token;
-    
+
     public KSTToken(String t) {
         super();
         token = t;

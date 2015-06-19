@@ -2,7 +2,7 @@ package org.kframework.backend.func.kst;
 
 public class KSTUtilCounter {
     private int count;
-    
+
     public KSTUtilCounter() {
         count = 0;
     }

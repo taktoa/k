@@ -17,7 +17,7 @@ public class CST {
     private Optional<String> str;
     private Optional<List<CST>> list;
     private int depth;
-    
+
     public CST(String s) {
         str = Optional.of(s);
         list = Optional.empty();
@@ -32,7 +32,7 @@ public class CST {
         str = Optional.of((new KPrettyVisitor()).apply(k).render());
         list = Optional.empty();
     }
-    
+
     public String render() {
         if(str.isPresent()) {
             return str.get();

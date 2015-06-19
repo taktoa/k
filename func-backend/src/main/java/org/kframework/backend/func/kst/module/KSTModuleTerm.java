@@ -9,7 +9,7 @@ public class KSTModuleTerm extends KST {
     protected KSTModuleTerm() {
         atts = new HashSet<>();
     }
-    
+
     protected KSTModuleTerm(Set<KSTAtt> atts) {
         this.atts = atts;
     }
@@ -17,7 +17,7 @@ public class KSTModuleTerm extends KST {
     protected void addAtt(KSTAtt a) {
         atts.add(a);
     }
-    
+
     public Set<KSTAtt> getAtts() {
         return atts;
     }
