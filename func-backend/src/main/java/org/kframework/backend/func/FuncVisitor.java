@@ -43,21 +43,31 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         this.inBooleanExp = useNativeBooleanExp;
     }
 
-    private boolean isLookupKLabel(KApply k) {
-        return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
+    private boolean isLookupKLabel(KLabel k) {
+        return k.name().equals("#match")
+            || k.name().equals("#mapChoice")
+            || k.name().equals("#setChoice");
+    }
+
+    private boolean isKTokenKLabel(KLabel k) {
+        return k.name().equals("#KToken");
+    }
+
+    private boolean isFunctionKLabel(KLabel k) {
+        return ppk.functionSet.contains(k);
     }
 
     @Override
     public String apply(KApply k) {
-        if(isLookupKLabel(k)) {
+        KLabel kl = k.klabel();
+        if(isLookupKLabel(kl)) {
             return apply(BooleanUtils.TRUE);
-        } else if(k.klabel().name().equals("#KToken")) {
+        } else if(isKTokenKLabel(kl)) {
             //magic down-ness
-            Sort sort = Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s());
-            String a = apply(sort);
-            String b = apply(((KSequence) k.klist().items().get(1)).items().get(0));
-            return "KToken (" + a + ", " + b + ")";
-        } else if(ppk.functionSet.contains(k.klabel())) {
+            return String.format("KToken (%s, %s)",
+                                 apply(Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s())),
+                                 apply(((KSequence) k.klist().items().get(1)).items().get(0)));
+        } else if(isFunctionKLabel(kl)) {
             return applyFunction(k);
         } else {
             return applyKLabel(k);
@@ -65,7 +75,9 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
     }
 
     public String applyKLabel(KApply k) {
-        return "KApply (" + apply(k.klabel()) + ", " + apply(k.klist().items(), true) + ")";
+        return String.format("KApply (%s, %s)",
+                             apply(k.klabel()),
+                             apply(k.klist().items(), true));
     }
 
     public String applyBoolMonad(KApply k, String fmt) {
@@ -145,14 +157,14 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
 
     @Override
     public String apply(KToken k) {
-        if (useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
+        if(useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
             return k.s();
         }
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(k.sort(), "");
-        if (sortHooks.containsKey(hook)) {
+        if(sortHooks.containsKey(hook)) {
             return sortHooks.get(hook).apply(k.s());
         }
-        return "KToken (" + apply(k.sort()) + ", " + StringUtil.enquoteCString(k.s()) + ")";
+        return String.format("KToken (%s, %s)", apply(k.sort()), StringUtil.enquoteCString(k.s()));
     }
 
     @Override
@@ -177,7 +189,7 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
 
     @Override
     public String apply(KSequence k) {
-        if (useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
+        if(useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
             return apply(k.items().get(0));
         }
         checkKSequence(k);
@@ -217,9 +229,11 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
     }
 
     private boolean isList(K item, boolean klist) {
-        return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K"))
-                          || item instanceof KSequence
-                          || (item instanceof KApply && ppk.functionSet.contains(((KApply) item).klabel())));
+        return !klist && (   item instanceof KSequence
+                          ||    item instanceof KVariable
+                             && getSortOfVar(item).equals("K")
+                          ||    item instanceof KApply
+                             && ppk.functionSet.contains(((KApply) item).klabel()));
     }
 
     public String apply(Sort sort) {
@@ -244,7 +258,7 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
         if (sortHooks.containsKey(hook)) {
-            return "(" + s.name() + " _" + " as " + varName + ")";
+            return String.format("(%s _ as %s)", s.name(), varName);
         }
         return varName;
     }

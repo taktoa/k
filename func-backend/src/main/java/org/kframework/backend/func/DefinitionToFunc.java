@@ -107,19 +107,6 @@ public class DefinitionToFunc {
         return runtimeCodeToFunc(k, depth).render();
     }
 
-    private void addSortType(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginTypeDefinition("sort");
-        for (Sort s : ppk.definedSorts) {
-            sb.beginConstructor();
-            sb.append(encodeStringToIdentifier(s));
-            sb.endConstructor();
-        }
-        if (!ppk.definedSorts.contains(Sorts.String())) {
-            sb.addConstructor("SortString");
-        }
-        sb.endTypeDefinition();
-    }
-
     private List<Integer> rangeInclusive(int min, int step, int max) {
         int elements = Math.abs((max - min) / step);
         int padding = 4;
@@ -229,6 +216,19 @@ public class DefinitionToFunc {
         sb.append(addOrderFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }
 
+    private void addSortType(PreprocessedKORE ppk, SyntaxBuilder sb) {
+        sb.beginTypeDefinition("sort");
+        for (Sort s : ppk.definedSorts) {
+            sb.beginConstructor();
+            sb.append(encodeStringToIdentifier(s));
+            sb.endConstructor();
+        }
+        if (!ppk.definedSorts.contains(Sorts.String())) {
+            sb.addConstructor("SortString");
+        }
+        sb.endTypeDefinition();
+    }
+
     private void addKLabelType(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.append(addEnumType(ppk.definedKLabels, x -> x.name(), "Lbl", "klabel"));
     }
@@ -237,87 +237,65 @@ public class DefinitionToFunc {
         sb.append(addOrderFunc(ppk.definedKLabels, x -> x.name(), "Lbl", "klabel"));
     }
 
-    private <T> String addPrintFunc(Collection<T> elems,
-                                    Function<T, String> print,
-                                    String pfx,
-                                    String tyName) {
-        String fnName = String.format("print_%s_string", tyName);
+
+    private <T> String addPrinterFunc(Collection<T> elems,
+                                      Function<T, String> patPrint,
+                                      Function<T, String> valPrint,
+                                      String nameFmt,
+                                      String pfx,
+                                      String tyName) {
+        String fnName = String.format(nameFmt, tyName);
 
         List<String> pats = elems.stream()
-                                 .map(print)
+                                 .map(patPrint)
                                  .map(wrapPrint(pfx))
                                  .collect(Collectors.toList());
 
         List<String> vals = elems.stream()
-                                 .map(print)
-                                 .map(x -> StringUtil.enquoteCString(StringUtil.enquoteKString(x)))
+                                 .map(valPrint)
                                  .collect(Collectors.toList());
 
         return addSimpleFunc(pats, vals, tyName, "string", fnName);
     }
 
+    private <T> String addPrintStringFunc(Collection<T> elems,
+                                          Function<T, String> print,
+                                          String pfx,
+                                          String tyName) {
+        return addPrinterFunc(elems,
+                              print,
+                              print.andThen(StringUtil::enquoteKString)
+                                   .andThen(StringUtil::enquoteCString),
+                              "print_%s_string", pfx, tyName);
+    }
+
+    private <T> String addPrintFunc(Collection<T> elems,
+                                    Function<T, String> patPrint,
+                                    Function<T, String> valPrint,
+                                    String pfx,
+                                    String tyName) {
+        return addPrinterFunc(elems,
+                              patPrint,
+                              valPrint.andThen(StringUtil::enquoteCString),
+                              "print_%s", pfx, tyName);
+    }
+
     private void addPrintSortString(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addPrintFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
+        sb.append(addPrintStringFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }
 
     private void addPrintSort(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("print_sort(c: sort) : string");
-        sb.beginLetEquationValue();
-
-        sb.beginMatchExpression("c");
-
-        for (Sort s : ppk.definedSorts) {
-            sb.beginMatchEquation();
-            sb.beginMatchEquationPattern();
-            sb.append(encodeStringToIdentifier(s));
-            sb.endMatchEquationPattern();
-            sb.addMatchEquationValue(StringUtil.enquoteCString(s.name()));
-            sb.endMatchEquation();
-        }
-
-        sb.endMatchExpression();
-
-        sb.endLetEquationValue();
-        sb.endLetEquation();
-        sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.append(addPrintFunc(ppk.definedSorts, x -> x.name(), x -> x.name(), "Sort", "sort"));
     }
 
     private void addPrintKLabel(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("print_klabel(c: klabel) : string");
-        sb.beginLetEquationValue();
-
-        sb.beginMatchExpression("c");
-
-        for (KLabel label : ppk.definedKLabels) {
-            sb.beginMatchEquation();
-            sb.beginMatchEquationPattern();
-            sb.append(encodeStringToIdentifier(label));
-            sb.endMatchEquationPattern();
-            sb.addMatchEquationValue(StringUtil.enquoteCString(ToKast.apply(label)));
-            sb.endMatchEquation();
-        }
-
-        sb.endMatchExpression();
-
-        sb.endLetEquationValue();
-        sb.endLetEquation();
-        sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.append(addPrintFunc(ppk.definedKLabels, x -> x.name(), x -> ToKast.apply(x), "Lbl", "klabel"));
     }
 
     private void addRules(PreprocessedKORE ppk, SyntaxBuilder sb) {
         int i = 0;
         for (List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
-            // List<String> names = new ArrayList<>(component.size());
-            // List<String> values = new ArrayList<>(component.size());
             sb.beginLetrecExpression();
             sb.beginLetrecDefinitions();
             for (KLabel functionLabel : component) {
@@ -416,14 +394,11 @@ public class DefinitionToFunc {
 
     private void outputAnnotate(Rule r, SyntaxBuilder sb) {
         sb.beginMultilineComment();
-        sb.append(" rule ");
-        sb.append(ToKast.apply(r.body()));
-        sb.append(" requires ");
-        sb.append(ToKast.apply(r.requires()));
-        sb.append(" ensures ");
-        sb.append(ToKast.apply(r.ensures()));
-        sb.append(" ");
-        sb.append(r.att().toString());
+        sb.appendf("rule %s requires %s ensures %s %s",
+                   ToKast.apply(r.body()),
+                   ToKast.apply(r.requires()),
+                   ToKast.apply(r.ensures()),
+                   r.att().toString());
         sb.endMultilineComment();
         sb.addNewline();
     }
@@ -455,20 +430,17 @@ public class DefinitionToFunc {
         String result = oldConvert(vars);
 
         if(ppk.indexedRules.get(r).contains("lookup")) {
-            sb.append(" when not (Guard.mem (GuardElt.Guard ");
-            sb.append(Integer.toString(ruleNum));
-            sb.append(") guards)");
+            sb.appendf(" when not (Guard.mem (GuardElt.Guard %s) guards)",
+                       Integer.toString(ruleNum));
         }
 
         String suffix = "";
 
         if(!(KSequence(BooleanUtils.TRUE).equals(requires)) || !("true".equals(result))) {
             suffix = oldConvertLookups(ppk, sb, requires, vars, functionName, ruleNum);
-            sb.append(" when ");
-            sb.append(oldConvert(ppk, true, vars, true).apply(requires));
-            sb.append(" && (");
-            sb.append(result);
-            sb.append(")");
+            sb.appendf(" when %s && (%s)",
+                       oldConvert(ppk, true, vars, true).apply(requires),
+                       result);
         }
 
         sb.append(" -> ");
