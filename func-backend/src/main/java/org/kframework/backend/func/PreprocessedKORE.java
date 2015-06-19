@@ -431,7 +431,7 @@ public final class PreprocessedKORE {
 
         sb.append(eol);
         sb.append(eol);
-        sb.append(getKSTModule().toString());
+        //sb.append(getKSTModule().toString());
         sb.append(eol);
         sb.append(eol);
     }

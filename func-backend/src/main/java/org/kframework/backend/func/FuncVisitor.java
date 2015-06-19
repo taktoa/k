@@ -12,6 +12,7 @@ import org.kframework.kore.KRewrite;
 import org.kframework.kore.KSequence;
 import org.kframework.kore.KToken;
 import org.kframework.kore.KVariable;
+import org.kframework.kore.AbstractKORETransformer;
 import org.kframework.kore.Sort;
 import org.kframework.kore.compile.VisitKORE;
 import org.kframework.utils.StringUtil;
@@ -25,21 +26,18 @@ import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OcamlIncludes.*;
 
-public class FuncVisitor extends VisitKORE {
+public class FuncVisitor extends AbstractKORETransformer<String> {
     private final PreprocessedKORE ppk;
-    private final SyntaxBuilder sb;
     private final boolean rhs;
     private final SetMultimap<KVariable, String> vars;
     private final boolean useNativeBooleanExp;
     private boolean inBooleanExp;
 
     public FuncVisitor(PreprocessedKORE ppk,
-                       SyntaxBuilder sb,
                        boolean rhs,
                        SetMultimap<KVariable, String> vars,
                        boolean useNativeBooleanExp) {
         this.ppk = ppk;
-        this.sb = sb;
         this.rhs = rhs;
         this.vars = vars;
         this.useNativeBooleanExp = useNativeBooleanExp;
@@ -51,36 +49,30 @@ public class FuncVisitor extends VisitKORE {
     }
 
     @Override
-    public Void apply(KApply k) {
-        if (isLookupKLabel(k)) {
-            apply(BooleanUtils.TRUE);
-        } else if (k.klabel().name().equals("#KToken")) {
+    public String apply(KApply k) {
+        if(isLookupKLabel(k)) {
+            return apply(BooleanUtils.TRUE);
+        } else if(k.klabel().name().equals("#KToken")) {
             //magic down-ness
-            sb.append("KToken (");
             Sort sort = Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s());
-            apply(sort);
-            sb.append(", ");
-            apply(((KSequence) k.klist().items().get(1)).items().get(0));
-            sb.append(")");
-        } else if (ppk.functionSet.contains(k.klabel())) {
-            applyFunction(k);
+            String a = apply(sort);
+            String b = apply(((KSequence) k.klist().items().get(1)).items().get(0));
+            return "KToken (" + a + ", " + b + ")";
+        } else if(ppk.functionSet.contains(k.klabel())) {
+            return applyFunction(k);
         } else {
-            applyKLabel(k);
+            return applyKLabel(k);
         }
-        return null;
     }
 
-    public void applyKLabel(KApply k) {
-        sb.append("KApply (");
-        apply(k.klabel());
-        sb.append(", ");
-        apply(k.klist().items(), true);
-        sb.append(")");
+    public String applyKLabel(KApply k) {
+        return "KApply (" + apply(k.klabel()) + ", " + apply(k.klist().items(), true) + ")";
     }
 
-    public void applyFunction(KApply k) {
+    public String applyFunction(KApply k) {
         boolean stack = inBooleanExp;
         String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(k.klabel(), "");
+        SyntaxBuilder sb = new SyntaxBuilder();
         // use native &&, ||, not where possible
         if (useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
             assert k.klist().items().size() == 2;
@@ -89,9 +81,9 @@ public class FuncVisitor extends VisitKORE {
             }
             inBooleanExp = true;
             sb.append("(");
-            apply(k.klist().items().get(0));
+            sb.append(apply(k.klist().items().get(0)));
             sb.append(") && (");
-            apply(k.klist().items().get(1));
+            sb.append(apply(k.klist().items().get(1)));
             sb.append(")");
             if (!stack) {
                 sb.append("]");
@@ -103,9 +95,9 @@ public class FuncVisitor extends VisitKORE {
             }
             inBooleanExp = true;
             sb.append("(");
-            apply(k.klist().items().get(0));
+            sb.append(apply(k.klist().items().get(0)));
             sb.append(") || (");
-            apply(k.klist().items().get(1));
+            sb.append(apply(k.klist().items().get(1)));
             sb.append(")");
             if (!stack) {
                 sb.append("]");
@@ -117,13 +109,13 @@ public class FuncVisitor extends VisitKORE {
             }
             inBooleanExp = true;
             sb.append("(not ");
-            apply(k.klist().items().get(0));
+            sb.append(apply(k.klist().items().get(0)));
             sb.append(")");
             if (!stack) {
                 sb.append("]");
             }
         } else if (ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
-            applyKLabel(k);
+            sb.append(applyKLabel(k));
             sb.append(" :: []");
         } else {
             if(ppk.attrLabels.get(Attribute.PREDICATE_KEY).keySet().contains(k.klabel())) {
@@ -136,8 +128,8 @@ public class FuncVisitor extends VisitKORE {
                         Optional<String> varSort = item.items().get(0).att().<String>getOptional(Attribute.SORT_KEY);
                         if (varSort.isPresent() && varSort.get().equals(s.name())) {
                             // this has been subsumed by a structural check on the builtin data type
-                            apply(BooleanUtils.TRUE);
-                            return;
+                            sb.append(apply(BooleanUtils.TRUE));
+                            return sb.toString();
                         }
                     }
                 }
@@ -146,78 +138,72 @@ public class FuncVisitor extends VisitKORE {
                     && k.klist().items().get(0) instanceof KSequence) {
                     KSequence item = (KSequence) k.klist().items().get(0);
                     if (item.items().size() == 1) {
-                        apply(BooleanUtils.TRUE);
-                        return;
+                        sb.append(apply(BooleanUtils.TRUE));
+                        return sb.toString();
                     }
                 }
             }
-            if (stack) {
+            if(stack) {
                 sb.append("(isTrue ");
             }
             inBooleanExp = false;
             sb.append("(");
             sb.append(encodeStringToFunction(k.klabel().name()));
             sb.append("(");
-            apply(k.klist().items(), true);
+            sb.append(apply(k.klist().items(), true));
             sb.append(") Guard.empty)");
-            if (stack) {
+            if(stack) {
                 sb.append(")");
             }
         }
         inBooleanExp = stack;
+        return sb.toString();
     }
 
     @Override
-    public Void apply(KRewrite k) {
+    public String apply(KRewrite k) {
         throw new AssertionError("unexpected rewrite");
     }
 
     @Override
-    public Void apply(KToken k) {
+    public String apply(KToken k) {
         if (useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
-            sb.append(k.s());
-            return null;
+            return k.s();
         }
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(k.sort(), "");
         if (sortHooks.containsKey(hook)) {
-            sb.append(sortHooks.get(hook).apply(k.s()));
-            return null;
+            return sortHooks.get(hook).apply(k.s());
         }
-        sb.append("KToken (");
-        apply(k.sort());
-        sb.append(", ");
-        sb.append(StringUtil.enquoteCString(k.s()));
-        sb.append(")");
-        return null;
+        return "KToken (" + apply(k.sort()) + ", " + StringUtil.enquoteCString(k.s()) + ")";
     }
 
     @Override
-    public Void apply(KVariable k) {
-        if (rhs) {
-            applyVarRhs(k, sb, vars);
+    public String apply(KVariable k) {
+        if(rhs) {
+            return applyVarRhs(k, vars);
         } else {
-            applyVarLhs(k, sb, vars);
+            return applyVarLhs(k, vars);
         }
-        return null;
     }
 
-    @Override
-    public Void apply(KSequence k) {
-        if (useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
-            apply(k.items().get(0));
-            return null;
-        }
-        sb.append("(");
-        if (!rhs) {
-            for (int i = 0; i < k.items().size() - 1; i++) {
-                if (isList(k.items().get(i), false)) {
-                    throw KEMException.criticalError("Cannot compile KSequence with K variable not at tail.", k.items().get(i));
+    private void checkKSequence(KSequence k) {
+        String kseqError = "Cannot compile KSequence with K variable not at tail.";
+        if(!rhs) {
+            for(int i = 0; i < k.items().size() - 1; i++) {
+                if(isList(k.items().get(i), false)) {
+                    throw KEMException.criticalError(kseqError, k.items().get(i));
                 }
             }
         }
-        apply(k.items(), false);
-        sb.append(")");
-        return null;
+    }
+
+    @Override
+    public String apply(KSequence k) {
+        if (useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
+            return apply(k.items().get(0));
+        }
+        checkKSequence(k);
+        return String.format("(%s)", apply(k.items(), false));
     }
 
     public String getSortOfVar(K k) {
@@ -225,23 +211,21 @@ public class FuncVisitor extends VisitKORE {
     }
 
     @Override
-    public Void apply(InjectedKLabel k) {
-        sb.append("InjectedKLabel (");
-        apply(k.klabel());
-        sb.append(")");
-        return null;
+    public String apply(InjectedKLabel k) {
+        return String.format("InjectedKLabel (%s)", apply(k.klabel()));
     }
 
-    public void apply(List<K> items, boolean klist) {
+    public String apply(List<K> items, boolean klist) {
+        SyntaxBuilder sb = new SyntaxBuilder();
         for(int i = 0; i < items.size(); i++) {
             K item = items.get(i);
-            apply(item);
-            if (i == items.size() - 1) {
-                if (!isList(item, klist)) {
+            sb.append(apply(item));
+            if(i == items.size() - 1) {
+                if(!isList(item, klist)) {
                     sb.append(" :: []");
                 }
             } else {
-                if (isList(item, klist)) {
+                if(isList(item, klist)) {
                     sb.append(" @ ");
                 } else {
                     sb.append(" :: ");
@@ -251,43 +235,39 @@ public class FuncVisitor extends VisitKORE {
         if(items.isEmpty()) {
             sb.append("[]");
         }
+        return sb.toString();
     }
 
     private boolean isList(K item, boolean klist) {
-        return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K")) || item instanceof KSequence
+        return !klist && ((item instanceof KVariable && getSortOfVar(item).equals("K"))
+                          || item instanceof KSequence
                           || (item instanceof KApply && ppk.functionSet.contains(((KApply) item).klabel())));
     }
 
-    public void apply(Sort sort) {
-        sb.append(encodeStringToIdentifier(sort));
+    public String apply(Sort sort) {
+        return encodeStringToIdentifier(sort);
     }
 
-    public void apply(KLabel klabel) {
-        if (klabel instanceof KVariable) {
-            apply((KVariable) klabel);
+    public String apply(KLabel klabel) {
+        if(klabel instanceof KVariable) {
+            return apply((KVariable) klabel);
         } else {
-            sb.append(encodeStringToIdentifier(klabel));
+            return encodeStringToIdentifier(klabel);
         }
     }
 
-    private void applyVarRhs(KVariable v, SyntaxBuilder sb, SetMultimap<KVariable, String> vars) {
-        sb.append(vars.get(v).iterator().next());
+    private String applyVarRhs(KVariable v, SetMultimap<KVariable, String> vars) {
+        return vars.get(v).iterator().next();
     }
 
-    private void applyVarLhs(KVariable k, SyntaxBuilder sb, SetMultimap<KVariable, String> vars) {
+    private String applyVarLhs(KVariable k, SetMultimap<KVariable, String> vars) {
         String varName = encodeStringToVariable(k.name());
         vars.put(k, varName);
         Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
         if (sortHooks.containsKey(hook)) {
-            sb.append("(");
-            sb.append(s.name());
-            sb.append(" _");
-            sb.append(" as ");
-            sb.append(varName);
-            sb.append(")");
-            return;
+            return "(" + s.name() + " _" + " as " + varName + ")";
         }
-        sb.append(varName);
+        return varName;
     }
 }

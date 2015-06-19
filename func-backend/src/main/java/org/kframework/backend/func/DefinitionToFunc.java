@@ -77,8 +77,8 @@ public class DefinitionToFunc {
         sb.addLetEquationName("_");
         sb.beginLetEquationValue();
         sb.append("print_string(print_k(try(run(");
-        FuncVisitor convVisitor = oldConvert(preproc, sb, true, HashMultimap.create(), false);
-        convVisitor.apply(preproc.runtimeProcess(k));
+        FuncVisitor convVisitor = oldConvert(preproc, true, HashMultimap.create(), false);
+        sb.append(convVisitor.apply(preproc.runtimeProcess(k)));
         sb.append(") (");
         sb.append(Integer.toString(depth));
         sb.append(")) with Stuck c' -> c'))");
@@ -443,13 +443,13 @@ public class DefinitionToFunc {
         K requires = r.requires();
 
         SetMultimap<KVariable, String> vars = HashMultimap.create();
-        FuncVisitor visitor = oldConvert(ppk, sb, false, vars, false);
+        FuncVisitor visitor = oldConvert(ppk, false, vars, false);
 
         if(function) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
-            visitor.apply(kapp.klist().items(), true);
+            sb.append(visitor.apply(kapp.klist().items(), true));
         } else {
-            visitor.apply(left);
+            sb.append(visitor.apply(left));
         }
 
         String result = oldConvert(vars);
@@ -465,14 +465,14 @@ public class DefinitionToFunc {
         if(!(KSequence(BooleanUtils.TRUE).equals(requires)) || !("true".equals(result))) {
             suffix = oldConvertLookups(ppk, sb, requires, vars, functionName, ruleNum);
             sb.append(" when ");
-            oldConvert(ppk, sb, true, vars, true).apply(requires);
+            sb.append(oldConvert(ppk, true, vars, true).apply(requires));
             sb.append(" && (");
             sb.append(result);
             sb.append(")");
         }
 
         sb.append(" -> ");
-        oldConvert(ppk, sb, true, vars, false).apply(right);
+        sb.append(oldConvert(ppk, true, vars, false).apply(right));
         sb.append(suffix);
         sb.addNewline();
     }
@@ -557,11 +557,11 @@ public class DefinitionToFunc {
                 K sndKLabel = kitems.get(1);
 
                 sb.append(" -> (match ");
-                oldConvert(ppk, sb, true, vars, false).apply(sndKLabel);
+                sb.append(oldConvert(ppk, true, vars, false).apply(sndKLabel));
                 sb.append(" with ");
                 sb.addNewline();
                 sb.append(str1);
-                oldConvert(ppk, sb, false, vars, false).apply(fstKLabel);
+                sb.append(oldConvert(ppk, false, vars, false).apply(fstKLabel));
                 suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
                 suffix.add(str2);
                 h.i++;
@@ -601,10 +601,9 @@ public class DefinitionToFunc {
     }
 
     private FuncVisitor oldConvert(PreprocessedKORE ppk,
-                                   SyntaxBuilder sb,
                                    boolean rhs,
                                    SetMultimap<KVariable, String> vars,
                                    boolean useNativeBooleanExp) {
-        return new FuncVisitor(ppk, sb, rhs, vars, useNativeBooleanExp);
+        return new FuncVisitor(ppk, rhs, vars, useNativeBooleanExp);
     }
 }
