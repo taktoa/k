@@ -20,6 +20,10 @@ public class SyntaxBuilder {
         sb.append(s);
     }
 
+    public void appendf(String format, Object... args) {
+        append(String.format(format, args));
+    }
+
     public StringBuilder getStringBuilder() {
         return sb;
     }

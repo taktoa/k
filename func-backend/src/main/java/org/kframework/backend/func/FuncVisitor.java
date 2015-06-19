@@ -14,7 +14,6 @@ import org.kframework.kore.KToken;
 import org.kframework.kore.KVariable;
 import org.kframework.kore.AbstractKORETransformer;
 import org.kframework.kore.Sort;
-import org.kframework.kore.compile.VisitKORE;
 import org.kframework.utils.StringUtil;
 import org.kframework.utils.errorsystem.KEMException;
 
@@ -69,95 +68,74 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         return "KApply (" + apply(k.klabel()) + ", " + apply(k.klist().items(), true) + ")";
     }
 
-    public String applyFunction(KApply k) {
-        boolean stack = inBooleanExp;
-        String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(k.klabel(), "");
-        SyntaxBuilder sb = new SyntaxBuilder();
-        // use native &&, ||, not where possible
-        if (useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
-            assert k.klist().items().size() == 2;
-            if (!stack) {
-                sb.append("[Bool ");
-            }
-            inBooleanExp = true;
-            sb.append("(");
-            sb.append(apply(k.klist().items().get(0)));
-            sb.append(") && (");
-            sb.append(apply(k.klist().items().get(1)));
-            sb.append(")");
-            if (!stack) {
-                sb.append("]");
-            }
-        } else if (useNativeBooleanExp && ("#BOOL:_orBool_".equals(hook) || "#BOOL:_orElseBool_".equals(hook))) {
-            assert k.klist().items().size() == 2;
-            if (!stack) {
-                sb.append("[Bool ");
-            }
-            inBooleanExp = true;
-            sb.append("(");
-            sb.append(apply(k.klist().items().get(0)));
-            sb.append(") || (");
-            sb.append(apply(k.klist().items().get(1)));
-            sb.append(")");
-            if (!stack) {
-                sb.append("]");
-            }
-        } else if (useNativeBooleanExp && "#BOOL:notBool_".equals(hook)) {
-            assert k.klist().items().size() == 1;
-            if (!stack) {
-                sb.append("[Bool ");
-            }
-            inBooleanExp = true;
-            sb.append("(not ");
-            sb.append(apply(k.klist().items().get(0)));
-            sb.append(")");
-            if (!stack) {
-                sb.append("]");
-            }
-        } else if (ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
-            sb.append(applyKLabel(k));
-            sb.append(" :: []");
-        } else {
-            if(ppk.attrLabels.get(Attribute.PREDICATE_KEY).keySet().contains(k.klabel())) {
-                Sort s = Sort(ppk.attrLabels.get(Attribute.PREDICATE_KEY).get(k.klabel()));
-                String hook2 = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
-                if(sortHooks.containsKey(hook2) && k.klist().items().size() == 1) {
-                    KSequence item = (KSequence) k.klist().items().get(0);
-                    if (item.items().size() == 1 &&
-                        vars.containsKey(item.items().get(0))) {
-                        Optional<String> varSort = item.items().get(0).att().<String>getOptional(Attribute.SORT_KEY);
-                        if (varSort.isPresent() && varSort.get().equals(s.name())) {
-                            // this has been subsumed by a structural check on the builtin data type
-                            sb.append(apply(BooleanUtils.TRUE));
-                            return sb.toString();
-                        }
-                    }
+    public String applyBoolMonad(KApply k, String fmt) {
+        assert k.klist().items().size() == 1;
+        inBooleanExp = true;
+        return String.format(fmt, apply(k.klist().items().get(0)));
+    }
+
+    public String applyBoolDyad(KApply k, String fmt) {
+        assert k.klist().items().size() == 2;
+        inBooleanExp = true;
+        return String.format(fmt,
+                             apply(k.klist().items().get(0)),
+                             apply(k.klist().items().get(1)));
+    }
+
+    public Optional<String> applyPredicateFunction(KApply k) {
+        Sort s = Sort(ppk.attrLabels.get(Attribute.PREDICATE_KEY).get(k.klabel()));
+        String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
+        if(sortHooks.containsKey(hook) && k.klist().items().size() == 1) {
+            KSequence item = (KSequence) k.klist().items().get(0);
+            if(item.items().size() == 1 && vars.containsKey(item.items().get(0))) {
+                Optional<String> varSort = item.items()
+                    .get(0)
+                    .att()
+                    .<String>getOptional(Attribute.SORT_KEY);
+                if (varSort.isPresent() && varSort.get().equals(s.name())) {
+                    return Optional.of(apply(BooleanUtils.TRUE));
                 }
-                if (s.equals(Sorts.KItem())
-                    && k.klist().items().size() == 1
-                    && k.klist().items().get(0) instanceof KSequence) {
-                    KSequence item = (KSequence) k.klist().items().get(0);
-                    if (item.items().size() == 1) {
-                        sb.append(apply(BooleanUtils.TRUE));
-                        return sb.toString();
-                    }
-                }
-            }
-            if(stack) {
-                sb.append("(isTrue ");
-            }
-            inBooleanExp = false;
-            sb.append("(");
-            sb.append(encodeStringToFunction(k.klabel().name()));
-            sb.append("(");
-            sb.append(apply(k.klist().items(), true));
-            sb.append(") Guard.empty)");
-            if(stack) {
-                sb.append(")");
             }
         }
+        if(s.equals(Sorts.KItem())
+           && k.klist().items().size() == 1
+           && k.klist().items().get(0) instanceof KSequence) {
+            KSequence item = (KSequence) k.klist().items().get(0);
+            if (item.items().size() == 1) {
+                return Optional.of(apply(BooleanUtils.TRUE));
+            }
+        }
+        return Optional.empty();
+    }
+
+    public String applyFunction(KApply k) {
+        boolean stack = inBooleanExp;
+        String res = "";
+        String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(k.klabel(), "");
+        // use native &&, ||, not where possible
+        if(useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
+            res = applyBoolDyad(k, stack ? "(%s) && (%s)" : "[Bool (%s) && (%s)]");
+        } else if(useNativeBooleanExp && ("#BOOL:_orBool_".equals(hook) || "#BOOL:_orElseBool_".equals(hook))) {
+            res = applyBoolDyad(k, stack ? "(%s) || (%s)" : "[Bool (%s) || (%s)]");
+        } else if(useNativeBooleanExp && "#BOOL:notBool_".equals(hook)) {
+            res = applyBoolMonad(k, stack ? "(not %s)" : "[Bool (not %s)]");
+        } else if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
+            res = String.format("%s :: []", applyKLabel(k));
+        } else {
+            if(ppk.attrLabels.get(Attribute.PREDICATE_KEY).keySet().contains(k.klabel())) {
+                Optional<String> predRes = applyPredicateFunction(k);
+                if(predRes.isPresent()) {
+                    return predRes.get();
+                }
+            }
+            String fmt = stack ? "(isTrue (%s(%s) Guard.empty))" : "(%s(%s) Guard.empty)";
+            inBooleanExp = false;
+            res = String.format(fmt,
+                                encodeStringToFunction(k.klabel().name()),
+                                apply(k.klist().items(), true));
+        }
         inBooleanExp = stack;
-        return sb.toString();
+        return res;
     }
 
     @Override
