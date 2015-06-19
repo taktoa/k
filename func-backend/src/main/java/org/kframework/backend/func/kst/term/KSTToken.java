@@ -13,6 +13,10 @@ public class KSTToken extends KSTTerm {
         super.setSort(s);
     }
 
+    public String getToken() {
+        return token;
+    }
+
     @Override
     public boolean equals(Object o) {
         if(o instanceof KSTToken) {

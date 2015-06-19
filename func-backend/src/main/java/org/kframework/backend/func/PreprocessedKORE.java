@@ -18,11 +18,12 @@ import org.kframework.kore.K;
 import scala.Function1;
 import scala.Tuple2;
 
-import org.kframework.backend.func.kst.KSTModule;
-import org.kframework.backend.func.kst.RemoveKSequence;
-import org.kframework.backend.func.kst.SyntaxToType;
-import org.kframework.backend.func.kst.RulesToFunctions;
-import org.kframework.backend.func.kst.NormalizeFunctions;
+//import org.kframework.backend.func.kst.KSTModule;
+//import org.kframework.backend.func.kst.RemoveKSequence;
+//import org.kframework.backend.func.kst.SyntaxToType;
+//import org.kframework.backend.func.kst.RulesToFunctions;
+//import org.kframework.backend.func.kst.NormalizeFunctions;
+import org.kframework.backend.func.kst.*;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;

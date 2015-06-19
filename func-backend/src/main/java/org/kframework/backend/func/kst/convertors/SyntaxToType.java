@@ -3,6 +3,7 @@ package org.kframework.backend.func.kst;
 import java.util.function.Function;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Maps;
 import java.util.function.UnaryOperator;
 import java.util.Set;
 import java.util.Map;
@@ -32,11 +33,13 @@ public class SyntaxToType implements UnaryOperator<KSTModule> {
                                          .collect(Collectors.toSet());
 
         for(String srt : mstx.keySet()) {
-            Map<KSTLabel, List<KSTSort>> cons = new HashMap<>();
+            Map<KSTLabel, List<KSTSort>> cons = Maps.newHashMap();
+            Map<KSTLabel, KSTAttSet>  conAtts = Maps.newHashMap();
             for(KSTSyntax stx : mstx.get(srt)) {
                 cons.put(stx.getLabel(), stx.getArgs());
+                conAtts.put(stx.getLabel(), stx.getAtts());
             }
-            res.add((KSTModuleTerm) new KSTType(new KSTSort(srt), cons));
+            res.add((KSTModuleTerm) new KSTType(new KSTSort(srt), cons, conAtts));
         }
 
         return new KSTModule(res);

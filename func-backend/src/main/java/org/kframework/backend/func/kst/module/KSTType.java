@@ -7,18 +7,22 @@ import java.util.Map;
 public class KSTType extends KSTModuleTerm {
     private final KSTSort sort;
     private final Map<KSTLabel, List<KSTSort>> cons;
+    private final Map<KSTLabel, KSTAttSet> conAtts;
 
     public KSTType(KSTSort sort,
-                   Map<KSTLabel, List<KSTSort>> cons) {
+                   Map<KSTLabel, List<KSTSort>> cons,
+                   Map<KSTLabel, KSTAttSet> conAtts) {
         super();
         this.sort = sort;
         this.cons = cons;
+        this.conAtts = conAtts;
     }
 
     public KSTType(KSTSort sort,
                    Map<KSTLabel, List<KSTSort>> cons,
+                   Map<KSTLabel, KSTAttSet> conAtts,
                    KSTAttSet atts) {
-        this(sort, cons);
+        this(sort, cons, conAtts);
         super.setAtts(atts);
     }
 
@@ -28,6 +32,10 @@ public class KSTType extends KSTModuleTerm {
 
     public Map<KSTLabel, List<KSTSort>> getConstructors() {
         return cons;
+    }
+
+    public Map<KSTLabel, KSTAttSet> getConstructorAtts() {
+        return conAtts;
     }
 
     @Override
@@ -46,6 +54,8 @@ public class KSTType extends KSTModuleTerm {
                 sb.append(" ");
                 sb.append(s);
             }
+            sb.append(" ");
+            sb.append(conAtts.get(kl));
             sb.append(")");
         }
         sb.append(")\n");
