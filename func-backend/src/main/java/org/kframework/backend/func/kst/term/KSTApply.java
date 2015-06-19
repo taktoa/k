@@ -13,9 +13,7 @@ public class KSTApply extends KSTTerm {
     }
 
     public KSTApply(KSTLabel l, List<KSTTerm> a, KSTSort s) {
-        super();
-        label = l;
-        args = a;
+        this(l, a);
         super.setSort(s);
     }
 

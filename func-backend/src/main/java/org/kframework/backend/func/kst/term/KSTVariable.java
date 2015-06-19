@@ -9,8 +9,7 @@ public class KSTVariable extends KSTTerm {
     }
 
     public KSTVariable(String n, KSTSort s) {
-        super();
-        name = n;
+        this(n);
         super.setSort(s);
     }
 

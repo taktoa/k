@@ -9,8 +9,7 @@ public class KSTToken extends KSTTerm {
     }
 
     public KSTToken(String t, KSTSort s) {
-        super();
-        token = t;
+        this(t);
         super.setSort(s);
     }
 

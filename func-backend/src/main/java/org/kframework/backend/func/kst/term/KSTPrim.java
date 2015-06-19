@@ -9,8 +9,7 @@ public class KSTPrim<Prim> extends KSTTerm {
     }
 
     public KSTPrim(Prim p, KSTSort s) {
-        super();
-        prim = p;
+        this(p);
         super.setSort(s);
     }
 

@@ -13,8 +13,7 @@ public class KSTAtt {
     }
 
     public KSTAtt(KSTApply app) {
-        label = app.getLabel();
-        args = app.getArgs();
+        this(app.getLabel(), app.getArgs());
     }
 
     public KSTLabel getLabel() {
