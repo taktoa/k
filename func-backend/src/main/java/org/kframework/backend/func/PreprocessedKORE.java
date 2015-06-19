@@ -159,10 +159,11 @@ public final class PreprocessedKORE {
         rulesToFunctions   = RulesToFunctions.getModuleEndo();
         syntaxToType       = SyntaxToType.getModuleEndo();
         normalizeFunctions = NormalizeFunctions.getModuleEndo();
-        pipeline           =          removeKSequence
-                             .andThen(rulesToFunctions)
-                             .andThen(syntaxToType)
-                             .andThen(normalizeFunctions);
+        pipeline =
+            removeKSequence
+            .andThen(rulesToFunctions)
+            .andThen(syntaxToType)
+            .andThen(normalizeFunctions);
         return pipeline.apply(KOREtoKST.convert(mainModule));
     }
 

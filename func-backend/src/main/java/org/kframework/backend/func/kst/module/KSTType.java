@@ -17,10 +17,9 @@ public class KSTType extends KSTModuleTerm {
 
     public KSTType(KSTSort sort,
                    Map<KSTLabel, List<KSTSort>> cons,
-                   Set<KSTAtt> atts) {
-        super(atts);
-        this.sort = sort;
-        this.cons = cons;
+                   KSTAttSet atts) {
+        this(sort, cons);
+        super.setAtts(atts);
     }
 
     public KSTSort getSort() {

@@ -9,8 +9,8 @@ import java.util.stream.Collectors;
 public class KSTModule {
     private final Set<KSTModuleTerm> modTerms;
 
-    public KSTModule(Set<KSTModuleTerm> t) {
-        modTerms = t;
+    public KSTModule(Set<KSTModuleTerm> modTerms) {
+        this.modTerms = modTerms;
     }
 
     public Set<KSTModuleTerm> getTerms() {

@@ -1,7 +1,5 @@
 package org.kframework.backend.func.kst;
 
-import java.util.Set;
-
 public class KSTRule extends KSTModuleTerm {
     private final KSTTerm body;
     private final KSTTerm requires;
@@ -19,11 +17,9 @@ public class KSTRule extends KSTModuleTerm {
     public KSTRule(KSTTerm body,
                    KSTTerm requires,
                    KSTTerm ensures,
-                   Set<KSTAtt> atts) {
-        super(atts);
-        this.body = body;
-        this.requires = requires;
-        this.ensures = ensures;
+                   KSTAttSet atts) {
+        this(body, requires, ensures);
+        super.setAtts(atts);
     }
 
     public KSTTerm getBody() {

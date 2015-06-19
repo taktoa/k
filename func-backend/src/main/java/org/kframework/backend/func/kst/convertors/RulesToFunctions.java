@@ -97,7 +97,8 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
         return (KSTModuleTerm) new KSTFunction(funcLabel,
                                                leftApp.getSort(),
                                                funcArgs,
-                                               funcBody);
+                                               funcBody,
+                                               fail.getAtts());
     }
 
     private static boolean isFunctionRule(KSTModuleTerm kmt) {
@@ -114,8 +115,9 @@ public class RulesToFunctions implements UnaryOperator<KSTModule> {
         return rq && en;
     }
 
-    private static boolean isFunction(Set<KSTAtt> atts) {
-        return !atts.stream()
+    private static boolean isFunction(KSTAttSet atts) {
+        return !atts.getAttSet()
+                    .stream()
                     .filter(RulesToFunctions::isFunction)
                     .collect(Collectors.toSet())
                     .isEmpty();

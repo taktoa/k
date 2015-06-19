@@ -20,10 +20,11 @@ public class KSTRuleEndomorphism implements UnaryOperator<KSTRule> {
         KSTTerm newRequires = termEndo.apply(kr.getRequires());
         KSTTerm newEnsures  = termEndo.apply(kr.getEnsures());
         Set<KSTAtt> newAtts = kr.getAtts()
+                                .getAttSet()
                                 .stream()
                                 .map(attEndo::apply)
                                 .collect(Collectors.toSet());
 
-        return new KSTRule(newBody, newRequires, newEnsures, newAtts);
+        return new KSTRule(newBody, newRequires, newEnsures, new KSTAttSet(newAtts));
     }
 }

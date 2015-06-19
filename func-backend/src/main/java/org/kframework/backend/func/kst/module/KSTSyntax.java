@@ -18,10 +18,9 @@ public class KSTSyntax extends KSTModuleDefinition {
     public KSTSyntax(KSTSort sort,
                      KSTLabel label,
                      List<KSTSort> args,
-                     Set<KSTAtt> atts) {
-        super(label, atts);
-        this.sort = sort;
-        this.args = args;
+                     KSTAttSet atts) {
+        this(sort, label, args);
+        super.setAtts(atts);
     }
 
     public KSTSort getSort() {

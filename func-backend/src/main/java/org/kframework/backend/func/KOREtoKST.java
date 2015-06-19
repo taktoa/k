@@ -14,22 +14,7 @@ import org.kframework.kore.KLabel;
 import org.kframework.kore.Sort;
 import org.kframework.kore.KLabel;
 import org.kframework.kore.AbstractKORETransformer;
-import org.kframework.backend.func.kst.KST;
-import org.kframework.backend.func.kst.KSTModuleTerm;
-import org.kframework.backend.func.kst.KSTApply;
-import org.kframework.backend.func.kst.KSTAtt;
-import org.kframework.backend.func.kst.KSTLabel;
-import org.kframework.backend.func.kst.KSTSort;
-import org.kframework.backend.func.kst.KSTTerm;
-import org.kframework.backend.func.kst.KSTToken;
-import org.kframework.backend.func.kst.KSTVariable;
-import org.kframework.backend.func.kst.KSTRewrite;
-import org.kframework.backend.func.kst.KSTRule;
-import org.kframework.backend.func.kst.KSTSyntax;
-import org.kframework.backend.func.kst.KSTModule;
-import org.kframework.backend.func.kst.KSTSortAny;
-import org.kframework.backend.func.kst.KSTLabelSeq;
-import org.kframework.backend.func.kst.KSTLabelInj;
+import org.kframework.backend.func.kst.*;
 
 import java.util.List;
 import java.util.Map;
@@ -75,19 +60,21 @@ public final class KOREtoKST {
         KSTTerm bod      = v.applyAsTerm(r.body());
         KSTTerm req      = v.applyAsTerm(r.requires());
         KSTTerm ens      = v.applyAsTerm(r.ensures());
-        Set<KSTAtt> atts = convertAtt(r.att());
+        KSTAttSet atts   = convertAtt(r.att());
 
         return new KSTRule(bod, req, ens, atts);
     }
 
-    private static Set<KSTAtt> convertAtt(Att a) {
+    private static KSTAttSet convertAtt(Att a) {
         KOREtoKSTVisitor v = new KOREtoKSTVisitor();
-        return a.stream()
-                .filter(x -> x instanceof KApply)
-                .map(v::applyAsApply)
-                .map(x -> new KSTAtt(x))
-                .collect(Collectors.toSet());
+        Set<KSTAtt> as = a.stream()
+                          .filter(x -> x instanceof KApply)
+                          .map(v::applyAsApply)
+                          .map(x -> new KSTAtt(x))
+                          .collect(Collectors.toSet());
+        return new KSTAttSet(as);
     }
+
 
     public static KSTModule convert(Module m) {
         Set<KSTModuleTerm> mts = new HashSet<>();

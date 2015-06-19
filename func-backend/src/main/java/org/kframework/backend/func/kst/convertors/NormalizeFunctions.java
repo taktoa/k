@@ -6,11 +6,12 @@ import com.google.common.collect.HashMultimap;
 import java.util.function.UnaryOperator;
 import java.util.Set;
 import java.util.Map;
-import java.util.HashMap;
+import java.util.Collection;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.ImmutableList;
 import org.kframework.utils.errorsystem.KEMException;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.List;
 import java.util.ArrayList;
@@ -39,7 +40,7 @@ public class NormalizeFunctions implements UnaryOperator<KSTModule> {
         Set<KSTNormFunction> normFunctions
             = Sets.newHashSetWithExpectedSize(functionMap.keySet().size());
         for(KSTLabel l : functionMap.keySet()) {
-            List<KSTFunction> funcs = functionMap.get(l);
+            List<KSTFunction> funcs = sortFunctions(functionMap.get(l));
             List<List<KSTPattern>> pats = Lists.newArrayListWithCapacity(funcs.size());
             List<KSTExpr>          vals = Lists.newArrayListWithCapacity(funcs.size());
             KSTSort srt = funcs.get(0).getSort();
@@ -60,5 +61,19 @@ public class NormalizeFunctions implements UnaryOperator<KSTModule> {
         result.addAll(nonFunctions);
         result.addAll(normFunctions);
         return new KSTModule(result);
+    }
+
+    private static List<KSTFunction> sortFunctions(Collection<KSTFunction> fs) {
+        return fs.stream()
+                 .sorted(NormalizeFunctions::functionCompare)
+                 .collect(Collectors.toList());
+    }
+
+    private static int functionCompare(KSTFunction f1, KSTFunction f2) {
+        return Boolean.compare(isFunctionOtherwise(f1), isFunctionOtherwise(f2));
+    }
+
+    private static boolean isFunctionOtherwise(KSTFunction f) {
+        return f.getAtts().get("owise").isPresent();
     }
 }

@@ -25,12 +25,9 @@ public class KSTFunction extends KSTModuleTerm {
                        KSTSort resultSort,
                        List<KSTPattern> args,
                        KSTTerm body,
-                       Set<KSTAtt> atts) {
-        super(atts);
-        this.label      = label;
-        this.resultSort = resultSort;
-        this.args       = args;
-        this.body       = body;
+                       KSTAttSet atts) {
+        this(label, resultSort, args, body);
+        super.setAtts(atts);
     }
 
     public KSTLabel getLabel() {
@@ -61,6 +58,6 @@ public class KSTFunction extends KSTModuleTerm {
                             .map(v -> v.toString())
                             .collect(Collectors.joining(" "));
 
-        return String.format("(function %s (%s) %s : %s)\n", label, argStr, body, getSort());
+        return String.format("(function %s (%s) %s : %s)", label, argStr, body, getSort());
     }
 }

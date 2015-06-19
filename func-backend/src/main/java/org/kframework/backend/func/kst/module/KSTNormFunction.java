@@ -1,7 +1,6 @@
 package org.kframework.backend.func.kst;
 
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KSTNormFunction extends KSTModuleTerm {
@@ -25,12 +24,9 @@ public class KSTNormFunction extends KSTModuleTerm {
                            KSTSort resultSort,
                            List<KSTVariable> args,
                            KSTExpr body,
-                           Set<KSTAtt> atts) {
-        super(atts);
-        this.label      = label;
-        this.resultSort = resultSort;
-        this.args       = args;
-        this.body       = body;
+                           KSTAttSet atts) {
+        this(label, resultSort, args, body);
+        super.setAtts(atts);
     }
 
     public KSTLabel getLabel() {
