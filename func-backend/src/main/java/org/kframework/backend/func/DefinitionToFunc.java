@@ -1,3 +1,4 @@
+// Copyright (c) 2015 K Team. All Rights Reserved.
 package org.kframework.backend.func;
 
 import com.google.common.collect.HashMultimap;
@@ -41,7 +42,7 @@ import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OcamlIncludes.*;
 
-/*
+/**
  * @author: Remy Goldschmidt
  */
 public class DefinitionToFunc {
