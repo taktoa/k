@@ -1,3 +1,4 @@
+// Copyright (c) 2015 K Team. All Rights Reserved.
 package org.kframework.kore.compile;
 
 import org.kframework.builtin.Sorts;
@@ -27,6 +28,7 @@ public class GenerateSortPredicateSyntax {
             if (!mod.productions().contains(prod))
                 res.add(prod);
         }
-        return Module(mod.name(), mod.imports(), (scala.collection.immutable.Set<Sentence>) mod.sentences().$bar(immutable(res)), mod.att());
+
+        return Module(mod.name(), mod.imports(), (scala.collection.immutable.Set<Sentence>) mod.localSentences().$bar(immutable(res)), mod.att());
     }
 }

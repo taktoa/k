@@ -174,7 +174,7 @@
               <stripVersion>true</stripVersion>
               <outputDirectory>${project.build.directory}/lib/java/dynamic</outputDirectory>
             </configuration>
-          </execution> 
+          </execution>
           <execution>
             <id>unpack-zip-dependencies</id>
             <goals>
@@ -242,4 +242,3 @@
     </plugins>
   </build>
 </project>
-
