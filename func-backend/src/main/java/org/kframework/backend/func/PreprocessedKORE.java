@@ -64,6 +64,7 @@ import static scala.compat.java8.JFunction.*;
  */
 public final class PreprocessedKORE {
     public final Set<KLabel> functionSet;
+    public final Set<KLabel> anywhereSet;
     public final Map<KLabel, List<Rule>> functionRulesOrdered;
     public final List<List<KLabel>> functionOrder;
     public final Set<Sort> definedSorts;
@@ -75,7 +76,6 @@ public final class PreprocessedKORE {
     public final Map<Rule, Set<String>> indexedRules;
     public final Map<Sort, KLabel> freshFunctionFor;
     public final SetMultimap<KLabel, Rule> functionRules;
-    public final SetMultimap<KLabel, Rule> anywhereRules;
 
     private final Module mainModule;
     private final Set<Rule> rules;
@@ -139,9 +139,9 @@ public final class PreprocessedKORE {
         productionsFor    = getProductionsFor(mainModule);
 
         functionRules = getFunctionRules();
-        anywhereRules = getAnywhereRules();
         functionRulesOrdered = getFunctionRulesOrdered(functionRules);
         functionSet   = getFunctionSet(functionRules);
+        anywhereSet   = getAnywhereSet(functionRules);
         functionOrder = getFunctionOrder(functionSet, functionRules);
         attrLabels    = getAttrLabels(attributesFor);
         attrSorts     = getAttrSorts(sortAttributesFor);
@@ -503,19 +503,6 @@ public final class PreprocessedKORE {
         return fr;
     }
 
-    private SetMultimap<KLabel, Rule> getAnywhereRules() {
-        SetMultimap<KLabel, Rule> ar = HashMultimap.create();
-
-        for(Rule r : rules) {
-            Optional<KLabel> mkl = getKLabelIfAnywhereRule(r);
-            if(mkl.isPresent()) {
-                ar.put(mkl.get(), r);
-            }
-        }
-
-        return ar;
-    }
-
     private Map<KLabel, List<Rule>> getFunctionRulesOrdered(SetMultimap<KLabel, Rule> fr) {
         Map<KLabel, List<Rule>> result = new HashMap<>();
         List<Rule> rl;
@@ -545,6 +532,18 @@ public final class PreprocessedKORE {
         }
 
         return fs;
+    }
+
+    private Set<KLabel> getAnywhereSet(SetMultimap<KLabel, Rule> ar) {
+        Set<KLabel> as = new HashSet<>(ar.keySet());
+
+        for(Production p : iterable(mainModule.productions())) {
+            if(p.att().contains("anywhere")) {
+                as.add(p.klabel().get());
+            }
+        }
+
+        return as;
     }
 
     private List<List<KLabel>> getFunctionOrder(Set<KLabel> fs, SetMultimap<KLabel, Rule> fr) {

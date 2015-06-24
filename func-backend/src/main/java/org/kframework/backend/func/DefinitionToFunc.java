@@ -90,12 +90,12 @@ public class DefinitionToFunc {
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        System.out.println(preproc.prettyPrint()); // DEBUG
-        // System.out.println(SortCheck.sortCheck(preproc.getKSTModule())); // DEBUG
-        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        // System.out.println(preproc.prettyPrint()); // DEBUG
+        // // System.out.println(SortCheck.sortCheck(preproc.getKSTModule())); // DEBUG
+        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
+        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         return langDefToFunc(preproc).render();
     }
 
@@ -326,7 +326,8 @@ public class DefinitionToFunc {
         String functionName = encodeStringToFunction(functionLabel.name());
 
         sb.beginLetrecEquation();
-        sb.addLetrecEquationName(functionName + " (c: k list) (guards: Guard.t) : k");
+        sb.addLetrecEquationName(String.format("%s (c: k list) (guards: Guard.t) : k",
+                                               functionName));
         sb.beginLetrecEquationValue();
         sb.beginLetExpression();
         sb.beginLetDefinitions();
@@ -392,8 +393,10 @@ public class DefinitionToFunc {
     }
 
     private void addFunctions(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        Set<KLabel> functions = ppk.functionRules.keySet();
-        Set<KLabel> anywheres = ppk.anywhereRules.keySet();
+        Set<KLabel> functions = ppk.functionSet;
+        Set<KLabel> anywheres = ppk.anywhereSet;
+
+        Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
 
         for(List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
@@ -412,7 +415,7 @@ public class DefinitionToFunc {
         sb.beginLetrecDefinitions();
         addFreshFunction(ppk, sb);
         sb.addLetrecEquationSeparator();
-        addEval(Sets.union(functions, anywheres), ppk, sb);
+        addEval(funcAndAny, ppk, sb);
         sb.endLetrecDefinitions();
         sb.endLetrecExpression();
     }
@@ -464,7 +467,7 @@ public class DefinitionToFunc {
         addKLabelType(ppk, sb);
         addKLabelOrderFunc(ppk, sb);
         OcamlIncludes.addPrelude(sb);
-        addPrintSortString(ppk, sb);
+        //addPrintSortString(ppk, sb);
         addPrintSort(ppk, sb);
         addPrintKLabel(ppk, sb);
         OcamlIncludes.addMidlude(sb);

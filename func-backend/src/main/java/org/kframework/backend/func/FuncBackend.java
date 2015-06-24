@@ -50,8 +50,6 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
             ocamloptBuilder = ocamloptBuilder.directory(files.resolveKompiled("."));
             ocamloptBuilder = ocamloptBuilder.inheritIO();
 
-            System.out.println("DBG: Backend command: " + ocamloptBuilder.command());
-
             Process ocamlopt = ocamloptBuilder.start();
 
             int exit = ocamlopt.waitFor();

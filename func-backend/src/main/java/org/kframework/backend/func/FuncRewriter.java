@@ -66,11 +66,12 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                                     files.resolveKompiled(".").getAbsolutePath(),
                                     files.resolveKompiled("def.cmo").getAbsolutePath(),
                                     "pgm.ml");
-                    System.out.println("DBG: Rewriter command: " + pb.command());
+
                     Process p = pb.directory(files.resolveTemp("."))
                                   .redirectError(files.resolveTemp("compile.err"))
                                   .redirectOutput(files.resolveTemp("compile.out"))
                                   .start();
+
                     int exit = p.waitFor();
                     if (exit != 0) {
                         System.err.println(files.loadFromTemp("compile.err"));

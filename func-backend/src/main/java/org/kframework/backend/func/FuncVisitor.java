@@ -43,20 +43,6 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         this.inBooleanExp = useNativeBooleanExp;
     }
 
-    private boolean isLookupKLabel(KLabel k) {
-        return k.name().equals("#match")
-            || k.name().equals("#mapChoice")
-            || k.name().equals("#setChoice");
-    }
-
-    private boolean isKTokenKLabel(KLabel k) {
-        return k.name().equals("#KToken");
-    }
-
-    private boolean isFunctionKLabel(KLabel k) {
-        return ppk.functionSet.contains(k);
-    }
-
     @Override
     public String apply(KApply k) {
         KLabel kl = k.klabel();
@@ -67,11 +53,51 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
             return String.format("KToken (%s, %s)",
                                  apply(Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s())),
                                  apply(((KSequence) k.klist().items().get(1)).items().get(0)));
-        } else if(isFunctionKLabel(kl)) {
+        } else if(isFunctionKLabel(kl) || isAnywhereKLabel(kl)) {
             return applyFunction(k);
         } else {
             return applyKLabel(k);
         }
+    }
+
+    @Override
+    public String apply(KRewrite k) {
+        throw new AssertionError("unexpected rewrite");
+    }
+
+    @Override
+    public String apply(KToken k) {
+        if(useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
+            return k.s();
+        }
+        String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(k.sort(), "");
+        if(sortHooks.containsKey(hook)) {
+            return sortHooks.get(hook).apply(k.s());
+        }
+        return String.format("KToken (%s, %s)", apply(k.sort()), StringUtil.enquoteCString(k.s()));
+    }
+
+    @Override
+    public String apply(KVariable k) {
+        if(rhs) {
+            return applyVarRhs(k, vars);
+        } else {
+            return applyVarLhs(k, vars);
+        }
+    }
+
+    @Override
+    public String apply(KSequence k) {
+        if(useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
+            return apply(k.items().get(0));
+        }
+        checkKSequence(k);
+        return String.format("(%s)", apply(k.items(), false));
+    }
+
+    @Override
+    public String apply(InjectedKLabel k) {
+        return String.format("InjectedKLabel (%s)", apply(k.klabel()));
     }
 
     public String applyKLabel(KApply k) {
@@ -124,13 +150,12 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         boolean stack = inBooleanExp;
         String res = "";
         String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(k.klabel(), "");
-        // use native &&, ||, not where possible
         if(useNativeBooleanExp && ("#BOOL:_andBool_".equals(hook) || "#BOOL:_andThenBool_".equals(hook))) {
             res = applyBoolDyad(k, stack ? "(%s) && (%s)" : "[Bool (%s) && (%s)]");
         } else if(useNativeBooleanExp && ("#BOOL:_orBool_".equals(hook) || "#BOOL:_orElseBool_".equals(hook))) {
             res = applyBoolDyad(k, stack ? "(%s) || (%s)" : "[Bool (%s) || (%s)]");
         } else if(useNativeBooleanExp && "#BOOL:notBool_".equals(hook)) {
-            res = applyBoolMonad(k, stack ? "(not %s)" : "[Bool (not %s)]");
+            res = applyBoolMonad(k, stack ? "(not (%s))" : "[Bool (not (%s))]");
         } else if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
             res = String.format("%s :: []", applyKLabel(k));
         } else {
@@ -148,61 +173,6 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         }
         inBooleanExp = stack;
         return res;
-    }
-
-    @Override
-    public String apply(KRewrite k) {
-        throw new AssertionError("unexpected rewrite");
-    }
-
-    @Override
-    public String apply(KToken k) {
-        if(useNativeBooleanExp && inBooleanExp && k.sort().equals(Sorts.Bool())) {
-            return k.s();
-        }
-        String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(k.sort(), "");
-        if(sortHooks.containsKey(hook)) {
-            return sortHooks.get(hook).apply(k.s());
-        }
-        return String.format("KToken (%s, %s)", apply(k.sort()), StringUtil.enquoteCString(k.s()));
-    }
-
-    @Override
-    public String apply(KVariable k) {
-        if(rhs) {
-            return applyVarRhs(k, vars);
-        } else {
-            return applyVarLhs(k, vars);
-        }
-    }
-
-    private void checkKSequence(KSequence k) {
-        String kseqError = "Cannot compile KSequence with K variable not at tail.";
-        if(!rhs) {
-            for(int i = 0; i < k.items().size() - 1; i++) {
-                if(isList(k.items().get(i), false)) {
-                    throw KEMException.criticalError(kseqError, k.items().get(i));
-                }
-            }
-        }
-    }
-
-    @Override
-    public String apply(KSequence k) {
-        if(useNativeBooleanExp && k.items().size() == 1 && inBooleanExp) {
-            return apply(k.items().get(0));
-        }
-        checkKSequence(k);
-        return String.format("(%s)", apply(k.items(), false));
-    }
-
-    public String getSortOfVar(K k) {
-        return k.att().<String>getOptional(Attribute.SORT_KEY).orElse("K");
-    }
-
-    @Override
-    public String apply(InjectedKLabel k) {
-        return String.format("InjectedKLabel (%s)", apply(k.klabel()));
     }
 
     public String apply(List<K> items, boolean klist) {
@@ -226,14 +196,6 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
             sb.append("[]");
         }
         return sb.toString();
-    }
-
-    private boolean isList(K item, boolean klist) {
-        return !klist && (   item instanceof KSequence
-                          ||    item instanceof KVariable
-                             && getSortOfVar(item).equals("K")
-                          ||    item instanceof KApply
-                             && ppk.functionSet.contains(((KApply) item).klabel()));
     }
 
     public String apply(Sort sort) {
@@ -261,5 +223,59 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
             return String.format("(%s _ as %s)", s.name(), varName);
         }
         return varName;
+    }
+
+    private void checkKSequence(KSequence k) {
+        String kseqError = "Cannot compile KSequence with K variable not at tail.";
+        if(!rhs) {
+            for(int i = 0; i < k.items().size() - 1; i++) {
+                if(isList(k.items().get(i), false)) {
+                    throw KEMException.criticalError(kseqError, k.items().get(i));
+                }
+            }
+        }
+    }
+
+    public String getSortOfVar(K k) {
+        return k.att().<String>getOptional(Attribute.SORT_KEY).orElse("K");
+    }
+
+    private boolean isList(K item, boolean klist) {
+        boolean isKSequence = item instanceof KSequence;
+        boolean isKVariable = item instanceof KVariable;
+        boolean isKApply    = item instanceof KApply;
+        boolean sortIsK     = getSortOfVar(item).equals("K");
+
+        if(klist)                  { return false; }
+        if(isKSequence)            { return true; }
+        if(isKVariable && sortIsK) { return true; }
+
+        if(isKApply) {
+            KLabel kl = ((KApply) item).klabel();
+            if(isFunctionKLabel(kl))    { return true; }
+            if(! rhs)                   { return false; }
+            if(kl instanceof KVariable) { return true; }
+            if(isAnywhereKLabel(kl))    { return true; }
+        }
+
+        return false;
+    }
+
+    private boolean isLookupKLabel(KLabel k) {
+        return k.name().equals("#match")
+            || k.name().equals("#mapChoice")
+            || k.name().equals("#setChoice");
+    }
+
+    private boolean isKTokenKLabel(KLabel k) {
+        return k.name().equals("#KToken");
+    }
+
+    private boolean isFunctionKLabel(KLabel k) {
+        return ppk.functionSet.contains(k);
+    }
+
+    private boolean isAnywhereKLabel(KLabel k) {
+        return ppk.anywhereSet.contains(k);
     }
 }
