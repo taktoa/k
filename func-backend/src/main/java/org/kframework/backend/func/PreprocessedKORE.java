@@ -73,10 +73,12 @@ public final class PreprocessedKORE {
     public final Map<KLabel, KLabel> collectionFor;
     public final Map<KLabel, Set<Production>> productionsFor;
     public final Map<Rule, Set<String>> indexedRules;
+    public final Map<Sort, KLabel> freshFunctionFor;
+    public final SetMultimap<KLabel, Rule> functionRules;
+    public final SetMultimap<KLabel, Rule> anywhereRules;
 
     private final Module mainModule;
     private final Set<Rule> rules;
-    private final SetMultimap<KLabel, Rule> functionRules;
     private final Map<Sort, Att> sortAttributesFor;
     private final Map<KLabel, Att> attributesFor;
 
@@ -133,9 +135,11 @@ public final class PreprocessedKORE {
         attributesFor     = scalaMapAsJava(mainModule.attributesFor());
         sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
         collectionFor     = scalaMapAsJava(mainModule.collectionFor());
+        freshFunctionFor  = scalaMapAsJava(mainModule.freshFunctionFor());
         productionsFor    = getProductionsFor(mainModule);
 
         functionRules = getFunctionRules();
+        anywhereRules = getAnywhereRules();
         functionRulesOrdered = getFunctionRulesOrdered(functionRules);
         functionSet   = getFunctionSet(functionRules);
         functionOrder = getFunctionOrder(functionSet, functionRules);
@@ -468,6 +472,24 @@ public final class PreprocessedKORE {
         return is ? Optional.ofNullable(kapp.klabel()) : Optional.empty();
     }
 
+    private Optional<KLabel> getKLabelIfAnywhereRule(Rule r) {
+        K left = RewriteToTop.toLeft(r.body());
+        boolean is = false;
+        KSequence kseq;
+        KApply kapp = null;
+
+        if(left instanceof KSequence) {
+            kseq = (KSequence) left;
+            if(kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
+                kapp = (KApply) kseq.items().get(0);
+                is = r.att().contains("anywhere");
+            }
+        }
+
+        return is ? Optional.ofNullable(kapp.klabel()) : Optional.empty();
+    }
+
+
     private SetMultimap<KLabel, Rule> getFunctionRules() {
         SetMultimap<KLabel, Rule> fr = HashMultimap.create();
 
@@ -479,6 +501,19 @@ public final class PreprocessedKORE {
         }
 
         return fr;
+    }
+
+    private SetMultimap<KLabel, Rule> getAnywhereRules() {
+        SetMultimap<KLabel, Rule> ar = HashMultimap.create();
+
+        for(Rule r : rules) {
+            Optional<KLabel> mkl = getKLabelIfAnywhereRule(r);
+            if(mkl.isPresent()) {
+                ar.put(mkl.get(), r);
+            }
+        }
+
+        return ar;
     }
 
     private Map<KLabel, List<Rule>> getFunctionRulesOrdered(SetMultimap<KLabel, Rule> fr) {
@@ -567,6 +602,9 @@ public final class PreprocessedKORE {
         }
         for(Rule r : rs) {
             Set<String> tmp = new HashSet<>();
+            if(isMacro(r)) {
+                tmp.add("macro");
+            }
             if(hasLookups(r)) {
                 tmp.add("lookup");
             }
@@ -589,6 +627,10 @@ public final class PreprocessedKORE {
             }
         }.apply(r.requires());
         return Boolean.valueOf(h.b);
+    }
+
+    private boolean isMacro(Rule r) {
+        return false; // FIXME(taktoa)
     }
 
     private boolean isLookupKLabel(KApply k) {

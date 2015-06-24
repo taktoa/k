@@ -52,6 +52,12 @@ public class SyntaxBuilder {
         endLetEquation();
     }
 
+    public void addLetScope(String scope) {
+        beginLetScope();
+        append(scope);
+        endLetScope();
+    }
+
     public void addLetEquationName(String name) {
         beginLetEquationName();
         append(name);
@@ -206,6 +212,12 @@ public class SyntaxBuilder {
         beginMatchEquation();
         addMatchEquationPattern(pattern);
         addMatchEquationValue(value);
+        endMatchEquation();
+    }
+
+    public void addMatchEquation(String equation) {
+        beginMatchEquation();
+        append(equation);
         endMatchEquation();
     }
 

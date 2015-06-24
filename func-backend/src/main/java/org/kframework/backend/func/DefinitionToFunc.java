@@ -3,6 +3,7 @@ package org.kframework.backend.func;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
@@ -69,21 +70,15 @@ public class DefinitionToFunc {
         SyntaxBuilder sb = new SyntaxBuilder();
         System.out.println("Example:");
         System.out.println(new KOREtoKSTVisitor().apply(k).toString());
+        FuncVisitor convVisitor = oldConvert(preproc, true, HashMultimap.create(), false);
         sb.addImport("Def");
         sb.addImport("K");
-        sb.addImport("Big_int");
         sb.beginLetExpression();
         sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName("_");
-        sb.beginLetEquationValue();
-        sb.append("print_string(print_k(try(run(");
-        FuncVisitor convVisitor = oldConvert(preproc, true, HashMultimap.create(), false);
-        sb.append(convVisitor.apply(preproc.runtimeProcess(k)));
-        sb.append(") (");
-        sb.append(Integer.toString(depth));
-        sb.append(")) with Stuck c' -> c'))");
-        sb.endLetEquationValue();
+        sb.addLetEquation("_",
+                          String.format("print_string(print_k(try(run(%s) (%s)) with Stuck c' -> c'))",
+                                        convVisitor.apply(preproc.runtimeProcess(k)),
+                                        depth));
         sb.endLetDefinitions();
         sb.endLetExpression();
         return new FuncAST(sb.render());
@@ -293,46 +288,120 @@ public class DefinitionToFunc {
         sb.append(addPrintFunc(ppk.definedKLabels, x -> x.name(), x -> ToKast.apply(x), "Lbl", "klabel"));
     }
 
-    private void addRules(PreprocessedKORE ppk, SyntaxBuilder sb) {
+    private void addFunctionMatch(String functionName,
+                                  KLabel functionLabel,
+                                  PreprocessedKORE ppk,
+                                  SyntaxBuilder sb) {
+        String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(functionLabel, "");
+        boolean isHook = OcamlIncludes.hooks.containsKey(hook);
+        boolean isPred = OcamlIncludes.predicateRules.containsKey(functionLabel.name());
+        Collection<Rule> rules = ppk.functionRulesOrdered.getOrDefault(functionLabel, new ArrayList<>());
+
+        if(!isHook && !hook.isEmpty()) {
+            kem.registerCompilerWarning("missing entry for hook " + hook);
+        }
+
+        sb.beginMatchExpression("c");
+
+        if(isHook) {
+            sb.addMatchEquation(OcamlIncludes.hooks.get(hook));
+        }
+
+        if(isPred) {
+            sb.addMatchEquation(OcamlIncludes.predicateRules.get(functionLabel.name()));
+        }
+
         int i = 0;
-        for (List<KLabel> component : ppk.functionOrder) {
+        for(Rule r : rules) {
+            oldConvert(ppk, r, sb, true, i++, functionName);
+        }
+
+        sb.addMatchEquation("_", "raise (Stuck [KApply(lbl, c)])");
+        sb.endMatchExpression();
+    }
+
+    private void addFunctionEquation(KLabel functionLabel,
+                                     PreprocessedKORE ppk,
+                                     SyntaxBuilder sb) {
+        String functionName = encodeStringToFunction(functionLabel.name());
+
+        sb.beginLetrecEquation();
+        sb.addLetrecEquationName(functionName + " (c: k list) (guards: Guard.t) : k");
+        sb.beginLetrecEquationValue();
+        sb.beginLetExpression();
+        sb.beginLetDefinitions();
+        sb.addLetEquation("lbl", encodeStringToIdentifier(functionLabel));
+        sb.endLetDefinitions();
+
+        sb.beginLetScope();
+        addFunctionMatch(functionName, functionLabel, ppk, sb);
+        sb.endLetScope();
+
+        sb.endLetExpression();
+        sb.endLetrecEquationValue();
+        sb.endLetrecEquation();
+    }
+
+    private void addFreshFunction(PreprocessedKORE ppk, SyntaxBuilder sb) {
+        sb.beginLetrecEquation();
+        sb.addLetrecEquationName("freshFunction (sort: string) (counter: Z.t) : k");
+        sb.beginLetrecEquationValue();
+
+        sb.beginMatchExpression("sort");
+        for(Sort sort : ppk.freshFunctionFor.keySet()) {
+            KLabel freshFunction = ppk.freshFunctionFor.get(sort);
+            String pat = String.format("\"%s\"", sort.name());
+            String val = String.format("(%s ([Int counter] :: []) Guard.empty)",
+                                       encodeStringToFunction(freshFunction.name()));
+            sb.addMatchEquation(pat, val);
+        }
+        sb.endMatchExpression();
+
+        sb.endLetrecEquationValue();
+        sb.endLetrecEquation();
+    }
+
+    private void addEval(Set<KLabel> labels,
+                         PreprocessedKORE ppk,
+                         SyntaxBuilder sb) {
+        sb.beginLetrecEquation();
+        sb.addLetrecEquationName("eval (c: kitem) : k");
+        sb.beginLetrecEquationValue();
+
+        sb.beginMatchExpression("c");
+
+        sb.beginMatchEquation();
+        sb.addMatchEquationPattern("KApply(lbl, kl)");
+        sb.beginMatchEquationValue();
+        sb.beginMatchExpression("lbl");
+        for(KLabel label : labels) {
+            String pat = encodeStringToIdentifier(label);
+            String val = String.format("%s kl Guard.empty",
+                                       encodeStringToFunction(label.name()));
+            sb.addMatchEquation(pat, val);
+        }
+        sb.endMatchExpression();
+        sb.endMatchEquationValue();
+
+        sb.addMatchEquation("_", "[c]");
+
+        sb.endMatchExpression();
+
+        sb.endLetrecEquationValue();
+        sb.endLetrecEquation();
+    }
+
+    private void addFunctions(PreprocessedKORE ppk, SyntaxBuilder sb) {
+        Set<KLabel> functions = ppk.functionRules.keySet();
+        Set<KLabel> anywheres = ppk.anywhereRules.keySet();
+
+        for(List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
             sb.beginLetrecExpression();
             sb.beginLetrecDefinitions();
-            for (KLabel functionLabel : component) {
+            for(KLabel functionLabel : component) {
                 if(inLetrec) { sb.addLetrecEquationSeparator(); }
-                sb.beginLetrecEquation();
-                String functionName = encodeStringToFunction(functionLabel.name());
-                sb.addLetrecEquationName(functionName + " (c: k list) (guards: Guard.t) : k");
-                sb.beginLetrecEquationValue();
-                sb.beginLetExpression();
-                sb.beginLetDefinitions();
-                sb.addLetEquation("lbl", encodeStringToIdentifier(functionLabel));
-                sb.endLetDefinitions();
-                sb.beginLetScope();
-                sb.beginMatchExpression("c");
-                String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(functionLabel, "");
-                if (hooks.containsKey(hook)) {
-                    sb.beginMatchEquation();
-                    sb.append(hooks.get(hook));
-                    sb.endMatchEquation();
-                }
-                if (predicateRules.containsKey(functionLabel.name())) {
-                    sb.beginMatchEquation();
-                    sb.append(predicateRules.get(functionLabel.name()));
-                    sb.endMatchEquation();
-                }
-
-                i = 0;
-                for (Rule r : ppk.functionRulesOrdered.getOrDefault(functionLabel, new ArrayList<>())) {
-                    oldConvert(ppk, r, sb, true, i++, functionName);
-                }
-                sb.addMatchEquation("_", "raise (Stuck [KApply(lbl, c)])");
-                sb.endMatchExpression();
-                sb.endLetScope();
-                sb.endLetExpression();
-                sb.endLetrecEquationValue();
-                sb.endLetrecEquation();
+                addFunctionEquation(functionLabel, ppk, sb);
                 inLetrec = true;
             }
             sb.endLetrecDefinitions();
@@ -341,14 +410,24 @@ public class DefinitionToFunc {
 
         sb.beginLetrecExpression();
         sb.beginLetrecDefinitions();
+        addFreshFunction(ppk, sb);
+        sb.addLetrecEquationSeparator();
+        addEval(Sets.union(functions, anywheres), ppk, sb);
+        sb.endLetrecDefinitions();
+        sb.endLetrecExpression();
+    }
+
+    private void addSteps(PreprocessedKORE ppk, SyntaxBuilder sb) {
+        sb.beginLetrecExpression();
+        sb.beginLetrecDefinitions();
         sb.beginLetrecEquation();
         sb.addLetrecEquationName("lookups_step (c: k) (guards: Guard.t) : k");
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression("c");
-        i = 0;
+        int i = 0;
         for (Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
-            if (cap.contains("lookup") && !cap.contains("function")) {
+            if(cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "lookups_step");
             }
         }
@@ -357,6 +436,8 @@ public class DefinitionToFunc {
         sb.endLetrecEquation();
         sb.endLetrecDefinitions();
         sb.endLetrecExpression();
+
+
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
@@ -365,7 +446,7 @@ public class DefinitionToFunc {
         sb.beginMatchExpression("c");
         for (Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
-            if (!cap.contains("lookup") && !cap.contains("function")) {
+            if(!cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "step");
             }
         }
@@ -382,12 +463,14 @@ public class DefinitionToFunc {
         addSortOrderFunc(ppk, sb);
         addKLabelType(ppk, sb);
         addKLabelOrderFunc(ppk, sb);
-        addPrelude(sb);
+        OcamlIncludes.addPrelude(sb);
         addPrintSortString(ppk, sb);
+        addPrintSort(ppk, sb);
         addPrintKLabel(ppk, sb);
-        addMidlude(sb);
-        addRules(ppk, sb);
-        addPostlude(sb);
+        OcamlIncludes.addMidlude(sb);
+        addFunctions(ppk, sb);
+        addSteps(ppk, sb);
+        OcamlIncludes.addPostlude(sb);
 
         return sb.toString();
     }
@@ -459,10 +542,9 @@ public class DefinitionToFunc {
         try {
             unhandledOldConvert(ppk, r, sb, function, ruleNum, functionName);
         } catch (KEMException e) {
-            e.exception.addTraceFrame("while compiling rule at "
-                                      + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>")
-                                      + ":"
-                                      + r.att().getOptional(Location.class).map(Object::toString).orElse("<none>"));
+            String src = r.att().getOptional(Source.class).map(Object::toString).orElse("<none>");
+            String loc = r.att().getOptional(Location.class).map(Object::toString).orElse("<none>");
+            e.exception.addTraceFrame(String.format("while compiling rule at %s: %s", src, loc));
             throw e;
         }
     }

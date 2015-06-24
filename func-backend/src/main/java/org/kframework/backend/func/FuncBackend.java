@@ -34,11 +34,26 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
         String ocaml = new DefinitionToFunc(kem, files, globalOptions, kompileOptions).convert(compiledDefinition);
         files.saveToKompiled("def.ml", ocaml);
         try {
-            Process ocamlopt = files.getProcessBuilder()
-                    .command("ocamlopt.opt", "-c", "def.ml")
-                    .directory(files.resolveKompiled("."))
-                    .inheritIO()
-                    .start();
+            String packages = "zarith"; // comma-separated
+            ProcessBuilder ocamloptBuilder =
+                files.getProcessBuilder()
+                     .command("ocamlfind",
+                              "ocamlc",
+                              "-dllpath-all",
+                              "-linkpkg",
+                              "-package",
+                              packages,
+                              "-c",
+                              "-g",
+                              "def.ml");
+
+            ocamloptBuilder = ocamloptBuilder.directory(files.resolveKompiled("."));
+            ocamloptBuilder = ocamloptBuilder.inheritIO();
+
+            System.out.println("DBG: Backend command: " + ocamloptBuilder.command());
+
+            Process ocamlopt = ocamloptBuilder.start();
+
             int exit = ocamlopt.waitFor();
             if (exit != 0) {
                 throw KEMException.criticalError("ocamlopt returned nonzero exit code: " + exit + "\nExamine output to see errors.");
