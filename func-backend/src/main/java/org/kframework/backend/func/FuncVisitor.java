@@ -46,18 +46,26 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
     @Override
     public String apply(KApply k) {
         KLabel kl = k.klabel();
+        if(k.klabel() instanceof KVariable && rhs) {
+            return String.format("eval (%s)", applyKLabel(k));
+        }
+
         if(isLookupKLabel(kl)) {
             return apply(BooleanUtils.TRUE);
-        } else if(isKTokenKLabel(kl)) {
+        }
+
+        if(isKTokenKLabel(kl)) {
             //magic down-ness
             return String.format("KToken (%s, %s)",
                                  apply(Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s())),
                                  apply(((KSequence) k.klist().items().get(1)).items().get(0)));
-        } else if(isFunctionKLabel(kl) || isAnywhereKLabel(kl)) {
-            return applyFunction(k);
-        } else {
-            return applyKLabel(k);
         }
+
+        if(isFunctionKLabel(kl) || isAnywhereKLabel(kl)) {
+            return applyFunction(k);
+        }
+
+        return applyKLabel(k);
     }
 
     @Override
