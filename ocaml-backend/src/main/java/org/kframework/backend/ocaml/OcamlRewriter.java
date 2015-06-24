@@ -56,11 +56,7 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
                     ProcessBuilder pb = files.getProcessBuilder();
-                    if (DefinitionToOcaml.fastCompilation) {
-                        pb = pb.command("ocamlc.opt", "-g", "zarith.cma", "str.cma", files.resolveKompiled("def.cmo").getAbsolutePath(), "-I", "+zarith", "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
-                    } else {
-                        pb = pb.command("ocamlopt.opt", "zarith.cmxa", "str.cmxa", files.resolveKompiled("def.cmx").getAbsolutePath(), "-I", "+zarith", "-I", files.resolveKompiled(".").getAbsolutePath(), "pgm.ml");
-                    }
+                    pb = pb.command("ocamlfind", "ocamlc", "-linkpkg", "-dllpath-all", "-package", "zarith,str", "-g", "-I", files.resolveKompiled(".").getAbsolutePath(), files.resolveKompiled("def.cmo").getAbsolutePath(), "pgm.ml");
                     Process p = pb.directory(files.resolveTemp("."))
                             .redirectError(files.resolveTemp("compile.err"))
                             .redirectOutput(files.resolveTemp("compile.out"))
