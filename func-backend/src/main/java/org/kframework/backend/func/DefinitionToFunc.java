@@ -435,6 +435,7 @@ public class DefinitionToFunc {
             }
         }
         sb.addMatchEquation("_", "raise (Stuck c)");
+        sb.endMatchExpression();
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
         sb.endLetrecDefinitions();
@@ -454,6 +455,7 @@ public class DefinitionToFunc {
             }
         }
         sb.addMatchEquation("_", "lookups_step c Guard.empty");
+        sb.endMatchExpression();
         sb.endLetEquationValue();
         sb.endLetDefinitions();
         sb.endLetExpression();

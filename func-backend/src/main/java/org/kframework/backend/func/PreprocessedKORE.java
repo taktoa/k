@@ -633,7 +633,9 @@ public final class PreprocessedKORE {
     }
 
     private boolean isLookupKLabel(KApply k) {
-        return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
+        return k.klabel().name().equals("#match")
+            || k.klabel().name().equals("#mapChoice")
+            || k.klabel().name().equals("#setChoice");
     }
 
     private ModuleTransformer convertLookupsMT() {

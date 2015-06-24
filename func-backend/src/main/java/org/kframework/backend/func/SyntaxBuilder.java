@@ -234,18 +234,17 @@ public class SyntaxBuilder {
     }
 
     public void beginMatchExpression(String varname) {
-        append("match ");
-        append(varname);
-        append(" with ");
+        appendf("(match %s with ", varname);
         addNewline();
     }
 
     public void endMatchExpression() {
-        // End match expression
+        append(")");
+        addNewline();
     }
 
     public void beginMatchEquation() {
-        append("|");
+        append("| ");
     }
 
     public void endMatchEquation() {
@@ -310,11 +309,11 @@ public class SyntaxBuilder {
     }
 
     public void addConstructorSum() {
-        append("|");
+        append("| ");
     }
 
     public void beginConstructor() {
-        append("|");
+        append("| ");
     }
 
     public void endConstructor() {
