@@ -50,8 +50,12 @@ public class GenerateSortPredicateRules {
 
     public Module gen(Module mod) {
         this.mod = mod;
-        return Module(mod.name(), mod.imports(), (Set<Sentence>) mod.localSentences().$bar(stream(mod.definedSorts())
-                .flatMap(this::gen).collect(Collections.toSet())), mod.att());
+        return Module(mod.name(),
+                      mod.imports(),
+                      (Set<Sentence>) mod.localSentences()
+                                         .$bar(stream(mod.definedSorts())
+                                         .flatMap(this::gen)
+                                         .collect(toSet())), mod.att());
     }
 
     private Stream<? extends Sentence> gen(Sort sort) {
