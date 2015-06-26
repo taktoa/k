@@ -40,7 +40,7 @@ public class FuncRewriter implements Function<Module, Rewriter> {
 
     @Override
     public Rewriter apply(Module module) {
-        if (!module.equals(def.executionModule())) {
+        if(!module.equals(def.executionModule())) {
             throw KEMException.criticalError("Invalid module specified for rewriting.\n" +
                                              "Functional backend only supports rewriting\n" +
                                              "over the definition's main module.");
@@ -73,7 +73,7 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                                   .start();
 
                     int exit = p.waitFor();
-                    if (exit != 0) {
+                    if(exit != 0) {
                         System.err.println(files.loadFromTemp("compile.err"));
                         throw KEMException.criticalError("Failed to compile program to ocaml.\n" +
                                                          "See output for error information.");
@@ -85,7 +85,7 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                              .redirectOutput(files.resolveTemp("run.out"))
                              .start();
                     exit = p.waitFor();
-                    if (exit != 0) {
+                    if(exit != 0) {
                         System.err.println(files.loadFromTemp("run.err"));
                         throw KEMException.criticalError("Failed to execute program in ocaml.\n" +
                                                          "Rerun with --debug and examine the\n" +

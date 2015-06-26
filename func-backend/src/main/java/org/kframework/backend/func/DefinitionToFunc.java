@@ -193,12 +193,12 @@ public class DefinitionToFunc {
 
     private void addSortType(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginTypeDefinition("sort");
-        for (Sort s : ppk.definedSorts) {
+        for(Sort s : ppk.definedSorts) {
             sb.beginConstructor();
             sb.append(encodeStringToIdentifier(s));
             sb.endConstructor();
         }
-        if (!ppk.definedSorts.contains(Sorts.String())) {
+        if(!ppk.definedSorts.contains(Sorts.String())) {
             sb.addConstructor("SortString");
         }
         sb.endTypeDefinition();
@@ -360,7 +360,7 @@ public class DefinitionToFunc {
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression("c");
         int i = 0;
-        for (Rule r : ppk.indexedRules.keySet()) {
+        for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "lookups_step");
@@ -380,7 +380,7 @@ public class DefinitionToFunc {
         sb.addLetEquationName("step (c: k) : k");
         sb.beginLetEquationValue();
         sb.beginMatchExpression("c");
-        for (Rule r : ppk.indexedRules.keySet()) {
+        for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(!cap.contains("lookup") && !cap.contains("function")) {
                 oldConvert(ppk, r, sb, false, i++, "step");
@@ -569,8 +569,8 @@ public class DefinitionToFunc {
 
     private static String oldConvert(SetMultimap<KVariable, String> vars) {
         SyntaxBuilder sb = new SyntaxBuilder();
-        for (Collection<String> nonLinearVars : vars.asMap().values()) {
-            if (nonLinearVars.size() < 2) {
+        for(Collection<String> nonLinearVars : vars.asMap().values()) {
+            if(nonLinearVars.size() < 2) {
                 continue;
             }
             Iterator<String> iter = nonLinearVars.iterator();

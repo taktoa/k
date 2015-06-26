@@ -53,7 +53,7 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
             Process ocamlopt = ocamloptBuilder.start();
 
             int exit = ocamlopt.waitFor();
-            if (exit != 0) {
+            if(exit != 0) {
                 throw KEMException.criticalError("ocamlopt returned nonzero exit code: " + exit + "\nExamine output to see errors.");
             }
         } catch (InterruptedException e) {

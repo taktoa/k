@@ -138,7 +138,7 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
                     .get(0)
                     .att()
                     .<String>getOptional(Attribute.SORT_KEY);
-                if (varSort.isPresent() && varSort.get().equals(s.name())) {
+                if(varSort.isPresent() && varSort.get().equals(s.name())) {
                     return Optional.of(apply(BooleanUtils.TRUE));
                 }
             }
@@ -147,7 +147,7 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
            && k.klist().items().size() == 1
            && k.klist().items().get(0) instanceof KSequence) {
             KSequence item = (KSequence) k.klist().items().get(0);
-            if (item.items().size() == 1) {
+            if(item.items().size() == 1) {
                 return Optional.of(apply(BooleanUtils.TRUE));
             }
         }
@@ -227,7 +227,7 @@ public class FuncVisitor extends AbstractKORETransformer<String> {
         vars.put(k, varName);
         Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
-        if (sortHooks.containsKey(hook)) {
+        if(sortHooks.containsKey(hook)) {
             return String.format("(%s _ as %s)", s.name(), varName);
         }
         return varName;
