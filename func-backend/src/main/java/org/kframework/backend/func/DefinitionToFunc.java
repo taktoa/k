@@ -90,12 +90,6 @@ public class DefinitionToFunc {
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println(preproc.prettyPrint()); // DEBUG
-        // // System.out.println(SortCheck.sortCheck(preproc.getKSTModule())); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
-        // System.out.println("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG"); // DEBUG
         return langDefToFunc(preproc).render();
     }
 

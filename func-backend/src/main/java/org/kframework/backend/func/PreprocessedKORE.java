@@ -18,13 +18,6 @@ import org.kframework.kore.K;
 import scala.Function1;
 import scala.Tuple2;
 
-//import org.kframework.backend.func.kst.KSTModule;
-//import org.kframework.backend.func.kst.RemoveKSequence;
-//import org.kframework.backend.func.kst.SyntaxToType;
-//import org.kframework.backend.func.kst.RulesToFunctions;
-//import org.kframework.backend.func.kst.NormalizeFunctions;
-import org.kframework.backend.func.kst.*;
-
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import org.kframework.definition.Production;
@@ -91,12 +84,18 @@ public final class PreprocessedKORE {
 
     private final Definition kompiledDefinition;
 
-    private static final String convertLookupsStr     = "Convert data structures to lookups";
-    private static final String generatePredicatesStr = "Generate predicates";
-    private static final String liftToKSequenceStr    = "Lift K into KSequence";
-    private static final String deconstructIntsStr    = "Remove matches on integer literals in left hand side";
-    private static final String expandMacrosStr       = "Expand macros rules";
-    private static final String simplifyConditionsStr = "Simplify side conditions";
+    private static final String convertLookupsStr
+        = "Convert data structures to lookups";
+    private static final String generatePredicatesStr
+        = "Generate predicates";
+    private static final String liftToKSequenceStr
+        = "Lift K into KSequence";
+    private static final String deconstructIntsStr
+        = "Remove matches on integer literals in left hand side";
+    private static final String expandMacrosStr
+        = "Expand macros rules";
+    private static final String simplifyConditionsStr
+        = "Simplify side conditions";
 
     public PreprocessedKORE(CompiledDefinition def,
                             KExceptionManager kem,
@@ -153,25 +152,6 @@ public final class PreprocessedKORE {
         return liftToKSequenceObj.convert(expandMacrosObj.expand(k));
     }
 
-    public KSTModule getKSTModule() {
-        Function<KSTModule, KSTModule>
-            removeKSequence,
-            rulesToFunctions,
-            syntaxToType,
-            normalizeFunctions,
-            pipeline;
-        removeKSequence    = RemoveKSequence.getModuleEndo();
-        rulesToFunctions   = RulesToFunctions.getModuleEndo();
-        syntaxToType       = SyntaxToType.getModuleEndo();
-        normalizeFunctions = NormalizeFunctions.getModuleEndo();
-        pipeline =
-            removeKSequence
-            .andThen(rulesToFunctions)
-            .andThen(syntaxToType)
-            .andThen(normalizeFunctions);
-        return pipeline.apply(KOREtoKST.convert(mainModule));
-    }
-
     private Map<KLabel, String> getHookLabels(Map<KLabel, Att> af) {
         Map<KLabel, String> res = new HashMap<>();
         for(Map.Entry<KLabel, Att> e : af.entrySet()) {
@@ -219,231 +199,6 @@ public final class PreprocessedKORE {
         res.put(Attribute.HOOK_KEY, hm);
         res.put(Attribute.PREDICATE_KEY, pm);
         return res;
-    }
-
-    private boolean attPairPrint(StringBuilder sb, boolean isFirst, KApply ka) {
-        Set<KLabel> bannedKLabels = new HashSet<>();
-        bannedKLabels.add(KLabel("productionID"));
-        bannedKLabels.add(KLabel("latex"));
-        boolean ret = isFirst;
-        if(! bannedKLabels.contains(ka.klabel())) {
-            if(! ret) {
-                sb.append(", ");
-            }
-            sb.append(ka.klabel());
-            sb.append("(");
-            List<String> res = new ArrayList<>();
-            for(K kli : ka.klist().items()) {
-                if(kli instanceof KApply) {
-                    KApply klia = (KApply) kli;
-                    if("#token".equals(klia.klabel())) {
-                        res.add(klia.klist().items().get(0).toString());
-                    }
-                }
-            }
-            int i = res.size();
-            for(String s : res) {
-                i--;
-                sb.append(s);
-                if(i > 0) {
-                    sb.append(", ");
-                }
-            }
-            sb.append(")");
-            ret = false;
-        }
-        return ret;
-    }
-
-    private String renderAtt(Att a) {
-        StringBuilder sb = new StringBuilder();
-        Set<String> banned = new HashSet<>();
-        banned.add("Location");
-        banned.add("Source");
-        banned.add("org.kframework.attributes.Source");
-        banned.add("org.kframework.attributes.Location");
-        Map<String, KApply> am = scalaMapAsJava(a.attMap());
-        Set<String> keys =  am
-                           .keySet()
-                           .stream()
-                           .filter(x -> ! banned.contains(x))
-                           .collect(Collectors.toSet());
-        sb.append("[");
-        boolean isFirst = true;
-        for(String key : keys) {
-            isFirst = attPairPrint(sb, isFirst, am.get(key));
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
-    private String renderK(K k) {
-        return new CST(k).render();
-    }
-
-    private void prettyPrint(StringBuilder sb, String eol, Rule r) {
-        String bodyStr = renderK(r.body());
-        String requiresStr = renderK(r.requires());
-        String ensuresStr = renderK(r.ensures());
-        String attStr = renderAtt(r.att());
-
-        String defaultRequires = "'(token true Bool)";
-        String defaultEnsures = "'(token true Bool)";
-        String defaultAtt = "[]";
-
-        sb.append(eol);
-        sb.append("Body: ");
-        sb.append(bodyStr);
-
-        if(! defaultRequires.equals(requiresStr)) {
-            sb.append(eol);
-            sb.append("Requires: ");
-            sb.append(requiresStr);
-        }
-
-        if(! defaultEnsures.equals(ensuresStr)) {
-            sb.append(eol);
-            sb.append("Ensures: ");
-            sb.append(ensuresStr);
-        }
-
-        if(! defaultAtt.equals(attStr)) {
-            sb.append(eol);
-            sb.append("Attributes: ");
-            sb.append(attStr);
-        }
-    }
-
-    private void prettyPrint(StringBuilder sb, String eol, Sort s) {
-        sb.append(s.toString());
-        sb.append(eol);
-    }
-
-    private void prettyPrint(StringBuilder sb, String eol) {
-        sb.append("Sorts:");
-        sb.append(eol);
-        for(Sort s : definedSorts) {
-            prettyPrint(sb, eol, s);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("KLabels:");
-        sb.append(eol);
-        for(KLabel l : definedKLabels) {
-            sb.append(l.toString());
-            sb.append(eol);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("Indexed Rules:");
-        sb.append(eol);
-        for(Rule r : indexedRules.keySet()) {
-            prettyPrint(sb, eol, r);
-            sb.append(eol);
-            sb.append("Indices: ");
-            sb.append(indexedRules.get(r));
-            sb.append(eol);
-        }
-        sb.append(eol);
-
-        sb.append("Function Rules:");
-        sb.append(eol);
-        for(KLabel k : functionRulesOrdered.keySet()) {
-            sb.append(k);
-            sb.append(" -> ");
-            for(Rule r : functionRulesOrdered.get(k)) {
-                prettyPrint(sb, eol + "    ", r);
-            }
-            sb.append(eol);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("Function Set:");
-        sb.append(eol);
-        sb.append(functionSet.toString());
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("Function Order:");
-        sb.append(eol);
-        for(List<KLabel> l : functionOrder) {
-            sb.append(l.toString());
-            sb.append(eol);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("collectionFor:");
-        sb.append(eol);
-        for(KLabel key : collectionFor.keySet()) {
-            sb.append(key.toString());
-            sb.append(" -> ");
-            sb.append(collectionFor.get(key).toString());
-            sb.append(eol);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("attrLabels:");
-        sb.append(eol);
-        for(String key : attrLabels.keySet()) {
-            sb.append(key.toString());
-            sb.append(" -> ");
-            for(KLabel innerKey : attrLabels.get(key).keySet()) {
-                sb.append(eol + "    ");
-                sb.append(innerKey);
-                sb.append(" -> ");
-                sb.append(attrLabels.get(key).get(innerKey));
-            }
-            sb.append(eol);
-        }
-        sb.append(eol);
-        sb.append(eol);
-
-        sb.append("attrSorts:");
-        sb.append(eol);
-        for(String key : attrSorts.keySet()) {
-            sb.append(key.toString());
-            sb.append(" -> ");
-            for(Sort innerKey : attrSorts.get(key).keySet()) {
-                sb.append(eol + "    ");
-                sb.append(innerKey);
-                sb.append(" -> ");
-                sb.append(attrSorts.get(key).get(innerKey));
-            }
-            sb.append(eol);
-        }
-        sb.append(eol);
-
-        sb.append("productionsFor:");
-        sb.append(eol);
-        for(KLabel key : productionsFor.keySet()) {
-            if(productionsFor.get(key).size() > 1) {
-                sb.append(key.toString());
-                sb.append(" -> ");
-                for(Production p : productionsFor.get(key)) {
-                    sb.append(eol + "    ");
-                    sb.append(p);
-                }
-                sb.append(eol);
-            }
-        }
-        sb.append(eol);
-
-        sb.append(eol);
-        sb.append(eol);
-        //sb.append(getKSTModule().toString());
-        sb.append(eol);
-        sb.append(eol);
-    }
-
-    public String prettyPrint() {
-        StringBuilder sb = new StringBuilder();
-        prettyPrint(sb, "\n");
-        return sb.toString();
     }
 
     private Map<KLabel, Set<Production>> getProductionsFor(Module main) {
@@ -629,7 +384,7 @@ public final class PreprocessedKORE {
     }
 
     private boolean isMacro(Rule r) {
-        return false; // FIXME(taktoa)
+        return false; // FIXME(remy)
     }
 
     private boolean isLookupKLabel(KApply k) {
@@ -642,7 +397,6 @@ public final class PreprocessedKORE {
         return ModuleTransformer.fromSentenceTransformer(convertLookupsObj::convert, convertLookupsStr);
     }
 
-    // TODO(taktoa): figure out why I can't make this a ModuleTransformer
     private Function1<Module, Module> generatePredicatesMT() {
         return func(generatePredicatesObj::gen);
     }
@@ -661,5 +415,23 @@ public final class PreprocessedKORE {
 
     private ModuleTransformer expandMacrosMT() {
         return ModuleTransformer.fromSentenceTransformer(expandMacrosObj::expand, expandMacrosStr);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if(o instanceof PreprocessedKORE) {
+            return mainModule.equals(((PreprocessedKORE) o).mainModule)
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return mainModule.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return mainModule.toString();
     }
 }
