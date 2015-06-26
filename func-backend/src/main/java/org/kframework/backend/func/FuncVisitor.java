@@ -23,7 +23,7 @@ import java.util.Optional;
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
-import static org.kframework.backend.func.OcamlIncludes.*;
+import static org.kframework.backend.func.OCamlIncludes.*;
 
 public class FuncVisitor extends AbstractKORETransformer<String> {
     private final PreprocessedKORE ppk;

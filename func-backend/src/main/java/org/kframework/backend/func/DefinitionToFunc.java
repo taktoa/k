@@ -41,11 +41,16 @@ import java.util.stream.Collectors;
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
-import static org.kframework.backend.func.OcamlIncludes.*;
+import static org.kframework.backend.func.FuncUtil.*;
+import static org.kframework.backend.func.OCamlIncludes.*;
+
+// DBG
+
+import java.io.*;
 
 /**
+ * Main class for converting KORE to functional code
  * @author: Remy Goldschmidt
- *
  */
 public class DefinitionToFunc {
     public static final boolean annotateOutput = true;
@@ -225,8 +230,8 @@ public class DefinitionToFunc {
                                   PreprocessedKORE ppk,
                                   SyntaxBuilder sb) {
         String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(functionLabel, "");
-        boolean isHook = OcamlIncludes.hooks.containsKey(hook);
-        boolean isPred = OcamlIncludes.predicateRules.containsKey(functionLabel.name());
+        boolean isHook = OCamlIncludes.hooks.containsKey(hook);
+        boolean isPred = OCamlIncludes.predicateRules.containsKey(functionLabel.name());
         Collection<Rule> rules = ppk.functionRulesOrdered.getOrDefault(functionLabel, new ArrayList<>());
 
         if(!isHook && !hook.isEmpty()) {
@@ -236,11 +241,11 @@ public class DefinitionToFunc {
         sb.beginMatchExpression("c");
 
         if(isHook) {
-            sb.addMatchEquation(OcamlIncludes.hooks.get(hook));
+            sb.addMatchEquation(OCamlIncludes.hooks.get(hook));
         }
 
         if(isPred) {
-            sb.addMatchEquation(OcamlIncludes.predicateRules.get(functionLabel.name()));
+            sb.addMatchEquation(OCamlIncludes.predicateRules.get(functionLabel.name()));
         }
 
         int i = 0;
@@ -400,13 +405,13 @@ public class DefinitionToFunc {
         addSortOrderFunc(ppk, sb);
         addKLabelType(ppk, sb);
         addKLabelOrderFunc(ppk, sb);
-        OcamlIncludes.addPrelude(sb);
+        OCamlIncludes.addPrelude(sb);
         addPrintSort(ppk, sb);
         addPrintKLabel(ppk, sb);
-        OcamlIncludes.addMidlude(sb);
+        OCamlIncludes.addMidlude(sb);
         addFunctions(ppk, sb);
         addSteps(ppk, sb);
-        OcamlIncludes.addPostlude(sb);
+        OCamlIncludes.addPostlude(sb);
 
         return sb.toString();
     }
@@ -485,7 +490,6 @@ public class DefinitionToFunc {
         }
     }
 
-    private static class Holder { int i; }
 
     private void checkApplyArity(KApply k, int arity, String funcName) throws KEMException {
         if(k.klist().size() != arity) {
@@ -493,6 +497,10 @@ public class DefinitionToFunc {
         }
     }
 
+    // DBG
+    private boolean test = true;
+
+    // TODO(remy): this needs refactoring very badly
     private String oldConvertLookups(PreprocessedKORE ppk,
                                      SyntaxBuilder sb,
                                      K requires,
@@ -500,8 +508,10 @@ public class DefinitionToFunc {
                                      String functionName,
                                      int ruleNum) {
         Deque<String> suffix = new ArrayDeque<>();
+        class Holder { int i; }
         Holder h = new Holder();
         h.i = 0;
+
         new VisitKORE() {
             @Override
             public Void apply(KApply k) {
@@ -512,6 +522,9 @@ public class DefinitionToFunc {
                 List<K> kitems = k.klist().items();
                 String klabel = k.klabel().name();
 
+                SyntaxBuilder sb1 = new SyntaxBuilder();
+                SyntaxBuilder sb2 = new SyntaxBuilder();
+
                 switch(klabel) {
                 case "#match":
                     str1 = "";
@@ -520,12 +533,73 @@ public class DefinitionToFunc {
                     arity = 2;
                     break;
                 case "#setChoice":
+                    sb1.beginMatchEquation();
+                    sb1.addMatchEquationPattern("[Set s]");
+                    sb1.beginMatchEquationValue();
+                    sb1.beginLetExpression();
+                    sb1.beginLetEquation();
+                    sb1.addLetEquationName("choice");
+                    sb1.addLetEquationValue("(KSet.fold (fun e result -> if result = [Bottom] then (match e with ");
+
                     str1 = "| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ";
-                    str2 = "| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then ("
-                         + functionName
-                         + " c (Guard.add (GuardElt.Guard "
-                         + ruleNum
-                         + ") guards)) else choice";
+                    outprintfln("DBG: Original:      %s", str1);
+                    outprintfln("DBG: SyntaxBuilder: %s", sb1.toString());
+
+                    sb2.addMatchEquation("_", "[Bottom]");
+                    sb2.endParenthesis();
+                    sb2.addConditionalElse();
+                    sb2.append("result");
+                    sb2.endParenthesis();
+                    sb2.addArgument("s");
+                    sb2.addArgument("[Bottom]");
+                    sb2.endParenthesis();
+                    sb2.endLetDefinitions();
+                    sb2.beginLetScope();
+                    sb2.addConditionalIf();
+                    sb2.addValue("choice = [Bottom]");
+                    sb2.addConditionalThen();
+                    sb2.beginParenthesis();
+
+                    sb2.addFunction(functionName);
+
+                    sb2.addArgument("c");
+
+                    sb2.beginArgument();
+
+                     sb2.beginApplication();
+                      sb2.addFunction("Guard.add");
+
+                      sb2.beginArgument();
+                       sb2.addApplication("GuardElt.Guard", Integer.toString(ruleNum));
+                      sb2.endArgument();
+
+                      sb2.addArgument("guards");
+
+                     sb2.endApplication();
+
+                    sb2.endArgument();
+
+                    sb2.addConditionalElse();
+                    sb2.addValue("choice");
+
+                    str2 = String.format("| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then (%s c (Guard.add (GuardElt.Guard %d) guards)) else choice\n", functionName, ruleNum);
+                    // DBG
+                    if(test) {
+                        try {
+                            String path = "/home/remy/test-kapply.ser";
+                            FileOutputStream fileOut = new FileOutputStream(path);
+                            ObjectOutputStream out = new ObjectOutputStream(fileOut);
+                            out.writeObject(k);
+                            out.close();
+                            fileOut.close();
+                            outprintfln("Serialized data is saved in %s", path);
+                            test = false;
+                        } catch(IOException i) {
+                            i.printStackTrace();
+                        }
+                    }
+                    outprintfln("DBG: Original:      %s", str2);
+                    outprintfln("DBG: SyntaxBuilder: %s", sb2.toString());
                     functionStr = "set choice";
                     arity = 2;
                     break;
@@ -547,10 +621,8 @@ public class DefinitionToFunc {
                 K fstKLabel = kitems.get(0);
                 K sndKLabel = kitems.get(1);
 
-                sb.append(" -> (match ");
-                sb.append(oldConvert(ppk, true, vars, false).apply(sndKLabel));
-                sb.append(" with ");
-                sb.addNewline();
+                sb.append(" -> ");
+                sb.beginMatchExpression(oldConvert(ppk, true, vars, false).apply(sndKLabel));
                 sb.append(str1);
                 sb.append(oldConvert(ppk, false, vars, false).apply(fstKLabel));
                 suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
@@ -596,38 +668,5 @@ public class DefinitionToFunc {
                                    SetMultimap<KVariable, String> vars,
                                    boolean useNativeBooleanExp) {
         return new FuncVisitor(ppk, rhs, vars, useNativeBooleanExp);
-    }
-
-    private static List<Integer> rangeInclusive(int min, int step, int max) {
-        int elements = Math.abs((max - min) / step);
-        int padding = 4;
-        List<Integer> result = new ArrayList<>(elements + padding);
-        for(int i = min; i <= max; i += step) {
-            result.add(new Integer(i));
-        }
-        return result;
-    }
-
-    private static List<Integer> rangeExclusive(int min, int step, int max) {
-        List<Integer> result = rangeInclusive(min, step, max);
-        result.remove(0);
-        result.remove(result.size() - 1);
-        return result;
-    }
-
-    private static List<Integer> rangeInclusive(int min, int max) {
-        return rangeInclusive(min, 1, max);
-    }
-
-    private static List<Integer> rangeInclusive(int max) {
-        return rangeInclusive(0, max);
-    }
-
-    private static List<Integer> rangeExclusive(int min, int max) {
-        return rangeExclusive(min, 1, max);
-    }
-
-    private static List<Integer> rangeExclusive(int max) {
-        return rangeExclusive(0, max);
     }
 }

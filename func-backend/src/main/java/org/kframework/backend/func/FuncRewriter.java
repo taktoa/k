@@ -1,6 +1,14 @@
 package org.kframework.backend.func;
 
 import com.google.inject.Inject;
+import com.google.common.collect.Lists;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.function.Function;
+
 import org.kframework.Rewriter;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.Sorts;
@@ -14,9 +22,7 @@ import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 import org.kframework.utils.inject.DefinitionScoped;
 
-import java.io.IOException;
-import java.util.Optional;
-import java.util.function.Function;
+import static org.kframework.backend.func.FuncUtil.*;
 
 /**
  * @author: Remy Goldschmidt
@@ -29,8 +35,26 @@ public class FuncRewriter implements Function<Module, Rewriter> {
     private final CompiledDefinition def;
     private final DefinitionToFunc converter;
 
+    // The packages used by the generated OCaml
+    private static final String ocamlPackages = "zarith,str";
+
+    // If you don't use ocamlfind, you will want to change this
+    private static final String[] ocamlCmd = new String[]{
+        "ocamlfind",
+        "ocamlc",
+        "-package",
+        ocamlPackages,
+        "-linkpkg",
+        "-dllpath-all",
+        "-g"
+    };
+
     @Inject
-    public FuncRewriter(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions, CompiledDefinition def) {
+    public FuncRewriter(KExceptionManager kem,
+                        FileUtil files,
+                        GlobalOptions globalOptions,
+                        KompileOptions kompileOptions,
+                        CompiledDefinition def) {
         this.kem = kem;
         this.files = files;
         this.def = def;
@@ -49,23 +73,23 @@ public class FuncRewriter implements Function<Module, Rewriter> {
             @Override
             public K execute(K k, Optional<Integer> depth) {
                 String ocaml = converter.convert(k, depth.orElse(-1));
-                System.out.println(ocaml);
                 files.saveToTemp("pgm.ml", ocaml);
                 try {
-                    String packages =  "zarith,str";
 
                     ProcessBuilder pb = files.getProcessBuilder();
-                    pb = pb.command("ocamlfind",
-                                    "ocamlc",
-                                    "-package",
-                                    packages,
-                                    "-linkpkg",
-                                    "-dllpath-all",
-                                    "-g",
-                                    "-I",
-                                    files.resolveKompiled(".").getAbsolutePath(),
-                                    files.resolveKompiled("def.cmo").getAbsolutePath(),
-                                    "pgm.ml");
+                    int padding = 10;
+                    List<String> pbList = Lists.newArrayListWithCapacity(ocamlCmd.length + padding);
+                    pbList.addAll(Arrays.asList(ocamlCmd));
+                    pbList.add("-I");
+                    pbList.add(files.resolveKompiled(".").getAbsolutePath());
+                    pbList.add(files.resolveKompiled("def.cmo").getAbsolutePath());
+                    pbList.add("pgm.ml");
+                    String[] pbArr = new String[pbList.size()];
+                    for(int i = 0; i < pbList.size(); i++) {
+                        pbArr[i] = pbList.get(i);
+                    }
+
+                    pb = pb.command(pbArr);
 
                     Process p = pb.directory(files.resolveTemp("."))
                                   .redirectError(files.resolveTemp("compile.err"))

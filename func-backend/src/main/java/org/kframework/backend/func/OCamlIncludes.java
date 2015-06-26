@@ -15,7 +15,7 @@ import static org.kframework.kore.KORE.*;
 /**
  * @author: Remy Goldschmidt
  */
-public final class OcamlIncludes {
+public final class OCamlIncludes {
     public static final Pattern identifierChar = Pattern.compile("[A-Za-z0-9_]");
     public static final String TRUE = "(Bool true)";
     public static final String BOOL = encodeStringToIdentifier(Sort("Bool"));
@@ -152,6 +152,8 @@ public final class OcamlIncludes {
     public static final ImmutableMap<String, Function<String, String>> sortHooks;
     public static final ImmutableMap<String, String> predicateRules;
 
+    private OCamlIncludes() {}
+
     static {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         builder.put("Map:_|->_", "k1 :: k2 :: [] -> [Map (KMap.singleton k1 k2)]");
@@ -251,8 +253,6 @@ public final class OcamlIncludes {
         builder.put("isList", "[List _] :: [] -> [Bool true]");
         predicateRules = builder.build();
     }
-
-    private OcamlIncludes() {}
 
     public static void addPrelude(SyntaxBuilder sb) {
         sb.append(prelude);
