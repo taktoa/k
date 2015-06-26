@@ -45,6 +45,7 @@ import static org.kframework.backend.func.OcamlIncludes.*;
 
 /**
  * @author: Remy Goldschmidt
+ *
  */
 public class DefinitionToFunc {
     public static final boolean annotateOutput = true;
@@ -66,10 +67,8 @@ public class DefinitionToFunc {
         this.kompileOptions = kompileOptions;
     }
 
-    private FuncAST runtimeCodeToFunc(K k, int depth) {
+    private String runtimeCodeToFunc(K k, int depth) {
         SyntaxBuilder sb = new SyntaxBuilder();
-        System.out.println("Example:");
-        System.out.println(new KOREtoKSTVisitor().apply(k).toString());
         FuncVisitor convVisitor = oldConvert(preproc, true, HashMultimap.create(), false);
         sb.addImport("Def");
         sb.addImport("K");
@@ -81,53 +80,20 @@ public class DefinitionToFunc {
                                         depth));
         sb.endLetDefinitions();
         sb.endLetExpression();
-        return new FuncAST(sb.render());
+        return sb.render();
     }
 
-    private FuncAST langDefToFunc(PreprocessedKORE ppk) {
-        return new FuncAST(mainConvert(ppk));
+    private String langDefToFunc(PreprocessedKORE ppk) {
+        return mainConvert(ppk);
     }
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        return langDefToFunc(preproc).render();
+        return langDefToFunc(preproc);
     }
 
     public String convert(K k, int depth) {
-        return runtimeCodeToFunc(k, depth).render();
-    }
-
-    private List<Integer> rangeInclusive(int min, int step, int max) {
-        int elements = Math.abs((max - min) / step);
-        int padding = 4;
-        List<Integer> result = new ArrayList<>(elements + padding);
-        for(int i = min; i <= max; i += step) {
-            result.add(new Integer(i));
-        }
-        return result;
-    }
-
-    private List<Integer> rangeExclusive(int min, int step, int max) {
-        List<Integer> result = rangeInclusive(min, step, max);
-        result.remove(0);
-        result.remove(result.size() - 1);
-        return result;
-    }
-
-    private List<Integer> rangeInclusive(int min, int max) {
-        return rangeInclusive(min, 1, max);
-    }
-
-    private List<Integer> rangeInclusive(int max) {
-        return rangeInclusive(0, max);
-    }
-
-    private List<Integer> rangeExclusive(int min, int max) {
-        return rangeExclusive(min, 1, max);
-    }
-
-    private List<Integer> rangeExclusive(int max) {
-        return rangeExclusive(0, max);
+        return runtimeCodeToFunc(k, depth);
     }
 
     private Function<String, String> wrapPrint(String pfx) {
@@ -181,6 +147,25 @@ public class DefinitionToFunc {
         return addSimpleFunc(pats, vals, tyName, "int", fnName);
     }
 
+    private <T> String addPrintFunc(Collection<T> elems,
+                                    Function<T, String> patPrint,
+                                    Function<T, String> valPrint,
+                                    String pfx,
+                                    String tyName) {
+        String fnName = String.format("print_%s", tyName);
+
+        List<String> pats = elems.stream()
+                                 .map(patPrint)
+                                 .map(wrapPrint(pfx))
+                                 .collect(Collectors.toList());
+
+        List<String> vals = elems.stream()
+                                 .map(valPrint.andThen(StringUtil::enquoteCString))
+                                 .collect(Collectors.toList());
+
+        return addSimpleFunc(pats, vals, tyName, "string", fnName);
+    }
+
     private String addType(Collection<String> cons, String tyName) {
         SyntaxBuilder sb = new SyntaxBuilder();
         sb.beginTypeDefinition(tyName);
@@ -225,53 +210,6 @@ public class DefinitionToFunc {
 
     private void addKLabelOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.append(addOrderFunc(ppk.definedKLabels, x -> x.name(), "Lbl", "klabel"));
-    }
-
-
-    private <T> String addPrinterFunc(Collection<T> elems,
-                                      Function<T, String> patPrint,
-                                      Function<T, String> valPrint,
-                                      String nameFmt,
-                                      String pfx,
-                                      String tyName) {
-        String fnName = String.format(nameFmt, tyName);
-
-        List<String> pats = elems.stream()
-                                 .map(patPrint)
-                                 .map(wrapPrint(pfx))
-                                 .collect(Collectors.toList());
-
-        List<String> vals = elems.stream()
-                                 .map(valPrint)
-                                 .collect(Collectors.toList());
-
-        return addSimpleFunc(pats, vals, tyName, "string", fnName);
-    }
-
-    private <T> String addPrintStringFunc(Collection<T> elems,
-                                          Function<T, String> print,
-                                          String pfx,
-                                          String tyName) {
-        return addPrinterFunc(elems,
-                              print,
-                              print.andThen(StringUtil::enquoteKString)
-                                   .andThen(StringUtil::enquoteCString),
-                              "print_%s_string", pfx, tyName);
-    }
-
-    private <T> String addPrintFunc(Collection<T> elems,
-                                    Function<T, String> patPrint,
-                                    Function<T, String> valPrint,
-                                    String pfx,
-                                    String tyName) {
-        return addPrinterFunc(elems,
-                              patPrint,
-                              valPrint.andThen(StringUtil::enquoteCString),
-                              "print_%s", pfx, tyName);
-    }
-
-    private void addPrintSortString(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addPrintStringFunc(ppk.definedSorts, x -> x.name(), "Sort", "sort"));
     }
 
     private void addPrintSort(PreprocessedKORE ppk, SyntaxBuilder sb) {
@@ -463,7 +401,6 @@ public class DefinitionToFunc {
         addKLabelType(ppk, sb);
         addKLabelOrderFunc(ppk, sb);
         OcamlIncludes.addPrelude(sb);
-        //addPrintSortString(ppk, sb);
         addPrintSort(ppk, sb);
         addPrintKLabel(ppk, sb);
         OcamlIncludes.addMidlude(sb);
@@ -659,5 +596,38 @@ public class DefinitionToFunc {
                                    SetMultimap<KVariable, String> vars,
                                    boolean useNativeBooleanExp) {
         return new FuncVisitor(ppk, rhs, vars, useNativeBooleanExp);
+    }
+
+    private static List<Integer> rangeInclusive(int min, int step, int max) {
+        int elements = Math.abs((max - min) / step);
+        int padding = 4;
+        List<Integer> result = new ArrayList<>(elements + padding);
+        for(int i = min; i <= max; i += step) {
+            result.add(new Integer(i));
+        }
+        return result;
+    }
+
+    private static List<Integer> rangeExclusive(int min, int step, int max) {
+        List<Integer> result = rangeInclusive(min, step, max);
+        result.remove(0);
+        result.remove(result.size() - 1);
+        return result;
+    }
+
+    private static List<Integer> rangeInclusive(int min, int max) {
+        return rangeInclusive(min, 1, max);
+    }
+
+    private static List<Integer> rangeInclusive(int max) {
+        return rangeInclusive(0, max);
+    }
+
+    private static List<Integer> rangeExclusive(int min, int max) {
+        return rangeExclusive(min, 1, max);
+    }
+
+    private static List<Integer> rangeExclusive(int max) {
+        return rangeExclusive(0, max);
     }
 }

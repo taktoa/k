@@ -420,7 +420,7 @@ public final class PreprocessedKORE {
     @Override
     public boolean equals(Object o) {
         if(o instanceof PreprocessedKORE) {
-            return mainModule.equals(((PreprocessedKORE) o).mainModule)
+            return mainModule.equals(((PreprocessedKORE) o).mainModule);
         }
         return false;
     }
