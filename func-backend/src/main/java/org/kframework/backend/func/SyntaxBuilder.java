@@ -3,6 +3,9 @@ package org.kframework.backend.func;
 import java.util.List;
 
 /**
+ * This class is a temporary way to make the current
+ * functional backend work with code adapted from the
+ * OCaml backend
  * @author: Remy Goldschmidt
  */
 public class SyntaxBuilder {
@@ -13,7 +16,7 @@ public class SyntaxBuilder {
     }
 
     public SyntaxBuilder() {
-        sb = new StringBuilder();
+        this(new StringBuilder());
     }
 
     public void append(String s) {
@@ -37,6 +40,85 @@ public class SyntaxBuilder {
         return render();
     }
 
+
+
+
+    public void addKeyword(String keyword) {
+        append(keyword);
+    }
+
+    public void addValue(String value) {
+        append(value);
+    }
+
+    public void addSpace() {
+        addKeyword(" ");
+    }
+
+    public void addApplication(String fnName, String... args) {
+        beginApplication();
+        addFunction(fnName);
+        for(String a : args) {
+            addArgument(a);
+        }
+        endApplication();
+    }
+
+    public void beginApplication() {
+        beginParenthesis();
+    }
+
+    public void endApplication() {
+        endParenthesis();
+    }
+
+    public void addFunction(String fnName) {
+        addValue(fnName);
+    }
+
+    public void addArgument(String arg) {
+        beginArgument();
+        addValue(arg);
+        endArgument();
+    }
+
+    public void beginArgument() {
+        addSpace();
+        beginParenthesis();
+    }
+
+    public void endArgument() {
+        endParenthesis();
+    }
+
+    public void addConditionalIf() {
+        addSpace();
+        addKeyword("if");
+        addSpace();
+    }
+
+    public void addConditionalThen() {
+        addSpace();
+        addKeyword("then");
+        addSpace();
+    }
+
+    public void addConditionalElse() {
+        addSpace();
+        addKeyword("else");
+        addSpace();
+    }
+
+    public void beginParenthesis() {
+        addKeyword("(");
+    }
+
+    public void endParenthesis() {
+        addKeyword(")");
+    }
+
+
+
     public void addGlobalLet(String name, String value) {
         beginLetExpression();
         beginLetDefinitions();
@@ -54,19 +136,19 @@ public class SyntaxBuilder {
 
     public void addLetScope(String scope) {
         beginLetScope();
-        append(scope);
+        addValue(scope);
         endLetScope();
     }
 
     public void addLetEquationName(String name) {
         beginLetEquationName();
-        append(name);
+        addValue(name);
         endLetEquationName();
     }
 
     public void addLetEquationValue(String value) {
         beginLetEquationValue();
-        append(value);
+        addValue(value);
         endLetEquationValue();
     }
 
@@ -83,7 +165,9 @@ public class SyntaxBuilder {
     }
 
     public void endLetEquationName() {
-        append(" = ");
+        addSpace();
+        addKeyword("=");
+        addSpace();
     }
 
     public void beginLetEquationValue() {
@@ -96,7 +180,9 @@ public class SyntaxBuilder {
 
     public void addLetEquationSeparator() {
         addNewline();
-        append(" and ");
+        addSpace();
+        addKeyword("and");
+        addSpace();
     }
 
     public void beginLetDefinitions() {
@@ -108,7 +194,9 @@ public class SyntaxBuilder {
     }
 
     public void beginLetScope() {
-        append(" in ");
+        addSpace();
+        addKeyword("in");
+        addSpace();
     }
 
     public void endLetScope() {
@@ -116,7 +204,8 @@ public class SyntaxBuilder {
     }
 
     public void beginLetExpression() {
-        append("let ");
+        addKeyword("let");
+        addSpace();
     }
 
     public void endLetExpression() {
@@ -134,13 +223,13 @@ public class SyntaxBuilder {
 
     public void addLetrecEquationName(String name) {
         beginLetrecEquationName();
-        append(name);
+        addValue(name);
         endLetrecEquationName();
     }
 
     public void addLetrecEquationValue(String value) {
         beginLetrecEquationValue();
-        append(value);
+        addValue(value);
         endLetrecEquationValue();
     }
 
@@ -157,7 +246,9 @@ public class SyntaxBuilder {
     }
 
     public void endLetrecEquationName() {
-        append(" = ");
+        addSpace();
+        addKeyword("=");
+        addSpace();
     }
 
     public void beginLetrecEquationValue() {
@@ -170,7 +261,9 @@ public class SyntaxBuilder {
 
     public void addLetrecEquationSeparator() {
         addNewline();
-        append(" and ");
+        addSpace();
+        addKeyword("and");
+        addSpace();
     }
 
     public void beginLetrecDefinitions() {
@@ -182,7 +275,9 @@ public class SyntaxBuilder {
     }
 
     public void beginLetrecScope() {
-        append(" in ");
+        addSpace();
+        addKeyword("in");
+        addSpace();
     }
 
     public void endLetrecScope() {
@@ -190,7 +285,8 @@ public class SyntaxBuilder {
     }
 
     public void beginLetrecExpression() {
-        append("let rec ");
+        addKeyword("let rec");
+        addSpace();
     }
 
     public void endLetrecExpression() {
@@ -217,34 +313,40 @@ public class SyntaxBuilder {
 
     public void addMatchEquation(String equation) {
         beginMatchEquation();
-        append(equation);
+        addValue(equation);
         endMatchEquation();
     }
 
     public void addMatchEquationPattern(String pattern) {
         beginMatchEquationPattern();
-        append(pattern);
+        addValue(pattern);
         endMatchEquationPattern();
     }
 
     public void addMatchEquationValue(String value) {
         beginMatchEquationValue();
-        append(value);
+        addValue(value);
         endMatchEquationValue();
     }
 
     public void beginMatchExpression(String varname) {
-        appendf("(match %s with ", varname);
-        addNewline();
+        beginParenthesis();
+        addKeyword("match");
+        addSpace();
+        addValue(varname);
+        addSpace();
+        addKeyword("with");
+        addSpace();
     }
 
     public void endMatchExpression() {
-        append(")");
+        endParenthesis();
         addNewline();
     }
 
     public void beginMatchEquation() {
-        append("| ");
+        addKeyword("|");
+        addSpace();
     }
 
     public void endMatchEquation() {
@@ -256,7 +358,9 @@ public class SyntaxBuilder {
     }
 
     public void endMatchEquationPattern() {
-        append(" -> ");
+        addSpace();
+        addKeyword("->");
+        addSpace();
     }
 
     public void beginMatchEquationValue() {
@@ -271,20 +375,21 @@ public class SyntaxBuilder {
 
 
     public void beginMultilineComment() {
-        append("(*");
+        addKeyword("(*");
     }
 
     public void endMultilineComment() {
-        append("*)");
+        addKeyword("*)");
     }
 
     public void addNewline() {
-        append("\n");
+        addKeyword("\n");
     }
 
     public void addImport(String i) {
-        append("open ");
-        append(i);
+        addKeyword("open");
+        addSpace();
+        addValue(i);
         addNewline();
     }
 
@@ -292,9 +397,12 @@ public class SyntaxBuilder {
 
 
     public void beginTypeDefinition(String typename) {
-        append("type ");
-        append(typename);
-        append(" = ");
+        addKeyword("type");
+        addSpace();
+        addValue(typename);
+        addSpace();
+        addKeyword("=");
+        addSpace();
         addNewline();
     }
 
@@ -308,12 +416,9 @@ public class SyntaxBuilder {
         endConstructor();
     }
 
-    public void addConstructorSum() {
-        append("| ");
-    }
-
     public void beginConstructor() {
-        append("| ");
+        addKeyword("|");
+        addSpace();
     }
 
     public void endConstructor() {
@@ -329,7 +434,9 @@ public class SyntaxBuilder {
     }
 
     public void beginConstructorArgs() {
-        append(" of ");
+        addSpace();
+        addKeyword("of");
+        addSpace();
     }
 
     public void endConstructorArgs() {
@@ -337,10 +444,12 @@ public class SyntaxBuilder {
     }
 
     public void addType(String typename) {
-        append(typename);
+        addValue(typename);
     }
 
     public void addTypeProduct() {
-        append(" * ");
+        addSpace();
+        addKeyword("*");
+        addSpace();
     }
 }
