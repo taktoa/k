@@ -1,10 +1,9 @@
 /**
- * <style type='text/css'> .li { margin-bottom: 20px; } </style>
- *
  * The K Framework Functional Backend allows you to generate interpreters
  * from K definitions for (eventually) multiple functional languages.
- *
- * FAQ:
+ * <br>
+ * <h2>FAQ:</h2>
+ * <br>
  * <ul>
  * <li>     Q: What do I need to use the K Functional Backend </li>
  * <ul><li> A: For now, you will need the following programs/libraries installed: </li></ul>
@@ -19,6 +18,7 @@
  * <!-- <li>     Q:  </li> -->
  * <!-- <ul><li> A:  </li></ul> -->
  * </ul>
+ * </font>
  * <br />
  * <br />
  * Copyright &copy; 2015 K Team. All Rights Reserved.
