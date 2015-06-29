@@ -9,58 +9,106 @@ import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
 import java.io.IOException;
+import java.io.File;
 import java.util.function.Consumer;
 
+import static org.kframework.backend.func.FuncUtil.*;
+
 /**
+ * Converts K to OCaml at kompile time
+ *
  * @author: Remy Goldschmidt
  */
 public class FuncBackend implements Consumer<CompiledDefinition> {
+    private final DefinitionToFunc converter;
+    private final ProcessBuilder processBuilder;
 
-    private final KExceptionManager kem;
-    private final FileUtil files;
-    private final GlobalOptions globalOptions;
-    private final KompileOptions kompileOptions;
+    private static final String ocamlPackages = "zarith";
+
+    private static final String
+        kompileDirectoryName, defSourceFileName;
+
+    private final File
+        kompileDirectory, defSourceFile;
+
+    static {
+        kompileDirectoryName  = ".";
+        defSourceFileName     = "def.ml";
+    }
+
+    // If you don't use ocamlfind, you will want to change this
+    private static final String[] ocamlCmd = new String[]{
+        "ocamlfind",
+        "ocamlc",
+        "-dllpath-all",
+        "-linkpkg",
+        "-package",
+        ocamlPackages,
+        "-c",
+        "-g",
+        defSourceFileName
+    };
 
     @Inject
-    public FuncBackend(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
-        this.kem = kem;
-        this.files = files;
-        this.globalOptions = globalOptions;
-        this.kompileOptions = kompileOptions;
+    public FuncBackend(KExceptionManager kem,
+                       FileUtil files,
+                       GlobalOptions globalOptions,
+                       KompileOptions kompileOptions) {
+        this.processBuilder = files.getProcessBuilder();
+
+        this.converter = new DefinitionToFunc(kem, files, globalOptions, kompileOptions);
+
+        this.kompileDirectory  = files.resolveKompiled(kompileDirectoryName);
+        this.defSourceFile     = files.resolveKompiled(defSourceFileName);
     }
 
     @Override
-    public void accept(CompiledDefinition compiledDefinition) {
-        String ocaml = new DefinitionToFunc(kem, files, globalOptions, kompileOptions).convert(compiledDefinition);
-        files.saveToKompiled("def.ml", ocaml);
+    public void accept(CompiledDefinition def) {
+        generateOCamlDef(def);
+        compileOCamlDef();
+    }
+
+    private void generateOCamlDef(CompiledDefinition def) {
+        String ocaml = converter.convert(def);
+        FileUtil.save(defSourceFile, ocaml);
+    }
+
+    private void compileOCamlDef() {
         try {
-            String packages = "zarith"; // comma-separated
-            ProcessBuilder ocamloptBuilder =
-                files.getProcessBuilder()
-                     .command("ocamlfind",
-                              "ocamlc",
-                              "-dllpath-all",
-                              "-linkpkg",
-                              "-package",
-                              packages,
-                              "-c",
-                              "-g",
-                              "def.ml");
+            Process p = startDefCompileProcess();
 
-            ocamloptBuilder = ocamloptBuilder.directory(files.resolveKompiled("."));
-            ocamloptBuilder = ocamloptBuilder.inheritIO();
-
-            Process ocamlopt = ocamloptBuilder.start();
-
-            int exit = ocamlopt.waitFor();
-            if(exit != 0) {
-                throw KEMException.criticalError("ocamlopt returned nonzero exit code: " + exit + "\nExamine output to see errors.");
+            try {
+                int exit = p.waitFor();
+                if(exit != 0) { defCompileFailedError(exit); }
+            } catch(InterruptedException e) {
+                defCompileInterruptedError(e);
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw KEMException.criticalError("Ocaml process interrupted.", e);
         } catch (IOException e) {
-            throw KEMException.criticalError("Error starting ocamlopt process: " + e.getMessage(), e);
+            defCompileIOError(e);
         }
+    }
+
+    private Process startDefCompileProcess() throws IOException {
+        return startProcess(processBuilder,
+                            kompileDirectory,
+                            getDefCompileCommandLine());
+    }
+
+    private String[] getDefCompileCommandLine() {
+        return ocamlCmd;
+    }
+
+    private void defCompileFailedError(int exit) {
+        throw kemCriticalErrorF("OCaml compiler returned nonzero exit code: %s\n" +
+                                "Examine output to see errors.", exit);
+    }
+
+    private void defCompileInterruptedError(InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw kemCriticalErrorF(e, "Ocaml process interrupted.");
+    }
+
+    private void defCompileIOError(IOException e) {
+        throw kemCriticalErrorF(e, "Error starting OCaml compiler process: %s", e.getMessage());
     }
 }

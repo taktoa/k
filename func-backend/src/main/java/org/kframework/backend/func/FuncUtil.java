@@ -3,6 +3,9 @@ package org.kframework.backend.func;
 
 import com.google.common.collect.Lists;
 
+import java.io.File;
+import java.io.IOException;
+
 import java.util.List;
 import java.util.Collection;
 
@@ -21,6 +24,47 @@ import org.kframework.utils.errorsystem.KEMException;
 public final class FuncUtil {
     private FuncUtil() {}
 
+
+    // ------------------------------------------------------------------------
+    // ---------------------- Process-related functions -----------------------
+    // ------------------------------------------------------------------------
+
+    /**
+     * Start a process with the given parameters
+     * @param pb    A {@link ProcessBuilder} to use
+     * @param dir   A directory in which to start the process
+     * @param err   A file to send stderr to
+     * @param out   A file to send stdout to
+     * @param cmd   The command to run
+     * @return      A {@link Process process} to wait on
+     */
+    public static Process startProcess(ProcessBuilder pb,
+                                       File dir,
+                                       File err,
+                                       File out,
+                                       String... cmd) throws IOException {
+        return pb.command(cmd)
+                 .directory(dir)
+                 .redirectError(err)
+                 .redirectOutput(out)
+                 .start();
+    }
+
+    /**
+     * Start a process with the given parameters (does not redirect stdout/stderr)
+     * @param pb    A {@link ProcessBuilder} to use
+     * @param dir   A directory in which to start the process
+     * @param cmd   The command to run
+     * @return      A {@link Process process} to wait on
+     */
+    public static Process startProcess(ProcessBuilder pb,
+                                       File dir,
+                                       String... cmd) throws IOException {
+        return pb.command(cmd)
+                 .directory(dir)
+                 .inheritIO()
+                 .start();
+    }
 
     // ------------------------------------------------------------------------
     // ---------------------------- List functions ----------------------------
@@ -80,6 +124,10 @@ public final class FuncUtil {
         return result;
     }
 
+    /**
+     * Same as {@link rangeInclusive(int, int, int) rangeInclusive},
+     * except it excludes the first and last element
+     */
     public static List<Integer> rangeExclusive(int min, int step, int max) {
         List<Integer> result = rangeInclusive(min, step, max);
         result.remove(0);
@@ -87,18 +135,35 @@ public final class FuncUtil {
         return result;
     }
 
+
+    /**
+     * Same as {@link rangeInclusive(int, int, int) rangeInclusive},
+     * except it defaults the step to 1
+     */
     public static List<Integer> rangeInclusive(int min, int max) {
         return rangeInclusive(min, 1, max);
     }
 
+    /**
+     * Same as {@link rangeInclusive(int, int) rangeInclusive},
+     * except it defaults the minimum to 0
+     */
     public static List<Integer> rangeInclusive(int max) {
         return rangeInclusive(0, max);
     }
 
+    /**
+     * Same as {@link rangeExclusive(int, int, int) rangeExclusive},
+     * except it defaults the step to 1
+     */
     public static List<Integer> rangeExclusive(int min, int max) {
         return rangeExclusive(min, 1, max);
     }
 
+    /**
+     * Same as {@link rangeExclusive(int, int) rangeExclusive},
+     * except it defaults the minimum to 0
+     */
     public static List<Integer> rangeExclusive(int max) {
         return rangeExclusive(0, max);
     }
