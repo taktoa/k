@@ -13,7 +13,9 @@ import static org.kframework.kore.KORE.*;
 
 
 /**
- * @author: Remy Goldschmidt
+ * Strings and functions specific to the OCaml backend
+ *
+ * @author Remy Goldschmidt
  */
 public final class OCamlIncludes {
     public static final Pattern identifierChar = Pattern.compile("[A-Za-z0-9_]");

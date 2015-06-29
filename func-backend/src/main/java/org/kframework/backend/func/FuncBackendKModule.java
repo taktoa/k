@@ -17,7 +17,7 @@ import java.util.function.Function;
 /**
  * Dependency injection for the functional backend
  *
- * @author: Remy Goldschmidt
+ * @author Remy Goldschmidt
  */
 public class FuncBackendKModule extends AbstractKModule {
     @Override
