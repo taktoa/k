@@ -58,7 +58,7 @@ import static scala.compat.java8.JFunction.*;
 //   - Remove unused public fields
 
 /**
- * Preprocesses the incoming KORE.
+ * Preprocesses the incoming KORE
  * <br>
  * The idea here is to make the information coming in
  * from KORE as minimal and as contained as possible,
@@ -67,23 +67,67 @@ import static scala.compat.java8.JFunction.*;
  * @author Remy Goldschmidt
  */
 public final class PreprocessedKORE {
+    /** Set of KLabels that are functions */
     public Set<KLabel> functionSet;
+    /** Set of KLabels that are subject to [anywhere] rules */
     public Set<KLabel> anywhereSet;
+    /** Multimap from function KLabels to the rules that contain them */
     public SetMultimap<KLabel, Rule> functionRules;
+    /** Multimap from anywhere KLabels to the rules that contain them */
     public SetMultimap<KLabel, Rule> anywhereRules;
+    /** Map from function KLabels to a list of rules that contain them, ordered on [owise] */
     public Map<KLabel, List<Rule>> functionRulesOrdered;
+    /** The topological sort of function calls */
     public List<List<KLabel>> functionOrder;
 
+    /** The set of all defined sorts */
     public Set<Sort> definedSorts;
+    /** The set of all defined KLabels */
     public Set<KLabel> definedKLabels;
 
+    /**
+     * For a given attribute string, return a map from KLabels
+     * to the contents of the attribute KApply.
+     * For example, if we have:
+     * {@code syntax Bool ::= "isA" KItem [predicate(A)]}
+     * {@code syntax Bool ::= "isB" KItem [predicate(B)]}
+     * {@code syntax Int ::= Int "+Int" Int [hook(#INT:_+Int_)]}
+     * then we have:
+     * <pre>
+     * "predicate"
+     *     KLabel("isA") -&gt; "A"
+     *     KLabel("isB") -&gt; "B"
+     * "hook"
+     *     KLabel("_+Int_") -&gt; "#INT:_+Int_"
+     * </pre>
+     * Currently, the only attributes recorded are "hook" and "predicate"
+     */
     public Map<String, Map<KLabel, String>> attrLabels;
+
+    /**
+     * For a given attribute string, return a map from Sorts
+     * to the contents of the attribute KApply.
+     * For example, if we have:
+     * {@code syntax Int ::= #Int [hook(#INT)]}
+     * then we have:
+     * <pre>
+     * "hook"
+     *     Sort("Int") -&gt; "#INT"
+     * </pre>
+     * Currently, the only attribute recorded is "hook"
+     */
     public Map<String, Map<Sort, String>> attrSorts;
 
+    /** The same as mainModule.collectionFor, but converted to use Java collections */
     public Map<KLabel, KLabel> collectionFor;
+
+    /** The same as mainModule.productionsFor, but converted to use Java collections */
     public Map<KLabel, Set<Production>> productionsFor;
+
+    /** The same as mainModule.freshFunctionFor, but converted to use Java collections */
     public Map<Sort, KLabel> freshFunctionFor;
 
+    /** A map from rules to a cleaned-up subset of their attributes */
     public Map<Rule, Set<String>> indexedRules;
 
     private ConvertDataStructureToLookup convertLookupsObj;
@@ -164,9 +208,7 @@ public final class PreprocessedKORE {
     }
 
 
-    /**
-     * Returns a transformation pipeline for the main module
-     */
+    // Returns a transformation pipeline for the main module
     private Function<Module, Module> getMainModulePipeline() {
         initializeMTObjects();
         return x ->  deconstructIntsMT()
@@ -178,18 +220,14 @@ public final class PreprocessedKORE {
             .apply(x);
     }
 
-    /**
-     * Returns a transformation pipeline for K at runtime
-     */
+    // Returns a transformation pipeline for K at runtime
     private Function<K, K> getRuntimePipeline() {
         initializeMTObjects();
         return x -> liftToKSequenceObj.convert(expandMacrosObj.expand(x));
     }
 
 
-    /**
-     * Runs all of the final initialization functions
-     */
+    // Runs all of the final initialization functions
     private void initializeFinal() {
         initializeProductionsFor();
         initializeFunctionRules();
@@ -203,9 +241,7 @@ public final class PreprocessedKORE {
         initializeIndexedRules();
     }
 
-    /**
-     * Initializes all the module transformer objects
-     */
+    // Initializes all the module transformer objects
     private void initializeMTObjects() {
         if(initialized.contains("MTObjects")) { return; }
         convertLookupsObj     = new ConvertDataStructureToLookup(executionModule);
@@ -221,10 +257,8 @@ public final class PreprocessedKORE {
         initialized.add("MTObjects");
     }
 
-    /**
-     * Initializes attrLabels
-     * TODO(remy): this should be generalized to all label attributes
-     */
+    // Initializes attrLabels
+    // TODO(remy): this should be generalized to all label attributes
     private void initializeAttrLabels() {
         if(initialized.contains("attrLabels")) { return; }
 
@@ -249,10 +283,8 @@ public final class PreprocessedKORE {
         initialized.add("attrLabels");
     }
 
-    /**
-     * Initializes attrSorts
-     * TODO(remy): this should be generalized to all sort attributes
-     */
+    // Initializes attrSorts
+    // TODO(remy): this should be generalized to all sort attributes
     private void initializeAttrSorts() {
         if(initialized.contains("attrSorts")) { return; }
 
@@ -277,9 +309,7 @@ public final class PreprocessedKORE {
         initialized.add("attrSorts");
     }
 
-    /**
-     * Initializes productionsFor
-     */
+    // Initializes productionsFor
     private void initializeProductionsFor() {
         if(initialized.contains("productionsFor")) { return; }
 
@@ -295,9 +325,7 @@ public final class PreprocessedKORE {
         initialized.add("productionsFor");
     }
 
-    /**
-     * Initializes functionRules
-     */
+    // Initializes functionRules
     private void initializeFunctionRules() {
         if(initialized.contains("functionRules")) { return; }
 
@@ -313,9 +341,7 @@ public final class PreprocessedKORE {
         initialized.add("functionRules");
     }
 
-    /**
-     * Initializes anywhereRules
-     */
+    // Initializes anywhereRules
     private void initializeAnywhereRules() {
         if(initialized.contains("anywhereRules")) { return; }
 
@@ -331,9 +357,7 @@ public final class PreprocessedKORE {
         initialized.add("anywhereRules");
     }
 
-    /**
-     * Initializes functionRulesOrdered
-     */
+    // Initializes functionRulesOrdered
     private void initializeFunctionRulesOrdered() {
         initializeFunctionRules();
         if(initialized.contains("functionRulesOrdered")) { return; }
@@ -348,9 +372,7 @@ public final class PreprocessedKORE {
     }
 
 
-    /**
-     * Initializes functionRulesOrdered
-     */
+    // Initializes functionSet
     private void initializeFunctionSet() {
         initializeFunctionRules();
         if(initialized.contains("functionSet")) { return; }
@@ -366,9 +388,7 @@ public final class PreprocessedKORE {
         initialized.add("functionSet");
     }
 
-    /**
-     * Initializes anywhereSet
-     */
+    // Initializes anywhereSet
     private void initializeAnywhereSet() {
         initializeAnywhereRules();
         if(initialized.contains("anywhereSet")) { return; }
@@ -384,11 +404,9 @@ public final class PreprocessedKORE {
         initialized.add("anywhereSet");
     }
 
-    /**
-     * Initialize functionOrder to a topological sort of the
-     * function rule dependency graph.
-     * TODO(remy): maybe remove given that it is not in dwightguth/ocaml8
-     */
+    // Initialize functionOrder to a topological sort of the
+    // function rule dependency graph.
+    // TODO(remy): maybe remove given that it is not in dwightguth/ocaml8
     private void initializeFunctionOrder() {
         initializeFunctionRules();
         initializeFunctionSet();
@@ -440,9 +458,7 @@ public final class PreprocessedKORE {
                        .collect(Collectors.toList());
     }
 
-    /**
-     * Initializes indexedRules
-     */
+    // Initializes indexedRules
     private void initializeIndexedRules() {
         if(initialized.contains("indexedRules")) { return; }
 
@@ -466,13 +482,7 @@ public final class PreprocessedKORE {
         initialized.add("indexedRules");
     }
 
-    /**
-     * Helper function for initializeFunctionRulesOrdered
-     * @param kl    a KLabel to lookup in functionRules
-     * @return      the rules in which that KLabel appears,
-     *              sorted such that [owise] rules are last
-     * @see         #sortFunctionRules(Rule, Rule)
-     */
+    // Helper function for initializeFunctionRulesOrdered
     private List<Rule> lookupSortedFunctionRule(KLabel kl) {
         return functionRules.get(kl)
                             .stream()
@@ -480,23 +490,17 @@ public final class PreprocessedKORE {
                             .collect(Collectors.toList());
     }
 
-    /**
-     * Helper function for initializeFunctionRules
-     */
+    // Helper function for initializeFunctionRules
     private Optional<KLabel> getKLabelIfFunctionRule(Rule r) {
         return getKLabelIfPredicate(r, x -> x.contains(Attribute.FUNCTION_KEY));
     }
 
-    /**
-     * Helper function for initializeFunctionRules
-     */
+    // Helper function for initializeFunctionRules
     private Optional<KLabel> getKLabelIfAnywhereRule(Rule r) {
         return getKLabelIfPredicate(r, x -> r.att().contains("anywhere"));
     }
 
-    /**
-     * Return the KLabel of a rule if it meets a predicate
-     */
+    // Return the KLabel of a rule if it meets a predicate
     private Optional<KLabel> getKLabelIfPredicate(Rule r, Predicate<Att> pred) {
         K left = RewriteToTop.toLeft(r.body());
         boolean is = false;
@@ -514,18 +518,12 @@ public final class PreprocessedKORE {
         return is ? Optional.ofNullable(kapp.klabel()) : Optional.empty();
     }
 
-    /**
-     * Sort comparator on function rules, where [owise] rules go last
-     */
+    // Sort comparator on function rules, where [owise] rules go last
     private static int sortFunctionRules(Rule a1, Rule a2) {
         return Boolean.compare(a1.att().contains("owise"), a2.att().contains("owise"));
     }
 
-    /**
-     * Check a rule for map/set lookups
-     * @param r     a rule to check for lookups
-     * @return      whether or not the rule contains a lookup
-     */
+    // Check a rule for map/set lookups
     public boolean isLookupRule(Rule r) {
         class Holder { boolean b; }
         Holder h = new Holder();
@@ -539,68 +537,48 @@ public final class PreprocessedKORE {
         return h.b;
     }
 
-    /**
-     * Check whether a rule is a macro
-     * @param r     a rule that may be a macro
-     * @return      whether or not that rule is a macro
-     */
+    // Check whether a rule is a macro
     private boolean isMacroRule(Rule r) {
         return r.att().contains("macro");
     }
 
-    /**
-     * Check whether a given KLabel refers to a map/set lookup
-     * @param r     a KLabel that may be a map/set lookup
-     * @return      whether or not that label is a lookup
-     */
+    // Check whether a given KLabel refers to a map/set lookup
     private boolean isLookupKLabel(KApply k) {
         return k.klabel().name().equals("#match")
             || k.klabel().name().equals("#mapChoice")
             || k.klabel().name().equals("#setChoice");
     }
 
-    /**
-     * Returns the module endomorphism that converts lookups to function application
-     */
+    // Returns the module endomorphism that converts lookups to function application
     private ModuleTransformer convertLookupsMT() {
         return ModuleTransformer.fromSentenceTransformer(convertLookupsObj::convert,
                                                          convertLookupsStr);
     }
 
-    /**
-     * Returns the module endomorphism that generates predicates corresponding to sorts
-     */
+    // Returns the module endomorphism that generates predicates corresponding to sorts
     private Function1<Module, Module> generatePredicatesMT() {
         return func(generatePredicatesObj::gen);
     }
 
-    /**
-     * Returns the module endomorphism that lifts relevant terms to KSequences
-     */
+    // Returns the module endomorphism that lifts relevant terms to KSequences
     private ModuleTransformer liftToKSequenceMT() {
         return ModuleTransformer.fromSentenceTransformer(liftToKSequenceObj::convert,
                                                          liftToKSequenceStr);
     }
 
-    /**
-     * Returns the module endomorphism that simplifies side conditions
-     */
+    // Returns the module endomorphism that simplifies side conditions
     private ModuleTransformer simplifyConditionsMT() {
         return ModuleTransformer.fromSentenceTransformer(simplifyConditionsObj::convert,
                                                          simplifyConditionsStr);
     }
 
-    /**
-     * Returns the module endomorphism that deconstructs integers
-     */
+    // Returns the module endomorphism that deconstructs integers
     private ModuleTransformer deconstructIntsMT() {
         return ModuleTransformer.fromSentenceTransformer(deconstructIntsObj::convert,
                                                          deconstructIntsStr);
     }
 
-    /**
-     * Returns the module endomorphism that expands macros
-     */
+    // Returns the module endomorphism that expands macros
     private ModuleTransformer expandMacrosMT() {
         return ModuleTransformer.fromSentenceTransformer(expandMacrosObj::expand,
                                                          expandMacrosStr);
