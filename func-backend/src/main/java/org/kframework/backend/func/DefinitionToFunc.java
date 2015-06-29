@@ -50,7 +50,8 @@ import java.io.*;
 
 /**
  * Main class for converting KORE to functional code
- * @author: Remy Goldschmidt
+ *
+ * @author Remy Goldschmidt
  */
 public class DefinitionToFunc {
     public static final boolean annotateOutput = true;

@@ -6,7 +6,8 @@ import java.util.List;
  * This class is a temporary way to make the current
  * functional backend work with code adapted from the
  * OCaml backend
- * @author: Remy Goldschmidt
+ *
+ * @author Remy Goldschmidt
  */
 public class SyntaxBuilder {
     private final StringBuilder sb;

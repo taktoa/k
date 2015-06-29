@@ -19,7 +19,8 @@ import org.kframework.utils.errorsystem.KEMException;
 /**
  * Utility functions for use in
  * other parts of the functional backend
- * @author: Remy Goldschmidt
+ *
+ * @author Remy Goldschmidt
  */
 public final class FuncUtil {
     private FuncUtil() {}

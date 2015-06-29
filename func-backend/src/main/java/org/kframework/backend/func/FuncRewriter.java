@@ -26,9 +26,9 @@ import org.kframework.utils.inject.DefinitionScoped;
 import static org.kframework.backend.func.FuncUtil.*;
 
 /**
- * Responsible for converting K to OCaml at krun time
+ * Responsible for converting K for the functional backend at krun time
  *
- * @author: Remy Goldschmidt
+ * @author Remy Goldschmidt
  */
 @DefinitionScoped
 public class FuncRewriter implements Function<Module, Rewriter> {

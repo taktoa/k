@@ -15,9 +15,9 @@ import java.util.function.Consumer;
 import static org.kframework.backend.func.FuncUtil.*;
 
 /**
- * Converts K to OCaml at kompile time
+ * Converts KORE for the functional backend at kompile time
  *
- * @author: Remy Goldschmidt
+ * @author Remy Goldschmidt
  */
 public class FuncBackend implements Consumer<CompiledDefinition> {
     private final DefinitionToFunc converter;

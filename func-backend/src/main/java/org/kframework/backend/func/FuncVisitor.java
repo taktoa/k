@@ -25,6 +25,12 @@ import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
 
+
+/**
+ * Main visitor for converting KORE for the functional backend
+ *
+ * @author Remy Goldschmidt
+ */
 public class FuncVisitor extends AbstractKORETransformer<String> {
     private final PreprocessedKORE ppk;
     private final boolean rhs;

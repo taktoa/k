@@ -58,12 +58,13 @@ import static scala.compat.java8.JFunction.*;
 //   - Remove unused public fields
 
 /**
- * Preprocesses the incoming KORE
+ * Preprocesses the incoming KORE.
+ * <br>
  * The idea here is to make the information coming in
  * from KORE as minimal and as contained as possible,
  * so it will be easier to understand.
  *
- * @author: Remy Goldschmidt
+ * @author Remy Goldschmidt
  */
 public final class PreprocessedKORE {
     public Set<KLabel> functionSet;
