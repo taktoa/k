@@ -45,17 +45,13 @@ import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.FuncUtil.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
 
-// DBG
-
-import java.io.*;
-
 /**
  * Main class for converting KORE to functional code
  *
  * @author Remy Goldschmidt
  */
 public class DefinitionToFunc {
-    public static final boolean annotateOutput = true;
+    public static final boolean annotateOutput = false;
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -438,7 +434,7 @@ public class DefinitionToFunc {
                                      String functionName) throws KEMException {
         if(annotateOutput) { outputAnnotate(r, sb); }
 
-        sb.append("| ");
+        sb.append("\n| ");
 
         K left     = RewriteToTop.toLeft(r.body());
         K right    = RewriteToTop.toRight(r.body());
@@ -499,9 +495,6 @@ public class DefinitionToFunc {
         }
     }
 
-    // DBG
-    private boolean test = true;
-
     // TODO(remy): this needs refactoring very badly
     private String oldConvertLookups(PreprocessedKORE ppk,
                                      SyntaxBuilder sb,
@@ -509,111 +502,31 @@ public class DefinitionToFunc {
                                      SetMultimap<KVariable, String> vars,
                                      String functionName,
                                      int ruleNum) {
-        Deque<String> suffix = new ArrayDeque<>();
+        Deque<SyntaxBuilder> suffix = new ArrayDeque<>();
         class Holder { int i; }
         Holder h = new Holder();
         h.i = 0;
 
         new VisitKORE() {
+            private final SyntaxBuilder sb1 = new SyntaxBuilder();
+            private final SyntaxBuilder sb2 = new SyntaxBuilder();
+            private int arity;
+            private String functionStr;
+
             @Override
             public Void apply(KApply k) {
-                String str1, str2;
-                int arity;
-                String functionStr;
-
                 List<K> kitems = k.klist().items();
                 String klabel = k.klabel().name();
 
-                SyntaxBuilder sb1 = new SyntaxBuilder();
-                SyntaxBuilder sb2 = new SyntaxBuilder();
-
                 switch(klabel) {
                 case "#match":
-                    str1 = "";
-                    str2 = "";
-                    functionStr = "lookup";
-                    arity = 2;
+                    isMatch();
                     break;
                 case "#setChoice":
-                    sb1.beginMatchEquation();
-                    sb1.addMatchEquationPattern("[Set s]");
-                    sb1.beginMatchEquationValue();
-                    sb1.beginLetExpression();
-                    sb1.beginLetEquation();
-                    sb1.addLetEquationName("choice");
-                    sb1.addLetEquationValue("(KSet.fold (fun e result -> if result = [Bottom] then (match e with ");
-
-                    str1 = "| [Set s] -> let choice = (KSet.fold (fun e result -> if result = [Bottom] then (match e with ";
-                    outprintfln("DBG: Original:      %s", str1);
-                    outprintfln("DBG: SyntaxBuilder: %s", sb1.toString());
-
-                    sb2.addMatchEquation("_", "[Bottom]");
-                    sb2.endParenthesis();
-                    sb2.addConditionalElse();
-                    sb2.append("result");
-                    sb2.endParenthesis();
-                    sb2.addArgument("s");
-                    sb2.addArgument("[Bottom]");
-                    sb2.endParenthesis();
-                    sb2.endLetDefinitions();
-                    sb2.beginLetScope();
-                    sb2.addConditionalIf();
-                    sb2.addValue("choice = [Bottom]");
-                    sb2.addConditionalThen();
-                    sb2.beginParenthesis();
-
-                    sb2.addFunction(functionName);
-
-                    sb2.addArgument("c");
-
-                    sb2.beginArgument();
-
-                     sb2.beginApplication();
-                      sb2.addFunction("Guard.add");
-
-                      sb2.beginArgument();
-                       sb2.addApplication("GuardElt.Guard", Integer.toString(ruleNum));
-                      sb2.endArgument();
-
-                      sb2.addArgument("guards");
-
-                     sb2.endApplication();
-
-                    sb2.endArgument();
-
-                    sb2.addConditionalElse();
-                    sb2.addValue("choice");
-
-                    str2 = String.format("| _ -> [Bottom]) else result) s [Bottom]) in if choice = [Bottom] then (%s c (Guard.add (GuardElt.Guard %d) guards)) else choice\n", functionName, ruleNum);
-                    // DBG
-                    if(test) {
-                        try {
-                            String path = "/home/remy/test-kapply.ser";
-                            FileOutputStream fileOut = new FileOutputStream(path);
-                            ObjectOutputStream out = new ObjectOutputStream(fileOut);
-                            out.writeObject(k);
-                            out.close();
-                            fileOut.close();
-                            outprintfln("Serialized data is saved in %s", path);
-                            test = false;
-                        } catch(IOException i) {
-                            i.printStackTrace();
-                        }
-                    }
-                    outprintfln("DBG: Original:      %s", str2);
-                    outprintfln("DBG: SyntaxBuilder: %s", sb2.toString());
-                    functionStr = "set choice";
-                    arity = 2;
+                    isSetChoice();
                     break;
                 case "#mapChoice":
-                    str1 = "| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ";
-                    str2 = "| _ -> [Bottom]) else result) m [Bottom]) in if choice = [Bottom] then ("
-                         + functionName
-                         + " c (Guard.add (GuardElt.Guard "
-                         + ruleNum
-                         + ") guards)) else choice";
-                    functionStr = "map choice";
-                    arity = 2;
+                    isMapChoice();
                     break;
                 default: return super.apply(k);
                 }
@@ -625,20 +538,91 @@ public class DefinitionToFunc {
 
                 sb.append(" -> ");
                 sb.beginMatchExpression(oldConvert(ppk, true, vars, false).apply(sndKLabel));
-                sb.append(str1);
+                sb.append(sb1);
                 sb.append(oldConvert(ppk, false, vars, false).apply(fstKLabel));
-                suffix.add("| _ -> (" + functionName + " c (Guard.add (GuardElt.Guard " + ruleNum + ") guards)))");
-                suffix.add(str2);
+                SyntaxBuilder sb3 = new SyntaxBuilder();
+                sb3.appendf("\n| _ -> (%s c (Guard.add (GuardElt.Guard %s) guards)))",
+                            functionName,
+                            Integer.toString(ruleNum));
+                suffix.add(sb3);
+                suffix.add(sb2);
                 h.i++;
                 return super.apply(k);
             }
+
+            private void isMatch() {
+                functionStr = "lookup";
+                arity = 2;
+            }
+
+            private void isSetChoice() {
+                sb1.beginMatchEquation();
+                sb1.addMatchEquationPattern("[Set s]");
+                sb1.beginMatchEquationValue();
+                sb1.beginLetExpression();
+                sb1.beginLetEquation();
+                sb1.addLetEquationName("choice");
+                sb1.beginLetEquationValue();
+                sb1.beginApplication();
+                sb1.addFunction("KSet.fold");
+                //sb1.beginArgument();
+                // sb1.beginApplication();
+                sb1.beginLambda("e", "result");
+                sb1.addConditionalIf();
+                sb1.addValue("result = [Bottom]");
+                sb1.addConditionalThen();
+                sb1.beginMatchExpression("e");
+                // endMatchExpression
+
+                sb2.addMatchEquation("_", "[Bottom]");
+                sb2.endParenthesis();
+                sb2.addConditionalElse();
+                sb2.append("result");
+                sb2.endParenthesis();
+                sb2.addArgument("s");
+                sb2.addArgument("[Bottom]");
+                sb2.endParenthesis();
+                sb2.endLetDefinitions();
+                sb2.beginLetScope();
+                sb2.addConditionalIf();
+                sb2.addValue("choice = [Bottom]");
+                sb2.addConditionalThen();
+                sb2.beginApplication();
+                sb2.addFunction(functionName);
+                sb2.addArgument("c");
+                sb2.beginArgument();
+                sb2.beginApplication();
+                sb2.addFunction("Guard.add");
+                sb2.beginArgument();
+                sb2.addApplication("GuardElt.Guard", Integer.toString(ruleNum));
+                sb2.endArgument();
+                sb2.addArgument("guards");
+                sb2.endApplication();
+                sb2.endArgument();
+                sb2.endApplication();
+                sb2.addConditionalElse();
+                sb2.addValue("choice");
+
+                functionStr = "set choice";
+                arity = 2;
+            }
+
+            private void isMapChoice() {
+                sb1.appendf("\n| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
+                sb2.appendf("\n| _ -> [Bottom]) else result) m [Bottom]) in " +
+                            "if choice = [Bottom] " +
+                            "then (%s c (Guard.add (GuardElt.Guard %s) guards)) " +
+                            "else choice", functionName, Integer.toString(ruleNum));
+                functionStr = "map choice";
+                arity = 2;
+            }
         }.apply(requires);
 
-        SyntaxBuilder sb2 = new SyntaxBuilder();
+        SyntaxBuilder suffSB = new SyntaxBuilder();
         while(!suffix.isEmpty()) {
-            sb2.append(suffix.pollLast());
+            suffSB.append(suffix.pollLast());
         }
-        return sb2.toString();
+        return suffSB.toString();
     }
 
     private static String oldConvert(SetMultimap<KVariable, String> vars) {
