@@ -12,16 +12,30 @@ import java.util.List;
 public class SyntaxBuilder {
     private final StringBuilder sb;
 
-    public SyntaxBuilder(StringBuilder s) {
-        sb = s;
+    public SyntaxBuilder(StringBuilder sb) {
+        this.sb = sb;
     }
 
     public SyntaxBuilder() {
         this(new StringBuilder());
     }
 
+    public SyntaxBuilder(String s) {
+        this();
+        append(s);
+    }
+
+    public SyntaxBuilder(SyntaxBuilder s) {
+        this();
+        append(s);
+    }
+
     public void append(String s) {
         sb.append(s);
+    }
+
+    public void append(SyntaxBuilder s) {
+        append(s.toString());
     }
 
     public void appendf(String format, Object... args) {
@@ -89,6 +103,22 @@ public class SyntaxBuilder {
     }
 
     public void endArgument() {
+        endParenthesis();
+    }
+
+    public void beginLambda(String... vars) {
+        //beginParenthesis();
+        addKeyword("fun");
+        for(String v : vars) {
+            addSpace();
+            addValue(v);
+        }
+        addSpace();
+        addKeyword("->");
+        addSpace();
+    }
+
+    public void endLambda() {
         endParenthesis();
     }
 
