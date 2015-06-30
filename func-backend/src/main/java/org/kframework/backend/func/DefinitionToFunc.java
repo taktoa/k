@@ -70,7 +70,7 @@ public class DefinitionToFunc {
         this.kompileOptions = kompileOptions;
     }
 
-    private String runtimeCodeToFunc(K k, int depth) {
+    private SyntaxBuilder runtimeCodeToFunc(K k, int depth) {
         SyntaxBuilder sb = new SyntaxBuilder();
         FuncVisitor convVisitor = oldConvert(preproc, true, HashMultimap.create(), false);
         sb.addImport("Def");
@@ -83,20 +83,30 @@ public class DefinitionToFunc {
                                         depth));
         sb.endLetDefinitions();
         sb.endLetExpression();
-        return sb.render();
+        return sb;
     }
 
-    private String langDefToFunc(PreprocessedKORE ppk) {
+    private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {
         return mainConvert(ppk);
     }
 
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        return langDefToFunc(preproc);
+        SyntaxBuilder sb = langDefToFunc(preproc);
+        List<String> tmp = sb.pretty();
+
+        for(String s : tmp) {
+            System.out.println(s);
+        }
+
+        if(1 == 1) {
+            throw kemCriticalErrorF("lol error");
+        }
+        return sb.toString();
     }
 
     public String convert(K k, int depth) {
-        return runtimeCodeToFunc(k, depth);
+        return runtimeCodeToFunc(k, depth).toString();
     }
 
     private Function<String, String> wrapPrint(String pfx) {
@@ -396,7 +406,7 @@ public class DefinitionToFunc {
         sb.endLetExpression();
     }
 
-    private String mainConvert(PreprocessedKORE ppk) {
+    private SyntaxBuilder mainConvert(PreprocessedKORE ppk) {
         SyntaxBuilder sb = new SyntaxBuilder();
 
         addSortType(ppk, sb);
@@ -411,7 +421,7 @@ public class DefinitionToFunc {
         addSteps(ppk, sb);
         OCamlIncludes.addPostlude(sb);
 
-        return sb.toString();
+        return sb;
     }
 
 
@@ -564,6 +574,7 @@ public class DefinitionToFunc {
                 sb1.addLetEquationName("choice");
                 sb1.beginLetEquationValue();
                 sb1.beginApplication();
+
                 sb1.addFunction("KSet.fold");
                 //sb1.beginArgument();
                 // sb1.beginApplication();
@@ -575,13 +586,17 @@ public class DefinitionToFunc {
                 // endMatchExpression
 
                 sb2.addMatchEquation("_", "[Bottom]");
-                sb2.endParenthesis();
+                sb2.endMatchExpression();
                 sb2.addConditionalElse();
                 sb2.append("result");
                 sb2.endParenthesis();
+
                 sb2.addArgument("s");
                 sb2.addArgument("[Bottom]");
-                sb2.endParenthesis();
+
+                sb2.endApplication();
+                sb2.endLetEquationValue();
+                sb2.endLetEquation();
                 sb2.endLetDefinitions();
                 sb2.beginLetScope();
                 sb2.addConditionalIf();

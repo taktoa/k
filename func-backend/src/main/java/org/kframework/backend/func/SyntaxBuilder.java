@@ -1,6 +1,8 @@
 package org.kframework.backend.func;
 
 import java.util.List;
+import com.google.common.collect.Lists;
+import org.apache.commons.lang3.StringEscapeUtils;
 
 /**
  * This class is a temporary way to make the current
@@ -10,14 +12,14 @@ import java.util.List;
  * @author Remy Goldschmidt
  */
 public class SyntaxBuilder {
-    private final StringBuilder sb;
+    private final List<Syntax> stx;
 
-    public SyntaxBuilder(StringBuilder sb) {
-        this.sb = sb;
+    private SyntaxBuilder(List<Syntax> stx) {
+        this.stx = stx;
     }
 
     public SyntaxBuilder() {
-        this(new StringBuilder());
+        this(Lists.newArrayList());
     }
 
     public SyntaxBuilder(String s) {
@@ -31,7 +33,7 @@ public class SyntaxBuilder {
     }
 
     public void append(String s) {
-        sb.append(s);
+        stx.add(new SyntaxString(s));
     }
 
     public void append(SyntaxBuilder s) {
@@ -42,12 +44,20 @@ public class SyntaxBuilder {
         append(String.format(format, args));
     }
 
-    public StringBuilder getStringBuilder() {
-        return sb;
+    public String render() {
+        StringBuilder sb = new StringBuilder();
+        for(Syntax s : stx) {
+            sb.append(s.getString());
+        }
+        return sb.toString();
     }
 
-    public String render() {
-        return sb.toString();
+    public List<String> pretty() {
+        List<String> ret = Lists.newArrayListWithCapacity(stx.size() + 1);
+        for(Syntax s : stx) {
+            ret.add(s.toString());
+        }
+        return ret;
     }
 
     @Override
@@ -59,11 +69,11 @@ public class SyntaxBuilder {
 
 
     public void addKeyword(String keyword) {
-        append(keyword);
+        stx.add(new SyntaxKeyword(keyword));
     }
 
     public void addValue(String value) {
-        append(value);
+        stx.add(new SyntaxValue(value));
     }
 
     public void addSpace() {
@@ -376,6 +386,7 @@ public class SyntaxBuilder {
     }
 
     public void beginMatchEquation() {
+        addNewline();
         addKeyword("|");
         addSpace();
     }
@@ -482,5 +493,101 @@ public class SyntaxBuilder {
         addSpace();
         addKeyword("*");
         addSpace();
+    }
+
+
+
+
+
+
+
+
+
+
+
+    private class Syntax {
+        private final String str;
+
+        private Syntax(String str) {
+            this.str = str;
+        }
+
+        public String getString() {
+            return str;
+        }
+
+        protected String getEscapedString() {
+            return StringEscapeUtils.escapeJava(str);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(o instanceof Syntax) {
+                return ((Syntax) o).hashCode() == hashCode();
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return str.hashCode();
+        }
+    }
+
+    private class SyntaxString extends Syntax {
+        public SyntaxString(String str) {
+            super(str);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(o instanceof SyntaxString) {
+                return ((SyntaxString) o).hashCode() == hashCode();
+            }
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("String(%s)", getEscapedString());
+        }
+    }
+
+    private class SyntaxKeyword extends Syntax {
+        public SyntaxKeyword(String str) {
+            super(str);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(o instanceof SyntaxKeyword) {
+                return ((SyntaxKeyword) o).hashCode() == hashCode();
+            }
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Keyword(%s)", getEscapedString());
+        }
+    }
+
+    private class SyntaxValue extends Syntax {
+        public SyntaxValue(String str) {
+            super(str);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if(o instanceof SyntaxValue) {
+                return ((SyntaxValue) o).hashCode() == hashCode();
+            }
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("Value(%s)", getEscapedString());
+        }
     }
 }
