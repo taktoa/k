@@ -4,6 +4,7 @@ package org.kframework.backend.func;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Lists;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
@@ -32,16 +33,11 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Set;
-import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
-import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
-import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.FuncUtil.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
 
@@ -252,7 +248,7 @@ public class DefinitionToFunc {
         String hook = ppk.attrLabels.get(Attribute.HOOK_KEY).getOrDefault(functionLabel, "");
         boolean isHook = OCamlIncludes.hooks.containsKey(hook);
         boolean isPred = OCamlIncludes.predicateRules.containsKey(functionLabel.name());
-        Collection<Rule> rules = ppk.functionRulesOrdered.getOrDefault(functionLabel, new ArrayList<>());
+        Collection<Rule> rules = ppk.functionRulesOrdered.getOrDefault(functionLabel, Lists.newArrayList());
 
         if(!isHook && !hook.isEmpty()) {
             kem.registerCompilerWarning("missing entry for hook " + hook);
