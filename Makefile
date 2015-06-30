@@ -42,7 +42,7 @@ func-test:
 	kompile $(TEST_FILE_NAME).k \
 	        --main-module $(TEST_MODULE) \
 	        --kore --backend func \
-	        --debug; \
+	        --debug && \
 	krun $(TEST_INPUT) --kore --debug; \
 	cd $$OLDDIR; \
 	rm -rf $$TMPDIR
