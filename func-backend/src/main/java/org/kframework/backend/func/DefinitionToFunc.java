@@ -51,6 +51,7 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  * @author Remy Goldschmidt
  */
 public class DefinitionToFunc {
+    /** Flag that determines whether or not we annotate output OCaml with rules */
     public static final boolean annotateOutput = false;
 
     private final KExceptionManager kem;
@@ -60,6 +61,9 @@ public class DefinitionToFunc {
 
     private PreprocessedKORE preproc;
 
+    /**
+     * Constructor for DefinitionToFunc
+     */
     public DefinitionToFunc(KExceptionManager kem,
                             FileUtil files,
                             GlobalOptions globalOptions,
@@ -90,6 +94,9 @@ public class DefinitionToFunc {
         return mainConvert(ppk);
     }
 
+    /**
+     * Convert a {@link CompiledDefinition} to an OCaml string
+     */
     public String convert(CompiledDefinition def) {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         SyntaxBuilder sb = langDefToFunc(preproc);
@@ -105,6 +112,11 @@ public class DefinitionToFunc {
         return sb.toString();
     }
 
+    /**
+     * Convert KORE to an OCaml string that runs against the
+     * code generated from the {@link CompiledDefinition}, up
+     * to a certain evaluation depth.
+     */
     public String convert(K k, int depth) {
         return runtimeCodeToFunc(k, depth).toString();
     }
