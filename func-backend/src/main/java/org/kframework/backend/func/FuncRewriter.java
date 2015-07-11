@@ -87,7 +87,8 @@ public class FuncRewriter implements Function<Module, Rewriter> {
 
         this.processBuilder = files.getProcessBuilder();
 
-        this.converter = new DefinitionToFunc(kem, files, globalOptions, kompileOptions);
+        this.converter = new DefinitionToFunc(kem, files,
+                                              globalOptions, kompileOptions);
 
         this.compileDirectory = files.resolveTemp(compileDirectoryName);
         this.compileErrFile   = files.resolveTemp(compileErrFileName);

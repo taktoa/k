@@ -57,7 +57,8 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
                        KompileOptions kompileOptions) {
         this.processBuilder = files.getProcessBuilder();
 
-        this.converter = new DefinitionToFunc(kem, files, globalOptions, kompileOptions);
+        this.converter = new DefinitionToFunc(kem, files,
+                                              globalOptions, kompileOptions);
 
         this.kompileDirectory  = files.resolveKompiled(kompileDirectoryName);
         this.defSourceFile     = files.resolveKompiled(defSourceFileName);
