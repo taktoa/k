@@ -25,6 +25,12 @@ test:
 doc:
 	$(MAVEN) $(DOC) $(DOC-FLAGS)
 
+etags:
+	find . -name '*.java' | xargs etags
+
+ctags:
+	find . -name '*.java' | xargs ctags
+
 KROOT = $(MDIR)/k-distribution/target/release/k
 
 TEST_FILE_NAME = kore_imp
@@ -34,7 +40,10 @@ TEST_FILE = $(TEST_FILE_DIR)/$(TEST_FILE_NAME).k
 TEST_INPUT = $(TEST_FILE_DIR)/$(TEST_FILE_NAME)_1.imp
 
 func-test:
-	export TMPDIR=$$(mktemp -d); \
+	export TEMPL="func-test."; \
+	export TEMPLATE="$${TEMPL}XXXXXX"; \
+	rm -rf /tmp/$$TEMPL*; \
+	export TMPDIR=$$(mktemp --tmpdir -d $$TEMPLATE); \
 	export OLDDIR=$$(pwd); \
 	export PATH=$$PATH:$(KROOT)/bin; \
 	cp $(TEST_FILE) $$TMPDIR/; \
@@ -44,5 +53,4 @@ func-test:
 	        --kore --backend func \
 	        --debug && \
 	krun $(TEST_INPUT) --kore --debug; \
-	cd $$OLDDIR; \
-	rm -rf $$TMPDIR
+	cd $$OLDDIR
