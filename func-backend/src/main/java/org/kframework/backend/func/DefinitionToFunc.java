@@ -98,13 +98,13 @@ public class DefinitionToFunc {
         SyntaxBuilder sb = langDefToFunc(preproc);
         List<String> tmp = sb.pretty();
 
-        for(String s : tmp) {
-            System.out.println(s);
-        }
-
-        if(1 == 1) {
-            throw kemCriticalErrorF("lol error");
-        }
+//        for(String s : tmp) {
+//            System.out.println(s);
+//        }
+//
+//        if(1 == 1) {
+//            throw kemCriticalErrorF("lol error");
+//        }
         return sb.toString();
     }
 
