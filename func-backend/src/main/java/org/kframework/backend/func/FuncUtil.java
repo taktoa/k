@@ -2,19 +2,34 @@
 package org.kframework.backend.func;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Maps;
 
 import java.io.File;
 import java.io.IOException;
 
 import java.util.List;
+import java.util.Set;
+import java.util.Map;
+import java.util.Arrays;
 import java.util.Collection;
+
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.HashSet;
+import java.util.HashMap;
 
 import org.kframework.kore.K;
 import org.kframework.definition.Sentence;
 import org.kframework.parser.ProductionReference;
 import org.kframework.attributes.Source;
 import org.kframework.attributes.Location;
+
 import org.kframework.utils.errorsystem.KEMException;
+import static org.kframework.utils.errorsystem.KEMException.*;
 
 /**
  * Utility functions for use in
@@ -27,8 +42,122 @@ public final class FuncUtil {
 
 
     // ------------------------------------------------------------------------
+    // ----------------------- SyntaxBuilder generators -----------------------
+    // ------------------------------------------------------------------------
+
+
+    public static SyntaxBuilder newsb() {
+        return new SyntaxBuilder();
+    }
+
+    public static SyntaxBuilder newsb(String s) {
+        return new SyntaxBuilder(s);
+    }
+
+    public static SyntaxBuilder newsb(SyntaxBuilder sb) {
+        return new SyntaxBuilder(sb);
+    }
+
+    public static SyntaxBuilder newsb(String... strings) {
+        return new SyntaxBuilder(strings);
+    }
+
+    public static SyntaxBuilder newsbf(String fmt, Object... args) {
+        return newsb().appendf(fmt, args);
+    }
+
+    public static SyntaxBuilder newsbv(String value) {
+        return newsb().addValue(value);
+    }
+
+    public static SyntaxBuilder newsbk(String keyword) {
+        return newsb().addKeyword(keyword);
+    }
+
+
+    // ------------------------------------------------------------------------
+    // ------------------------ Collection generators -------------------------
+    // ------------------------------------------------------------------------
+
+
+    /**
+     * Since we are generally statically importing FuncUtil,
+     * it is nice to eliminate the Lists.newArrayList pattern
+     */
+    public static <E> ArrayList<E> newArrayList() {
+        return Lists.newArrayList();
+    }
+
+    /**
+     * Since we are generally statically importing FuncUtil,
+     * it is nice to eliminate the Lists.newArrayListWithCapacity pattern
+     */
+    public static <E> ArrayList<E> newArrayListWithCapacity(int capacity) {
+        return Lists.newArrayListWithCapacity(capacity);
+    }
+
+    /**
+     * Since we are generally statically importing FuncUtil,
+     * it is nice to eliminate the Lists.newArrayList pattern
+     */
+    public static <E> LinkedList<E> newLinkedList() {
+        return Lists.newLinkedList();
+    }
+
+    /**
+     * Since we are generally statically importing FuncUtil,
+     * it is nice to eliminate the Maps.newHashMap() pattern
+     */
+    public static <E> HashSet<E> newHashSet() {
+        return Sets.newHashSet();
+    }
+
+    /**
+     * Since we are generally statically importing FuncUtil,
+     * it is nice to eliminate the Maps.newHashMap() pattern
+     */
+    public static <K, V> HashMap<K, V> newHashMap() {
+        return Maps.newHashMap();
+    }
+
+
+    // ------------------------------------------------------------------------
+    // -------------------------- Stream collectors ---------------------------
+    // ------------------------------------------------------------------------
+
+
+    /** Eliminates the Collectors.toList pattern */
+    public static <T> Collector<T, ?, List<T>> toList() {
+        return Collectors.toList();
+    }
+
+    /** Eliminates the Collectors.toSet pattern */
+    public static <T> Collector<T, ?, Set<T>> toSet() {
+        return Collectors.toSet();
+    }
+
+    /** Eliminates the Collectors.joining pattern */
+    public static Collector<CharSequence, ?, String> joining() {
+        return Collectors.joining();
+    }
+
+    /** Eliminates the Collectors.joining pattern */
+    public static Collector<CharSequence, ?, String> joining(String del) {
+        return Collectors.joining(del);
+    }
+
+    /** Eliminates the Collectors.joining pattern */
+    public static Collector<CharSequence, ?, String> joining(String del,
+                                                             String pfx,
+                                                             String sfx) {
+        return Collectors.joining(del, pfx, sfx);
+    }
+
+
+    // ------------------------------------------------------------------------
     // ---------------------- Process-related functions -----------------------
     // ------------------------------------------------------------------------
+
 
     /**
      * Start a process with the given parameters
@@ -67,16 +196,27 @@ public final class FuncUtil {
                  .start();
     }
 
+
     // ------------------------------------------------------------------------
     // ---------------------------- List functions ----------------------------
     // ------------------------------------------------------------------------
 
+
+    /**
+     * Eliminates the Arrays.asList pattern
+     */
+    public static <T> List<T> asList(T... elements) {
+        return Arrays.asList(elements);
+    }
+
     /**
      * Add all the elements of an array {@code A[]} to a given
      * {@code ? extends Collection<T>} where {@code A extends T}.
+     * <br>
      * Any underlying ordering to the given collection will be respected,
      * assuming that that collection implements {@link Collection#addAll addAll}
      * in a way that respects ordering.
+     * <br>
      * Should run in <code>O(m + n)</code> time and <code>O(m + n)</code> space,
      * where <code>m = col.size()</code> and <code>n = arr.length</code>
      * Should be thread-safe (it synchronizes on {@code col} and {@code arr}).
@@ -99,8 +239,8 @@ public final class FuncUtil {
     }
 
     /**
-     * Outputs an ArrayList-backed List of Integers
-     * that represents a closed interval from {@code min} to {@code max} by {@code step}
+     * Outputs an ArrayList-backed List of Integers that represents a
+     * closed interval from {@code min} to {@code max} by {@code step}
      * <br><br>
      * For some <code> r = rangeInclusive(a, &Delta;, b) </code>
      * and <code> s = r.size() </code>
@@ -245,112 +385,173 @@ public final class FuncUtil {
 
     // ------------------ KEMException.compilerError aliases ------------------
 
-    /** Helper function for {@link KEMException#compilerError(String) compilerError} */
-    public static KEMException kemCompilerErrorF(String fmt, Object... obj) {
-        return KEMException.compilerError(String.format(fmt, obj));
-    }
-
-    /** Helper function for {@link KEMException#compilerError(String, Throwable) compilerError} */
-    public static KEMException kemCompilerErrorF(Throwable e, String fmt, Object... obj) {
-        return KEMException.compilerError(String.format(fmt, obj), e);
-    }
-
-    /** Helper function for {@link KEMException#compilerError(String, K) compilerError} */
-    public static KEMException kemCompilerErrorF(K node, String fmt, Object... obj) {
-        return KEMException.compilerError(String.format(fmt, obj), node);
-    }
-
-    /** Helper function for {@link KEMException#compilerError(String, Sentence) compilerError} */
-    public static KEMException kemCompilerErrorF(Sentence node, String fmt, Object... obj) {
-        return KEMException.compilerError(String.format(fmt, obj), node);
-    }
-
-    // ------------------ KEMException.criticalError aliases ------------------
-
-    /** Helper function for {@link KEMException#criticalError(String) criticalError} */
-    public static KEMException kemCriticalErrorF(String fmt, Object... obj) {
-        return KEMException.criticalError(String.format(fmt, obj));
-    }
-
-    /** Helper function for {@link KEMException#criticalError(String, Throwable) criticalError} */
-    public static KEMException kemCriticalErrorF(Throwable e, String fmt, Object... obj) {
-        return KEMException.criticalError(String.format(fmt, obj), e);
-    }
-
-    /** Helper function for {@link KEMException#criticalError(String, K) criticalError} */
-    public static KEMException kemCriticalErrorF(K node, String fmt, Object... obj) {
-        return KEMException.criticalError(String.format(fmt, obj), node);
-    }
-
-    /** Helper function for {@link KEMException#criticalError(String, Sentence) criticalError} */
-    public static KEMException kemCriticalErrorF(Sentence node, String fmt, Object... obj) {
-        return KEMException.criticalError(String.format(fmt, obj), node);
-    }
-
-    /** Helper function for {@link KEMException#criticalError(String, ProductionReference) criticalError} */
-    public static KEMException kemCriticalErrorF(ProductionReference node, String fmt, Object... obj) {
-       return KEMException.criticalError(String.format(fmt, obj), node);
+    /**
+     * Helper function for
+     * {@link compilerError(String) compilerError}
+     */
+    public static KEMException kemCompilerErrorF(String fmt,
+                                                 Object... obj) {
+        return compilerError(String.format(fmt, obj));
     }
 
     /**
      * Helper function for
-     * {@link KEMException#criticalError(String, Throwable, Location, Source) criticalError}
+     * {@link compilerError(String, Throwable) compilerError}
+     */
+    public static KEMException kemCompilerErrorF(Throwable e,
+                                                 String fmt,
+                                                 Object... obj) {
+        return compilerError(String.format(fmt, obj), e);
+    }
+
+    /**
+     * Helper function for
+     * {@link compilerError(String, K) compilerError}
+     */
+    public static KEMException kemCompilerErrorF(K node,
+                                                 String fmt,
+                                                 Object... obj) {
+        return compilerError(String.format(fmt, obj), node);
+    }
+
+    /**
+     * Helper function for
+     * {@link compilerError(String, Sentence) compilerError}
+     */
+    public static KEMException kemCompilerErrorF(Sentence node,
+                                                 String fmt,
+                                                 Object... obj) {
+        return compilerError(String.format(fmt, obj), node);
+    }
+
+    // ------------------ criticalError aliases ------------------
+
+    /**
+     * Helper function for
+     * {@link criticalError(String) criticalError}
+     */
+    public static KEMException kemCriticalErrorF(String fmt,
+                                                 Object... obj) {
+        return criticalError(String.format(fmt, obj));
+    }
+
+    /**
+     * Helper function for
+     * {@link criticalError(String, Throwable) criticalError}
+     */
+    public static KEMException kemCriticalErrorF(Throwable e,
+                                                 String fmt,
+                                                 Object... obj) {
+        return criticalError(String.format(fmt, obj), e);
+    }
+
+    /**
+     * Helper function for
+     * {@link criticalError(String, K) criticalError}
+     */
+    public static KEMException kemCriticalErrorF(K node,
+                                                 String fmt,
+                                                 Object... obj) {
+        return criticalError(String.format(fmt, obj), node);
+    }
+
+    /**
+     * Helper function for
+     * {@link criticalError(String, Sentence) criticalError}
+     */
+    public static KEMException kemCriticalErrorF(Sentence node,
+                                                 String fmt,
+                                                 Object... obj) {
+        return criticalError(String.format(fmt, obj), node);
+    }
+
+    /**
+     * Helper function for
+     * {@link criticalError(String, ProductionReference) criticalError}
+     */
+    public static KEMException kemCriticalErrorF(ProductionReference node,
+                                                 String fmt,
+                                                 Object... obj) {
+       return criticalError(String.format(fmt, obj), node);
+    }
+
+    /**
+     * Helper function for
+     * {@link criticalError(String, Throwable, Location, Source) criticalError}
      */
     public static KEMException kemCriticalErrorF(Throwable e,
                                                  Location loc,
                                                  Source src,
                                                  String fmt,
                                                  Object... obj) {
-        return KEMException.criticalError(String.format(fmt, obj), e, loc, src);
+        return criticalError(String.format(fmt, obj), e, loc, src);
     }
 
-    // ----------------- KEMException.innerParserError aliases ----------------
+    // ----------------- innerParserError aliases ----------------
 
-    /** Helper function for {@link KEMException#innerParserError(String) innerParserError} */
-    public static KEMException kemInnerParserErrorF(String fmt, Object... obj) {
-        return KEMException.innerParserError(String.format(fmt, obj));
+    /**
+     * Helper function for
+     * {@link innerParserError(String) innerParserError}
+     */
+    public static KEMException kemInnerParserErrorF(String fmt,
+                                                    Object... obj) {
+        return innerParserError(String.format(fmt, obj));
     }
 
     /**
      * Helper function for
-     * {@link KEMException#innerParserError(String, Throwable, Location, Source) innerParserError}
+     * {@link innerParserError(String, Throwable, Location, Source) innerParserError}
      */
     public static KEMException kemInnerParserErrorF(Throwable e,
                                                     Location loc,
                                                     Source src,
                                                     String fmt,
                                                     Object... obj) {
-        return KEMException.innerParserError(String.format(fmt, obj), e, src, loc);
+        return innerParserError(String.format(fmt, obj), e, src, loc);
     }
 
-    // ------------------ KEMException.internalError aliases ------------------
-
-    /** Helper function for {@link KEMException#internalError(String) internalError} */
-    public static KEMException kemInternalErrorF(String fmt, Object... obj) {
-        return KEMException.internalError(String.format(fmt, obj));
-    }
-
-    /** Helper function for {@link KEMException#internalError(String, Throwable) internalError} */
-    public static KEMException kemInternalErrorF(Throwable e, String fmt, Object... obj) {
-        return KEMException.internalError(String.format(fmt, obj), e);
-    }
-
-    /** Helper function for {@link KEMException#internalError(String, K) internalError} */
-    public static KEMException kemInternalErrorF(K node, String fmt, Object... obj) {
-        return KEMException.internalError(String.format(fmt, obj), node);
-    }
-
-    // ----------------- KEMException.outerParserError aliases ----------------
+    // ------------------ internalError aliases ------------------
 
     /**
      * Helper function for
-     * {@link KEMException#outerParserError(String, Throwable, Location, Source) outerParserError}
+     * {@link internalError(String) internalError}
+     */
+    public static KEMException kemInternalErrorF(String fmt,
+                                                 Object... obj) {
+        return internalError(String.format(fmt, obj));
+    }
+
+    /**
+     * Helper function for
+     * {@link internalError(String, Throwable) internalError}
+     */
+    public static KEMException kemInternalErrorF(Throwable e,
+                                                 String fmt,
+                                                 Object... obj) {
+        return internalError(String.format(fmt, obj), e);
+    }
+
+    /**
+     * Helper function for
+     * {@link internalError(String, K) internalError}
+     */
+    public static KEMException kemInternalErrorF(K node,
+                                                 String fmt,
+                                                 Object... obj) {
+        return internalError(String.format(fmt, obj), node);
+    }
+
+    // ----------------- outerParserError aliases ----------------
+
+    /**
+     * Helper function for
+     * {@link outerParserError(String, Throwable, Location, Source) outerParserError}
      */
     public static KEMException kemOuterParserErrorF(Throwable e,
                                                     Location loc,
                                                     Source src,
                                                     String fmt,
                                                     Object... obj) {
-        return KEMException.outerParserError(String.format(fmt, obj), e, src, loc);
+        return outerParserError(String.format(fmt, obj), e, src, loc);
     }
 }

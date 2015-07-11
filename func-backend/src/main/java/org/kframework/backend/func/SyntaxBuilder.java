@@ -2,8 +2,13 @@
 package org.kframework.backend.func;
 
 import java.util.List;
+import java.util.regex.Pattern;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.lang3.StringUtils;
+
+import static org.kframework.backend.func.FuncUtil.*;
+
 
 /**
  * This class is a temporary way to make the current
@@ -12,8 +17,10 @@ import org.apache.commons.lang3.StringEscapeUtils;
  *
  * @author Remy Goldschmidt
  */
-public class SyntaxBuilder {
+public class SyntaxBuilder implements Cloneable {
     private final List<Syntax> stx;
+    private int parens = 0;
+    private static final Pattern isSpace = Pattern.compile("\\s+");
 
     private SyntaxBuilder(List<Syntax> stx) {
         this.stx = stx;
@@ -28,24 +35,58 @@ public class SyntaxBuilder {
         append(s);
     }
 
-    public SyntaxBuilder(SyntaxBuilder s) {
+    public SyntaxBuilder(SyntaxBuilder sb) {
         this();
-        append(s);
+        append(sb);
     }
 
-    public void append(String s) {
-        stx.add(new SyntaxString(s));
+    public SyntaxBuilder(String... strings) {
+        this();
+        for(String s : strings) {
+            append(s);
+        }
     }
 
-    public void append(SyntaxBuilder s) {
-        append(s.toString());
+    private List<Syntax> getStx() {
+        return stx;
     }
 
-    public void appendf(String format, Object... args) {
-        append(String.format(format, args));
+    public int getNumParens() {
+        return parens;
     }
+
+
+    public SyntaxBuilder append(Syntax s) {
+        stx.add(s);
+        if("(".equals(s.getString())) { parens++; }
+        if(")".equals(s.getString())) { parens--; }
+        return this;
+    }
+
+    public SyntaxBuilder append(String s) {
+        return append(new SyntaxString(s));
+    }
+
+    public SyntaxBuilder append(SyntaxBuilder sb) {
+        for(Syntax s : sb.getStx()) {
+            append(s);
+        }
+        return this;
+    }
+
+    public SyntaxBuilder appendf(String format, Object... args) {
+        return append(String.format(format, args));
+    }
+
+
+
 
     public String render() {
+        if(parens < 0) {
+            outprintfln("%s", "DBG: Mismatched parentheses");
+            addStackTrace();
+            // throw kemCriticalErrorF("Mismatched parentheses");
+        }
         StringBuilder sb = new StringBuilder();
         for(Syntax s : stx) {
             sb.append(s.getString());
@@ -62,6 +103,15 @@ public class SyntaxBuilder {
     }
 
     @Override
+    public SyntaxBuilder clone() {
+        SyntaxBuilder res = newsb();
+        for(Syntax s : stx) {
+            res.append(s.clone());
+        }
+        return res;
+    }
+
+    @Override
     public String toString() {
         return render();
     }
@@ -69,56 +119,135 @@ public class SyntaxBuilder {
 
 
 
-    public void addKeyword(String keyword) {
-        stx.add(new SyntaxKeyword(keyword));
+    public SyntaxBuilder addKeyword(Object keyword) {
+        append(new SyntaxKeyword(keyword.toString()));
+        return this;
     }
 
-    public void addValue(String value) {
-        stx.add(new SyntaxValue(value));
+    public SyntaxBuilder addValue(Object value) {
+        append(new SyntaxValue(value.toString()));
+        return this;
     }
 
-    public void addSpace() {
+    public SyntaxBuilder addSpace() {
         addKeyword(" ");
+        return this;
     }
 
-    public void addApplication(String fnName, String... args) {
+    public SyntaxBuilder addStackTrace() {
+        addNewline();
+        beginMultilineComment();
+        append("DEBUG:\n");
+        append(StringUtils.join(Thread.currentThread()
+                                      .getStackTrace(),
+                                "\n"));
+        endMultilineComment();
+        addNewline();
+        return this;
+    }
+
+    public SyntaxBuilder addNewline() {
+        addKeyword("\n");
+        return this;
+    }
+
+    public SyntaxBuilder stripSurroundingSpaces() {
+        return stripSpaceBefore().stripSpaceAfter();
+    }
+
+    public SyntaxBuilder stripSpaceBefore() {
+        synchronized(stx) {
+            while(isSpace.matcher(stx.get(0).getString()).matches()) {
+                stx.remove(0);
+            }
+            stx.get(0).stripSpaceBefore();
+        }
+        return this;
+    }
+
+    public SyntaxBuilder stripSpaceAfter() {
+        synchronized(stx) {
+            int size = stx.size();
+            while(isSpace.matcher(stx.get(size - 1).getString()).matches()) {
+                stx.remove(size - 1);
+                size = stx.size();
+            }
+            stx.get(stx.size() - 1).stripSpaceAfter();
+        }
+        return this;
+    }
+
+    public SyntaxBuilder removeNewlines() {
+        synchronized(stx) {
+            for(int i = 0; stx.size() > i; i++) {
+                stx.get(i).removeNewlines();
+            }
+        }
+        return this;
+    }
+
+    public SyntaxBuilder beginMultilineComment() {
+        return addKeyword("(*");
+    }
+
+    public SyntaxBuilder endMultilineComment() {
+        return addKeyword("*)");
+    }
+
+    public SyntaxBuilder addImport(SyntaxBuilder i) {
+        addKeyword("open");
+        addSpace();
+        addValue(i);
+        addNewline();
+        return this;
+    }
+
+
+
+
+
+    public SyntaxBuilder addApplication(String fnName,
+                                        SyntaxBuilder... args) {
         beginApplication();
         addFunction(fnName);
-        for(String a : args) {
+        for(SyntaxBuilder a : args) {
             addArgument(a);
         }
         endApplication();
+        return this;
     }
 
-    public void beginApplication() {
-        beginParenthesis();
+    public SyntaxBuilder beginApplication() {
+        return beginParenthesis();
     }
 
-    public void endApplication() {
-        endParenthesis();
+    public SyntaxBuilder endApplication() {
+        return endParenthesis();
     }
 
-    public void addFunction(String fnName) {
-        addValue(fnName);
+    public SyntaxBuilder addFunction(String fnName) {
+        return addValue(fnName);
     }
 
-    public void addArgument(String arg) {
+    public SyntaxBuilder addArgument(SyntaxBuilder arg) {
         beginArgument();
         addValue(arg);
         endArgument();
+        return this;
     }
 
-    public void beginArgument() {
+    public SyntaxBuilder beginArgument() {
         addSpace();
         beginParenthesis();
+        return this;
     }
 
-    public void endArgument() {
-        endParenthesis();
+    public SyntaxBuilder endArgument() {
+        return endParenthesis();
     }
 
-    public void beginLambda(String... vars) {
-        //beginParenthesis();
+    public SyntaxBuilder beginLambda(String... vars) {
+        beginParenthesis();
         addKeyword("fun");
         for(String v : vars) {
             addSpace();
@@ -127,251 +256,322 @@ public class SyntaxBuilder {
         addSpace();
         addKeyword("->");
         addSpace();
+        return this;
     }
 
-    public void endLambda() {
+    public SyntaxBuilder endLambda() {
+        return endParenthesis();
+    }
+
+    public SyntaxBuilder addEqualityTest(SyntaxBuilder a,
+                                         SyntaxBuilder b) {
+        addSpace();
+        beginParenthesis();
+        beginParenthesis();
+        append(a.removeNewlines());
         endParenthesis();
+        addSpace();
+        addKeyword("=");
+        addSpace();
+        beginParenthesis();
+        append(b.removeNewlines());
+        endParenthesis();
+        endParenthesis();
+        addSpace();
+        return this;
     }
 
-    public void addConditionalIf() {
+    public SyntaxBuilder addConditionalIf() {
         addSpace();
         addKeyword("if");
         addSpace();
+        return this;
     }
 
-    public void addConditionalThen() {
+    public SyntaxBuilder addConditionalThen() {
         addSpace();
         addKeyword("then");
         addSpace();
+        return this;
     }
 
-    public void addConditionalElse() {
+    public SyntaxBuilder addConditionalElse() {
         addSpace();
         addKeyword("else");
         addSpace();
+        return this;
     }
 
-    public void beginParenthesis() {
+    public SyntaxBuilder beginParenthesis() {
         addKeyword("(");
+        return this;
     }
 
-    public void endParenthesis() {
+    public SyntaxBuilder endParenthesis() {
         addKeyword(")");
+        return this;
     }
 
 
 
-    public void addGlobalLet(String name, String value) {
+    public SyntaxBuilder addGlobalLet(SyntaxBuilder name,
+                                      SyntaxBuilder value) {
         beginLetExpression();
         beginLetDefinitions();
         addLetEquation(name, value);
         endLetDefinitions();
         endLetExpression();
+        return this;
     }
 
-    public void addLetEquation(String name, String value) {
+    public SyntaxBuilder addLetEquation(SyntaxBuilder name,
+                                        SyntaxBuilder value) {
         beginLetEquation();
         addLetEquationName(name);
         addLetEquationValue(value);
         endLetEquation();
+        return this;
     }
 
-    public void addLetScope(String scope) {
+    public SyntaxBuilder addLetScope(SyntaxBuilder scope) {
         beginLetScope();
         addValue(scope);
         endLetScope();
+        return this;
     }
 
-    public void addLetEquationName(String name) {
+    public SyntaxBuilder addLetEquationName(SyntaxBuilder name) {
         beginLetEquationName();
         addValue(name);
         endLetEquationName();
+        return this;
     }
 
-    public void addLetEquationValue(String value) {
+    public SyntaxBuilder addLetEquationValue(SyntaxBuilder value) {
         beginLetEquationValue();
         addValue(value);
         endLetEquationValue();
+        return this;
     }
 
-    public void beginLetEquation() {
+    public SyntaxBuilder beginLetEquation() {
         // Begin let equation
+        return this;
     }
 
-    public void endLetEquation() {
+    public SyntaxBuilder endLetEquation() {
         // End let equation
+        return this;
     }
 
-    public void beginLetEquationName() {
+    public SyntaxBuilder beginLetEquationName() {
         // Begin let equation name
+        return this;
     }
 
-    public void endLetEquationName() {
+    public SyntaxBuilder endLetEquationName() {
         addSpace();
         addKeyword("=");
         addSpace();
+        return this;
     }
 
-    public void beginLetEquationValue() {
+    public SyntaxBuilder beginLetEquationValue() {
         // Begin let equation value
+        return this;
     }
 
-    public void endLetEquationValue() {
+    public SyntaxBuilder endLetEquationValue() {
         // End let equation value
+        return this;
     }
 
-    public void addLetEquationSeparator() {
+    public SyntaxBuilder addLetEquationSeparator() {
         addNewline();
         addSpace();
         addKeyword("and");
         addSpace();
+        return this;
     }
 
-    public void beginLetDefinitions() {
+    public SyntaxBuilder beginLetDefinitions() {
         // Begin let definitions
+        return this;
     }
 
-    public void endLetDefinitions() {
+    public SyntaxBuilder endLetDefinitions() {
         // End let definitions
+        return this;
     }
 
-    public void beginLetScope() {
+    public SyntaxBuilder beginLetScope() {
         addSpace();
         addKeyword("in");
         addSpace();
+        return this;
     }
 
-    public void endLetScope() {
+    public SyntaxBuilder endLetScope() {
         // End let scope
+        return this;
     }
 
-    public void beginLetExpression() {
+    public SyntaxBuilder beginLetExpression() {
         addKeyword("let");
         addSpace();
+        return this;
     }
 
-    public void endLetExpression() {
+    public SyntaxBuilder endLetExpression() {
         // End let expression
+        return this;
     }
 
 
 
-    public void addLetrecEquation(String name, String value) {
+    public SyntaxBuilder addLetrecEquation(SyntaxBuilder name,
+                                  SyntaxBuilder value) {
         beginLetrecEquation();
         addLetrecEquationName(name);
         addLetrecEquationValue(value);
         endLetrecEquation();
+        return this;
     }
 
-    public void addLetrecEquationName(String name) {
+    public SyntaxBuilder addLetrecEquationName(SyntaxBuilder name) {
         beginLetrecEquationName();
         addValue(name);
         endLetrecEquationName();
+        return this;
     }
 
-    public void addLetrecEquationValue(String value) {
+    public SyntaxBuilder addLetrecEquationValue(SyntaxBuilder value) {
         beginLetrecEquationValue();
         addValue(value);
         endLetrecEquationValue();
+        return this;
     }
 
-    public void beginLetrecEquation() {
+    public SyntaxBuilder beginLetrecEquation() {
         // Begin letrec equation
+        return this;
     }
 
-    public void endLetrecEquation() {
+    public SyntaxBuilder endLetrecEquation() {
         addNewline();
+        return this;
     }
 
-    public void beginLetrecEquationName() {
+    public SyntaxBuilder beginLetrecEquationName() {
         // Begin letrec equation name
+        return this;
     }
 
-    public void endLetrecEquationName() {
+    public SyntaxBuilder endLetrecEquationName() {
         addSpace();
         addKeyword("=");
         addSpace();
+        return this;
     }
 
-    public void beginLetrecEquationValue() {
+    public SyntaxBuilder beginLetrecEquationValue() {
         // Begin letrec equation value
+        return this;
     }
 
-    public void endLetrecEquationValue() {
+    public SyntaxBuilder endLetrecEquationValue() {
         // End letrec equation value
+        return this;
     }
 
-    public void addLetrecEquationSeparator() {
+    public SyntaxBuilder addLetrecEquationSeparator() {
         addNewline();
         addSpace();
         addKeyword("and");
         addSpace();
+        return this;
     }
 
-    public void beginLetrecDefinitions() {
+    public SyntaxBuilder beginLetrecDefinitions() {
         // Begin letrec definitions
+        return this;
     }
 
-    public void endLetrecDefinitions() {
+    public SyntaxBuilder endLetrecDefinitions() {
         // End letrec definitions
+        return this;
     }
 
-    public void beginLetrecScope() {
+    public SyntaxBuilder beginLetrecScope() {
         addSpace();
         addKeyword("in");
         addSpace();
+        return this;
     }
 
-    public void endLetrecScope() {
+    public SyntaxBuilder endLetrecScope() {
         // End letrec scope
+        return this;
     }
 
-    public void beginLetrecExpression() {
+    public SyntaxBuilder beginLetrecExpression() {
         addKeyword("let rec");
         addSpace();
+        return this;
     }
 
-    public void endLetrecExpression() {
+    public SyntaxBuilder endLetrecExpression() {
         // End letrec expression
+        return this;
     }
 
 
 
 
-    public void addMatch(String value, List<String> pats, List<String> vals) {
+    public SyntaxBuilder addMatch(SyntaxBuilder value,
+                                  List<String> pats,
+                                  List<String> vals) {
         beginMatchExpression(value);
-        for(int i = Math.min(pats.size(), vals.size()) - 1; i >= 0; i--) {
-            addMatchEquation(pats.get(i), vals.get(i));
+        int size = Math.min(pats.size(), vals.size());
+        for(int i = 0; size > i; i++) {
+            addMatchEquation(newsb(pats.get(i)),
+                             newsb(vals.get(i)));
         }
         endMatchExpression();
+        return this;
     }
 
-    public void addMatchEquation(String pattern, String value) {
+    public SyntaxBuilder addMatchEquation(SyntaxBuilder pattern,
+                                          SyntaxBuilder value) {
         beginMatchEquation();
         addMatchEquationPattern(pattern);
         addMatchEquationValue(value);
         endMatchEquation();
+        return this;
     }
 
-    public void addMatchEquation(String equation) {
+    public SyntaxBuilder addMatchEquation(SyntaxBuilder equation) {
         beginMatchEquation();
         addValue(equation);
         endMatchEquation();
+        return this;
     }
 
-    public void addMatchEquationPattern(String pattern) {
+    public SyntaxBuilder addMatchEquationPattern(SyntaxBuilder pattern) {
         beginMatchEquationPattern();
         addValue(pattern);
         endMatchEquationPattern();
+        return this;
     }
 
-    public void addMatchEquationValue(String value) {
+    public SyntaxBuilder addMatchEquationValue(SyntaxBuilder value) {
         beginMatchEquationValue();
         addValue(value);
         endMatchEquationValue();
+        return this;
     }
 
-    public void beginMatchExpression(String varname) {
+    public SyntaxBuilder beginMatchExpression(SyntaxBuilder varname) {
         beginParenthesis();
         addKeyword("match");
         addSpace();
@@ -379,67 +579,56 @@ public class SyntaxBuilder {
         addSpace();
         addKeyword("with");
         addSpace();
+        return this;
     }
 
-    public void endMatchExpression() {
+    public SyntaxBuilder endMatchExpression() {
         endParenthesis();
         addNewline();
+        return this;
     }
 
-    public void beginMatchEquation() {
+    public SyntaxBuilder beginMatchEquation() {
         addNewline();
         addKeyword("|");
         addSpace();
+        return this;
     }
 
-    public void endMatchEquation() {
+    public SyntaxBuilder endMatchEquation() {
         addNewline();
+        return this;
     }
 
-    public void beginMatchEquationPattern() {
+    public SyntaxBuilder beginMatchEquationPattern() {
         // Begin match equation pattern
+        return this;
     }
 
-    public void endMatchEquationPattern() {
+    public SyntaxBuilder endMatchEquationPattern() {
         addSpace();
         addKeyword("->");
         addSpace();
+        return this;
     }
 
-    public void beginMatchEquationValue() {
+    public SyntaxBuilder beginMatchEquationValue() {
         // Begin match equation value
+        return this;
     }
 
-    public void endMatchEquationValue() {
+    public SyntaxBuilder endMatchEquationValue() {
         // End match equation value
+        return this;
     }
 
 
 
 
-    public void beginMultilineComment() {
-        addKeyword("(*");
-    }
-
-    public void endMultilineComment() {
-        addKeyword("*)");
-    }
-
-    public void addNewline() {
-        addKeyword("\n");
-    }
-
-    public void addImport(String i) {
-        addKeyword("open");
-        addSpace();
-        addValue(i);
-        addNewline();
-    }
 
 
 
-
-    public void beginTypeDefinition(String typename) {
+    public SyntaxBuilder beginTypeDefinition(String typename) {
         addKeyword("type");
         addSpace();
         addValue(typename);
@@ -447,53 +636,71 @@ public class SyntaxBuilder {
         addKeyword("=");
         addSpace();
         addNewline();
+        return this;
     }
 
-    public void endTypeDefinition() {
+    public SyntaxBuilder endTypeDefinition() {
         // End type definition
+        return this;
     }
 
-    public void addConstructor(String con) {
+    public SyntaxBuilder addConstructor(SyntaxBuilder con) {
         beginConstructor();
-        append(con);
+        addValue(con);
         endConstructor();
+        return this;
     }
 
-    public void beginConstructor() {
+    public SyntaxBuilder addConstructorName(String con) {
+        beginConstructorName();
+        addValue(con);
+        endConstructorName();
+        return this;
+    }
+
+    public SyntaxBuilder beginConstructor() {
         addKeyword("|");
         addSpace();
+        return this;
     }
 
-    public void endConstructor() {
+    public SyntaxBuilder endConstructor() {
         addNewline();
+        return this;
     }
 
-    public void beginConstructorName() {
+    public SyntaxBuilder beginConstructorName() {
         // Begin constructor name
+        return this;
     }
 
-    public void endConstructorName() {
+    public SyntaxBuilder endConstructorName() {
         // End constructor name
+        return this;
     }
 
-    public void beginConstructorArgs() {
+    public SyntaxBuilder beginConstructorArgs() {
         addSpace();
         addKeyword("of");
         addSpace();
+        return this;
     }
 
-    public void endConstructorArgs() {
+    public SyntaxBuilder endConstructorArgs() {
         // End constructor args
+        return this;
     }
 
-    public void addType(String typename) {
+    public SyntaxBuilder addType(SyntaxBuilder typename) {
         addValue(typename);
+        return this;
     }
 
-    public void addTypeProduct() {
+    public SyntaxBuilder addTypeProduct() {
         addSpace();
         addKeyword("*");
         addSpace();
+        return this;
     }
 
 
@@ -506,8 +713,9 @@ public class SyntaxBuilder {
 
 
 
-    private class Syntax {
-        private final String str;
+    private class Syntax implements Cloneable {
+        private String str;
+        private final Pattern isNewline = Pattern.compile("\n");
 
         private Syntax(String str) {
             this.str = str;
@@ -517,14 +725,48 @@ public class SyntaxBuilder {
             return str;
         }
 
+
+        public final void stripSurroundingSpaces() {
+            str = str.trim();
+        }
+
+        public final void stripSpaceBefore() {
+            String[] split = isSpace.split(str);
+            int sl = split.length;
+            int idx = 0;
+            while(sl > idx && StringUtils.isNotEmpty(split[idx])) { idx++; }
+            List<String> res = newArrayListWithCapacity(sl - idx + 2);
+            for(int i = idx; sl > i; i++) { res.add(split[i]); }
+            str = res.stream().collect(joining(" "));
+        }
+
+        public final void stripSpaceAfter() {
+            String[] split = isSpace.split(str);
+            int sl = split.length;
+            int idx = sl - 1;
+            while(idx > 0 && "".equals(split[idx])) { idx--; }
+            List<String> res = newArrayListWithCapacity(idx + 2);
+            for(int i = 0; idx > i; i++) { res.add(split[i]); }
+            str = res.stream().collect(joining(" "));
+        }
+
+        public final void removeNewlines() {
+            str = asList(isNewline.split(str)).stream().collect(joining(" "));
+        }
+
         protected String getEscapedString() {
             return StringEscapeUtils.escapeJava(str);
         }
 
         @Override
+        public Syntax clone() {
+            return new Syntax(str);
+        }
+
+        @Override
         public boolean equals(Object o) {
             if(o instanceof Syntax) {
-                return ((Syntax) o).hashCode() == hashCode();
+                return str.equals(((Syntax) o).str);
             }
             return false;
         }
@@ -535,15 +777,20 @@ public class SyntaxBuilder {
         }
     }
 
-    private class SyntaxString extends Syntax {
+    private class SyntaxString extends Syntax implements Cloneable {
         public SyntaxString(String str) {
             super(str);
         }
 
         @Override
+        public SyntaxString clone() {
+            return new SyntaxString(getString());
+        }
+
+        @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxString) {
-                return ((SyntaxString) o).hashCode() == hashCode();
+                return super.equals((Syntax) o);
             }
             return false;
         }
@@ -554,15 +801,20 @@ public class SyntaxBuilder {
         }
     }
 
-    private class SyntaxKeyword extends Syntax {
+    private class SyntaxKeyword extends Syntax implements Cloneable {
         public SyntaxKeyword(String str) {
             super(str);
         }
 
         @Override
+        public SyntaxKeyword clone() {
+            return new SyntaxKeyword(getString());
+        }
+
+        @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxKeyword) {
-                return ((SyntaxKeyword) o).hashCode() == hashCode();
+                return super.equals((Syntax) o);
             }
             return false;
         }
@@ -573,15 +825,20 @@ public class SyntaxBuilder {
         }
     }
 
-    private class SyntaxValue extends Syntax {
+    private class SyntaxValue extends Syntax implements Cloneable {
         public SyntaxValue(String str) {
             super(str);
         }
 
         @Override
+        public SyntaxValue clone() {
+            return new SyntaxValue(getString());
+        }
+
+        @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxValue) {
-                return ((SyntaxValue) o).hashCode() == hashCode();
+                return super.equals((Syntax) o);
             }
             return false;
         }
