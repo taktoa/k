@@ -1,56 +1,105 @@
-FLAGS = -T 8
-
-MAVEN-NAME = mvn
-
-MAVEN = $(MAVEN-NAME) $(FLAGS)
+ENV = /usr/bin/env
+GNUTIME = ${ENV} time
+TEE = tee
+CAT = cat
+MAKE = make
+FIND = find
+XARGS = xargs
+MAVEN = mvn -T 8
+KOMPILE = kompile
+KRUN = krun
 
 PACKAGE = package
-PACKAGE-FLAGS = -DskipKTest -Dtest.skip=true -Dtests.skip=true -DskipTests
+PACKAGE_FLAGS = -DskipKTest -Dtest.skip=true -Dtests.skip=true -DskipTests
 TEST = verify
-TEST-FLAGS = -DskipKTest -Dcheckstyle.skip=true
+TEST_FLAGS = -DskipKTest -Dcheckstyle.skip=true
 DOC = javadoc:aggregate
-DOC-FLAGS = -Dmaven.javadoc.failOnError=false
+DOC_FLAGS = -Dmaven.javadoc.failOnError=false
 
 MDIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+PDIR := $(shell dirname ${MDIR})
 
-all:
-	echo "Doing nothing."
+KROOT = ${MDIR}/k-distribution/target/release/k
 
-build:
-	$(MAVEN) $(PACKAGE) $(PACKAGE-FLAGS)
+all: build test func-test
+
+build: package etags doc
+
+package:
+	${MAVEN} ${PACKAGE} ${PACKAGE_FLAGS}
 
 test:
-	$(MAVEN) $(TEST) $(TEST-FLAGS)
+	${MAVEN} ${TEST} ${TEST_FLAGS}
 
 doc:
-	$(MAVEN) $(DOC) $(DOC-FLAGS)
+	${MAVEN} ${DOC} ${DOC_FLAGS}
 
 etags:
-	find . -name '*.java' | xargs etags
+	${FIND} . -name '*.java' | ${XARGS} etags
 
 ctags:
-	find . -name '*.java' | xargs ctags
+	${FIND} . -name '*.java' | ${XARGS} ctags
 
-KROOT = $(MDIR)/k-distribution/target/release/k
 
-TEST_FILE_NAME = kore_imp
-TEST_MODULE = IMP
-TEST_FILE_DIR = $(MDIR)/k-distribution/tests/regression/func-backend
-TEST_FILE = $(TEST_FILE_DIR)/$(TEST_FILE_NAME).k
-TEST_INPUT = $(TEST_FILE_DIR)/$(TEST_FILE_NAME)_1.imp
 
-func-test:
-	export TEMPL="func-test."; \
-	export TEMPLATE="$${TEMPL}XXXXXX"; \
-	rm -rf /tmp/$$TEMPL*; \
-	export TMPDIR=$$(mktemp --tmpdir -d $$TEMPLATE); \
-	export OLDDIR=$$(pwd); \
-	export PATH=$$PATH:$(KROOT)/bin; \
-	cp $(TEST_FILE) $$TMPDIR/; \
-	cd $$TMPDIR; \
-	kompile $(TEST_FILE_NAME).k \
-	        --main-module $(TEST_MODULE) \
-	        --kore --backend func \
-	        --debug && \
-	krun $(TEST_INPUT) --kore --debug; \
-	cd $$OLDDIR
+
+
+
+FUNC_TEST_FILE_NAME = kore_imp
+FUNC_TEST_MODULE = IMP
+FUNC_TEST_FILE_DIR = ${MDIR}/k-distribution/tests/regression/func-backend
+FUNC_TEST_FILE = ${FUNC_TEST_FILE_DIR}/${FUNC_TEST_FILE_NAME}.k
+FUNC_TEST_INPUT = ${FUNC_TEST_FILE_DIR}/${FUNC_TEST_FILE_NAME}_1.imp
+
+FUNC_TEST_TMPDIR_TEMPLATE = func-test.
+FUNC_TEST_TMPDIR := $(shell mktemp --tmpdir -d "${FUNC_TEST_TMPDIR_TEMPLATE}XXXXXX")
+
+FUNC_TEST_KOMPILE_PARAMS = ${FUNC_TEST_FILE_NAME}.k --main-module ${FUNC_TEST_MODULE}
+FUNC_TEST_KOMPILE_OPTS = --kore --backend func --debug
+FUNC_TEST_KRUN_PARAMS = ${FUNC_TEST_INPUT}
+FUNC_TEST_KRUN_OPTS = --kore --debug
+
+FUNC_TEST_LOG_DIR = ${PDIR}/func-test-logs
+FUNC_TEST_KOMPILE_TIME_FILE = ${FUNC_TEST_LOG_DIR}/kompile-time.log
+FUNC_TEST_KRUN_TIME_FILE = ${FUNC_TEST_LOG_DIR}/krun-time.log
+FUNC_TEST_KOMPILE_LOG_FILE = ${FUNC_TEST_LOG_DIR}/kompile.log
+FUNC_TEST_KRUN_LOG_FILE = ${FUNC_TEST_LOG_DIR}/krun.log
+
+FUNC_TEST_KOMPILE_GNUTIME = ${GNUTIME} --output ${FUNC_TEST_KOMPILE_TIME_FILE} --verbose
+FUNC_TEST_KRUN_GNUTIME = ${GNUTIME} --output ${FUNC_TEST_KRUN_TIME_FILE} --verbose
+
+FUNC_TEST_KOMPILE_CMD = ${FUNC_TEST_KOMPILE_GNUTIME} ${KOMPILE} ${FUNC_TEST_KOMPILE_PARAMS} ${FUNC_TEST_KOMPILE_OPTS}
+FUNC_TEST_KRUN_CMD = ${FUNC_TEST_KRUN_GNUTIME} ${KRUN} ${FUNC_TEST_KRUN_PARAMS} ${FUNC_TEST_KRUN_OPTS}
+
+func-test-clean:
+	rm -rvf /tmp/${FUNC_TEST_TMPDIR_TEMPLATE}*
+
+func-test-prepare:
+	cp ${FUNC_TEST_FILE} ${FUNC_TEST_TMPDIR}
+	mkdir -p ${FUNC_TEST_LOG_DIR}
+
+func-test-kompile:
+	cd ${FUNC_TEST_TMPDIR} && ${FUNC_TEST_KOMPILE_CMD} |& ${TEE} ${FUNC_TEST_KOMPILE_LOG_FILE} | ${CAT}
+
+func-test-krun:
+	cd ${FUNC_TEST_TMPDIR} && ${FUNC_TEST_KRUN_CMD} |& ${TEE} ${FUNC_TEST_KRUN_LOG_FILE} | ${CAT}
+
+func-test: func-test-prepare func-test-kompile func-test-krun func-test-clean
+
+
+
+C_SEMANTICS_DIR = ${PDIR}/c-semantics
+C_SEMANTICS_TIME_FILE = ${PDIR}/c-semantics-logs/time.log
+C_SEMANTICS_LOG_FILE = ${PDIR}/c-semantics-logs/run.log
+
+C_SEMANTICS_GNUTIME = ${GNUTIME} --output ${C_SEMANTICS_TIME_FILE} --verbose
+
+C_SEMANTICS_TEST = ${C_SEMANTICS_GNUTIME} ${MAKE} |& ${TEE} ${C_SEMANTICS_LOG_FILE} | ${CAT}
+
+c-semantics-dir: ${C_SEMANTICS_DIR}
+
+c-semantics-clean: c-semantics-dir
+	cd ${C_SEMANTICS_DIR} && ${MAKE} clean
+
+c-semantics-test: package c-semantics-clean
+	cd ${C_SEMANTICS_DIR} && ${C_SEMANTICS_TEST}
