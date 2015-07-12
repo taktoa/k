@@ -101,5 +101,5 @@ c-semantics-dir: ${C_SEMANTICS_DIR}
 c-semantics-clean: c-semantics-dir
 	cd ${C_SEMANTICS_DIR} && ${MAKE} clean
 
-c-semantics-test: package c-semantics-clean
+c-semantics-test: c-semantics-dir
 	cd ${C_SEMANTICS_DIR} && ${C_SEMANTICS_TEST}
