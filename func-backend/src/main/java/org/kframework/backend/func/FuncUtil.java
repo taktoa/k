@@ -270,7 +270,7 @@ public final class FuncUtil {
         int padding = 4;
         List<Integer> result = Lists.newArrayList(elements + padding);
         for(int i = start; i <= stop; i += step) {
-            result.add(new Integer(i));
+            result.add(Integer.valueOf(i));
         }
         return result;
     }

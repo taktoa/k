@@ -54,15 +54,11 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     @Override
     public SyntaxBuilder apply(KApply k) {
         KLabel kl = k.klabel();
-        if(k.klabel() instanceof KVariable && rhs) {
+        if(isVariableKApply(k) && rhs) {
             return newsbf("eval (%s)", applyKLabel(k));
-        }
-
-        if(isLookupKLabel(kl)) {
+        } else if(isLookupKLabel(kl)) {
             return apply(BooleanUtils.TRUE);
-        }
-
-        if(isKTokenKLabel(kl)) {
+        } else if(isKTokenKLabel(kl)) {
             //magic down-ness
 
             KSequence kseq1 = (KSequence) k.klist().items().get(0);
@@ -77,13 +73,15 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
                 .addSpace()
                 .append(apply(kseq2.items().get(0)))
                 .endParenthesis();
-        }
-
-        if(isFunctionKLabel(kl) || isAnywhereKLabel(kl)) {
+        } else if(isFunctionKLabel(kl) || (isAnywhereKLabel(kl) && rhs)) {
+//        } else if(isFunctionKLabel(kl)) {
+//            outprintfln("DBG: %20s, func: %5b, any: %5b", kl,
+//                        isFunctionKLabel(kl),
+//                        isAnywhereKLabel(kl));
             return applyFunction(k);
+        } else {
+            return applyKLabel(k);
         }
-
-        return applyKLabel(k);
     }
 
     @Override
@@ -97,18 +95,20 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
            && inBooleanExp
            && k.sort().equals(Sorts.Bool())) {
             return newsb(k.s());
+        } else {
+            String hook = ppk.attrSorts
+                             .get(Attribute.HOOK_KEY)
+                             .getOrDefault(k.sort(), "");
+            if(sortHooks.containsKey(hook)) {
+                return newsb(sortHooks
+                             .get(hook)
+                             .apply(k.s()));
+            } else {
+                return newsbf("KToken (%s, %s)",
+                              apply(k.sort()),
+                              StringUtil.enquoteCString(k.s()));
+            }
         }
-        String hook = ppk.attrSorts
-                         .get(Attribute.HOOK_KEY)
-                         .getOrDefault(k.sort(), "");
-        if(sortHooks.containsKey(hook)) {
-            return newsb(sortHooks
-                         .get(hook)
-                         .apply(k.s()));
-        }
-        return newsbf("KToken (%s, %s)",
-                      apply(k.sort()),
-                      StringUtil.enquoteCString(k.s()));
     }
 
     @Override
@@ -126,9 +126,10 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
            && k.items().size() == 1
            && inBooleanExp) {
             return apply(k.items().get(0));
+        } else {
+            checkKSequence(k);
+            return newsbf("(%s)", apply(k.items(), false));
         }
-        checkKSequence(k);
-        return newsbf("(%s)", apply(k.items(), false));
     }
 
     @Override
@@ -137,9 +138,9 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     }
 
     public SyntaxBuilder applyKLabel(KApply k) {
-        return newsbf("KApply(%s, %s)",
-                      apply(k.klabel()),
-                      apply(k.klist().items(), true));
+        return newsbf("KApply (%s, %s)",
+                     apply(k.klabel()),
+                     apply(k.klist().items(), true));
     }
 
     public SyntaxBuilder applyBoolMonad(KApply k, String fmt) {
@@ -185,7 +186,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
     public SyntaxBuilder applyFunction(KApply k) {
         boolean stack = inBooleanExp;
-        SyntaxBuilder res = newsb();
+        SyntaxBuilder res;
         String hook = ppk.attrLabels
                          .get(Attribute.HOOK_KEY)
                          .getOrDefault(k.klabel(), "");
@@ -197,7 +198,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         } else if(isNativeNot(hook)) {
             res = applyBoolMonad(k, stack ? "(not (%s))" : "[Bool (not (%s))]");
         } else if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
-            res
+            res = newsb()
                 .append(applyKLabel(k))
                 .addSpace()
                 .addKeyword("::")
@@ -216,16 +217,8 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
             inBooleanExp = false;
 
-            SyntaxBuilder body = newsb();
-            body.addApplication(encodeStringToFunction(k.klabel().name()),
-                                apply(k.klist().items(), true),
-                                newsb().addValue("Guard.empty"));
-
-            if(stack) {
-                res.addApplication("isTrue", body);
-            } else {
-                res = body;
-            }
+            String fmt = stack ? "(isTrue (%s(%s) Guard.empty))" : "(%s(%s) Guard.empty)";
+            res = newsb().appendf(fmt, encodeStringToFunction(k.klabel().name()), apply(k.klist().items(), true));
         }
 
         inBooleanExp = stack;
@@ -365,6 +358,10 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         }
 
         return false;
+    }
+
+    private boolean isVariableKApply(KApply k) {
+        return k.klabel() instanceof KVariable;
     }
 
     private boolean isLookupKLabel(KLabel k) {
