@@ -42,6 +42,16 @@ public final class FuncUtil {
 
 
     // ------------------------------------------------------------------------
+    // --------------------------- Numeric functions --------------------------
+    // ------------------------------------------------------------------------
+
+
+    public static boolean between(int val, int min, int max) {
+        return val > min && max > val;
+    }
+
+
+    // ------------------------------------------------------------------------
     // ----------------------- SyntaxBuilder generators -----------------------
     // ------------------------------------------------------------------------
 
@@ -240,7 +250,7 @@ public final class FuncUtil {
 
     /**
      * Outputs an ArrayList-backed List of Integers that represents a
-     * closed interval from {@code min} to {@code max} by {@code step}
+     * closed interval from {@code start} to {@code stop} by {@code step}
      * <br><br>
      * For some <code> r = rangeInclusive(a, &Delta;, b) </code>
      * and <code> s = r.size() </code>
@@ -251,15 +261,15 @@ public final class FuncUtil {
      * <li class="eqn"><pre> r.get(i)     === (i * &Delta;) + a       </pre></li>
      * <li class="eqn"><pre> r.get(s - 1) === b                       </pre></li>
      * </ol>
-     * @param min   bottom end of the range
+     * @param start start of the range
      * @param step  difference between any two consecutive elements
-     * @param max   top end of the range
+     * @param stop  end of the range
      */
-    public static List<Integer> rangeInclusive(int min, int step, int max) {
-        int elements = Math.abs((max - min) / step);
+    public static List<Integer> rangeInclusive(int start, int step, int stop) {
+        int elements = Math.abs((stop - start) / step);
         int padding = 4;
         List<Integer> result = Lists.newArrayList(elements + padding);
-        for(int i = min; i <= max; i += step) {
+        for(int i = start; i <= stop; i += step) {
             result.add(new Integer(i));
         }
         return result;
@@ -269,8 +279,8 @@ public final class FuncUtil {
      * Same as {@link rangeInclusive(int, int, int) rangeInclusive},
      * except it excludes the first and last element
      */
-    public static List<Integer> rangeExclusive(int min, int step, int max) {
-        List<Integer> result = rangeInclusive(min, step, max);
+    public static List<Integer> rangeExclusive(int start, int step, int stop) {
+        List<Integer> result = rangeInclusive(start, step, stop);
         result.remove(0);
         result.remove(result.size() - 1);
         return result;
@@ -281,32 +291,32 @@ public final class FuncUtil {
      * Same as {@link rangeInclusive(int, int, int) rangeInclusive},
      * except it defaults the step to 1
      */
-    public static List<Integer> rangeInclusive(int min, int max) {
-        return rangeInclusive(min, 1, max);
+    public static List<Integer> rangeInclusive(int start, int stop) {
+        return rangeInclusive(start, 1, stop);
     }
 
     /**
      * Same as {@link rangeInclusive(int, int) rangeInclusive},
-     * except it defaults the minimum to 0
+     * except it defaults the start to 0
      */
-    public static List<Integer> rangeInclusive(int max) {
-        return rangeInclusive(0, max);
+    public static List<Integer> rangeInclusive(int stop) {
+        return rangeInclusive(0, stop);
     }
 
     /**
      * Same as {@link rangeExclusive(int, int, int) rangeExclusive},
      * except it defaults the step to 1
      */
-    public static List<Integer> rangeExclusive(int min, int max) {
-        return rangeExclusive(min, 1, max);
+    public static List<Integer> rangeExclusive(int start, int stop) {
+        return rangeExclusive(start, 1, stop);
     }
 
     /**
      * Same as {@link rangeExclusive(int, int) rangeExclusive},
-     * except it defaults the minimum to 0
+     * except it defaults the start to 0
      */
-    public static List<Integer> rangeExclusive(int max) {
-        return rangeExclusive(0, max);
+    public static List<Integer> rangeExclusive(int stop) {
+        return rangeExclusive(0, stop);
     }
 
 
@@ -335,18 +345,6 @@ public final class FuncUtil {
     }
 
     /**
-     * In case you misspell it, we have this version, so it will give
-     * a deprecation warning at compile time.
-     * @deprecated  Use {@link #outprintfln() outprintfln} instead
-     * @param fmt   the format string to pass to System.out.format
-     * @param args  the Objects to pass to System.out.format
-     */
-    @Deprecated
-    public static void outprintlnf(String fmt, Object... args) {
-        outprintfln(fmt, args);
-    }
-
-    /**
      * An alias so we don't have System.err.* everywhere
      * @param fmt   the format string to pass to System.err.format
      * @param args  the Objects to pass to System.err.format
@@ -363,18 +361,6 @@ public final class FuncUtil {
      */
     public static void errprintfln(String fmt, Object... args) {
         errprintf(fmt + "\n", args);
-    }
-
-    /**
-     * In case you misspell it, we have this version, so it will give
-     * a deprecation warning at compile time.
-     * @deprecated  Use {@link #errprintfln() errprintfln} instead
-     * @param fmt   the format string to pass to System.err.format
-     * @param args  the Objects to pass to System.err.format
-     */
-    @Deprecated
-    public static void errprintlnf(String fmt, Object... args) {
-        errprintfln(fmt, args);
     }
 
 
