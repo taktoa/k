@@ -3,6 +3,7 @@ package org.kframework.backend.func;
 
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -20,7 +21,11 @@ import static org.kframework.backend.func.FuncUtil.*;
 public class SyntaxBuilder implements Cloneable {
     private final List<Syntax> stx;
     private int parens = 0;
-    private static final Pattern isSpace = Pattern.compile("\\s+");
+    private int linum = 0;
+    private static final Pattern isSpace      = Pattern.compile("\\s+");
+    private static final Pattern isNewline    = Pattern.compile("\n");
+    private static final Pattern isOpenParen  = Pattern.compile("\\(");
+    private static final Pattern isCloseParen = Pattern.compile("\\)");
 
     private SyntaxBuilder(List<Syntax> stx) {
         this.stx = stx;
@@ -55,11 +60,37 @@ public class SyntaxBuilder implements Cloneable {
         return parens;
     }
 
+    public int getLineNum() {
+        return linum;
+    }
+
+
 
     public SyntaxBuilder append(Syntax s) {
         stx.add(s);
-        if("(".equals(s.getString())) { parens++; }
-        if(")".equals(s.getString())) { parens--; }
+        if("(".equals(s.getString())) {
+            parens++;
+        } else if(s.getString().contains("(")) {
+            Matcher m = isOpenParen.matcher(s.getString());
+            while(m.find()) { parens++; }
+        }
+
+        if(")".equals(s.getString())) {
+            parens--;
+        } else if(s.getString().contains(")")) {
+            Matcher m = isCloseParen.matcher(s.getString());
+            while(m.find()) { parens--; }
+        }
+
+        if("\n".equals(s.getString())) {
+            linum++;
+        } else if(s.getString().contains("\n")) {
+            Matcher m = isNewline.matcher(s.getString());
+            while(m.find()) { linum++; }
+        }
+        // if(between(linum, 26900, 27000)) {
+        //     addStackTrace();
+        // }
         return this;
     }
 
@@ -69,7 +100,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder append(SyntaxBuilder sb) {
         for(Syntax s : sb.getStx()) {
-            append(s);
+            append(s.clone());
         }
         return this;
     }
@@ -82,11 +113,6 @@ public class SyntaxBuilder implements Cloneable {
 
 
     public String render() {
-        if(parens < 0) {
-            outprintfln("%s", "DBG: Mismatched parentheses");
-            addStackTrace();
-            // throw kemCriticalErrorF("Mismatched parentheses");
-        }
         StringBuilder sb = new StringBuilder();
         for(Syntax s : stx) {
             sb.append(s.getString());
@@ -135,14 +161,14 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addStackTrace() {
-        addNewline();
-        beginMultilineComment();
-        append("DEBUG:\n");
-        append(StringUtils.join(Thread.currentThread()
-                                      .getStackTrace(),
-                                "\n"));
-        endMultilineComment();
-        addNewline();
+        stx.add(new SyntaxString("\n"));
+        stx.add(new SyntaxString("(* "));
+        stx.add(new SyntaxString("DEBUG:\n"));
+        stx.add(new SyntaxString(StringUtils.join(Thread.currentThread()
+                                                        .getStackTrace(),
+                                                  "\n")));
+        stx.add(new SyntaxString(" *)"));
+        stx.add(new SyntaxString("\n"));
         return this;
     }
 
@@ -183,6 +209,7 @@ public class SyntaxBuilder implements Cloneable {
                 stx.get(i).removeNewlines();
             }
         }
+        linum = 0;
         return this;
     }
 
@@ -194,7 +221,7 @@ public class SyntaxBuilder implements Cloneable {
         return addKeyword("*)");
     }
 
-    public SyntaxBuilder addImport(SyntaxBuilder i) {
+    public SyntaxBuilder addImport(String i) {
         addKeyword("open");
         addSpace();
         addValue(i);
@@ -231,7 +258,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addArgument(SyntaxBuilder arg) {
         beginArgument();
-        addValue(arg);
+        append(arg);
         endArgument();
         return this;
     }
@@ -335,21 +362,21 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addLetScope(SyntaxBuilder scope) {
         beginLetScope();
-        addValue(scope);
+        append(scope);
         endLetScope();
         return this;
     }
 
     public SyntaxBuilder addLetEquationName(SyntaxBuilder name) {
         beginLetEquationName();
-        addValue(name);
+        append(name);
         endLetEquationName();
         return this;
     }
 
     public SyntaxBuilder addLetEquationValue(SyntaxBuilder value) {
         beginLetEquationValue();
-        addValue(value);
+        append(value);
         endLetEquationValue();
         return this;
     }
@@ -440,14 +467,14 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addLetrecEquationName(SyntaxBuilder name) {
         beginLetrecEquationName();
-        addValue(name);
+        append(name);
         endLetrecEquationName();
         return this;
     }
 
     public SyntaxBuilder addLetrecEquationValue(SyntaxBuilder value) {
         beginLetrecEquationValue();
-        addValue(value);
+        append(value);
         endLetrecEquationValue();
         return this;
     }
@@ -552,21 +579,21 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addMatchEquation(SyntaxBuilder equation) {
         beginMatchEquation();
-        addValue(equation);
+        append(equation);
         endMatchEquation();
         return this;
     }
 
     public SyntaxBuilder addMatchEquationPattern(SyntaxBuilder pattern) {
         beginMatchEquationPattern();
-        addValue(pattern);
+        append(pattern);
         endMatchEquationPattern();
         return this;
     }
 
     public SyntaxBuilder addMatchEquationValue(SyntaxBuilder value) {
         beginMatchEquationValue();
-        addValue(value);
+        append(value);
         endMatchEquationValue();
         return this;
     }
@@ -575,7 +602,7 @@ public class SyntaxBuilder implements Cloneable {
         beginParenthesis();
         addKeyword("match");
         addSpace();
-        addValue(varname);
+        append(varname);
         addSpace();
         addKeyword("with");
         addSpace();
@@ -646,7 +673,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addConstructor(SyntaxBuilder con) {
         beginConstructor();
-        addValue(con);
+        append(con);
         endConstructor();
         return this;
     }
@@ -692,7 +719,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addType(SyntaxBuilder typename) {
-        addValue(typename);
+        append(typename);
         return this;
     }
 
