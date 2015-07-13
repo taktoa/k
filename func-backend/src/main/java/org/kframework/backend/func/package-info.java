@@ -5,7 +5,7 @@
  * <h2>FAQ:</h2>
  * <br>
  * <ul>
- * <li>     Q: What do I need to use the K Functional Backend </li>
+ * <li>     Q: What do I need to use the K Functional Backend? </li>
  * <ul><li> A: For now, you will need the following programs/libraries installed: </li></ul>
  * <ul><ul><li>                                                Runtime/kompile-time dependencies: </li></ul></ul>
  * <ul><ul><ul><li><a href="https://ocaml.org">                                    OCaml </a></li></ul></ul></ul>
