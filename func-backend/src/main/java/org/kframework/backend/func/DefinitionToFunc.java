@@ -107,8 +107,8 @@ public class DefinitionToFunc {
                                              true,
                                              HashMultimap.create(),
                                              false);
-        sb.addImport(newsb("Def"));
-        sb.addImport(newsb("K"));
+        sb.addImport("Def");
+        sb.addImport("K");
         sb.beginLetExpression();
         sb.beginLetDefinitions();
         String runFmt = "print_string(print_k(try(run(%s) (%s)) with Stuck c' -> c'))";
@@ -118,6 +118,8 @@ public class DefinitionToFunc {
                                  depth));
         sb.endLetDefinitions();
         sb.endLetExpression();
+        outprintfln("DBG: runtime # of parens: %s",
+                    Integer.toString(sb.getNumParens()));
         return sb;
     }
 
@@ -531,7 +533,6 @@ public class DefinitionToFunc {
         if(function) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
             sb.append(visitor.apply(kapp.klist().items(), true));
-
         } else {
             sb.append(visitor.apply(left));
         }
@@ -567,13 +568,12 @@ public class DefinitionToFunc {
             sb.addSpace();
             sb.addKeyword("when");
             sb.addSpace();
-            sb.addValue(oldConvert(ppk, true, vars, true)
-                        .apply(requires));
+            sb.append(oldConvert(ppk, true, vars, true).apply(requires));
             sb.addSpace();
             sb.addKeyword("&&");
             sb.addSpace();
             sb.beginParenthesis();
-            sb.addValue(result);
+            sb.append(result);
             sb.endParenthesis();
         }
 
@@ -628,6 +628,8 @@ public class DefinitionToFunc {
                                             SetMultimap<KVariable, String> vars,
                                             String functionName,
                                             int ruleNum) {
+        int oldParens = sb.getNumParens();
+
         Deque<SyntaxBuilder> suffix = new ArrayDeque<>();
         class Holder { int i; }
         Holder h = new Holder();
@@ -683,12 +685,13 @@ public class DefinitionToFunc {
                                       vars, false)
                            .apply(fstKLabel));
                 SyntaxBuilder sb3 = new SyntaxBuilder();
-                String fmt = "(%s c (Guard.add (GuardElt.Guard %s) guards)))";
+                String fmt = "(%s c (Guard.add (GuardElt.Guard %s) guards))";
                 String tmp = String.format(fmt,
                                            functionName,
                                            Integer.toString(ruleNum));
                 sb3.addMatchEquation(wildcard,
                                      newsb(tmp));
+                sb3.endMatchExpression();
                 suffix.add(sb3);
                 suffix.add(sb2);
                 h.i++;
@@ -765,62 +768,60 @@ public class DefinitionToFunc {
             }
 
             private void isMapChoice() {
-                SyntaxBuilder testsb1 = newsb();
-                testsb1
-                    .addNewline()
-                    .beginMatchEquation()
-                    .addMatchEquationPattern(newsbv("[Map m]"))
-                    .beginMatchEquationValue()
-                    .beginLetExpression()
-                    .beginLetDefinitions()
-                    .beginLetEquation()
-                    .addLetEquationName(newsbv("choice"))
-                    .beginLetEquationValue()
-                    .beginApplication()
-                    .addFunction(foldMap)
-                    .beginArgument()
-                    .beginLambda("k", "v", "result")
-                    .addConditionalIf()
-                    .addEqualityTest(newsbv("result"), bot)
-                    .addConditionalThen()
-                    .beginMatchExpression(newsbv("k"));
+//                SyntaxBuilder testsb1 = newsb();
+//                testsb1
+//                    .addNewline()
+//                    .beginMatchEquation()
+//                    .addMatchEquationPattern(newsbv("[Map m]"))
+//                    .beginMatchEquationValue()
+//                    .beginLetExpression()
+//                    .beginLetDefinitions()
+//                    .beginLetEquation()
+//                    .addLetEquationName(newsbv("choice"))
+//                    .beginLetEquationValue()
+//                    .beginApplication()
+//                    .addFunction(foldMap)
+//                    .beginArgument()
+//                    .beginLambda("k", "v", "result")
+//                    .addConditionalIf()
+//                    .addEqualityTest(newsbv("result"), bot)
+//                    .addConditionalThen()
+//                    .beginMatchExpression(newsbv("k"));
 
                 sb1.append("\n| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
 
-                outprintfln("DBG: orig: %s", sb1);
-                outprintfln("DBG:  new: %s", testsb1);
 
 
-                SyntaxBuilder guardSB =
-                    newsb().addApplication(guardAdd,
-                                           newsb().addApplication(guardCon, rnsb),
-                                           newsbv("guards"));
-
-                SyntaxBuilder testsb2 = newsb();
-                testsb2
-                    .addMatchEquation(wildcard, bot)
-                    .endMatchExpression()
-                    .addConditionalElse()
-                    .addValue("result")
-                    .endLambda()
-                    .endArgument()
-                    .addArgument(newsbv("m"))
-                    .addArgument(bot)
-                    .endApplication()
-                    .endLetEquationValue()
-                    .endLetEquation()
-                    .endLetDefinitions()
-                    .beginLetScope()
-                    .addConditionalIf()
-                    .addEqualityTest(newsbv("choice"), bot)
-                    .addConditionalThen()
-                    .addApplication(functionName,
-                                    newsbv("c"),
-                                    newsb().addArgument(guardSB))
-                    .addConditionalElse()
-                    .addValue("choice")
-                    .endLetScope()
-                    .endLetExpression();
+//                SyntaxBuilder guardSB =
+//                    newsb().addApplication(guardAdd,
+//                                           newsb().addApplication(guardCon, rnsb),
+//                                           newsbv("guards"));
+//
+//                SyntaxBuilder testsb2 = newsb();
+//                testsb2
+//                    .addMatchEquation(wildcard, bot)
+//                    .endMatchExpression()
+//                    .addConditionalElse()
+//                    .addValue("result")
+//                    .endLambda()
+//                    .endArgument()
+//                    .addArgument(newsbv("m"))
+//                    .addArgument(bot)
+//                    .endApplication()
+//                    .endLetEquationValue()
+//                    .endLetEquation()
+//                    .endLetDefinitions()
+//                    .beginLetScope()
+//                    .addConditionalIf()
+//                    .addEqualityTest(newsbv("choice"), bot)
+//                    .addConditionalThen()
+//                    .addApplication(functionName,
+//                                    newsbv("c"),
+//                                    newsb().addArgument(guardSB))
+//                    .addConditionalElse()
+//                    .addValue("choice")
+//                    .endLetScope()
+//                    .endLetExpression();
 
                 sb2.appendf("\n| _ -> [Bottom]) else result) m [Bottom])" +
                             " in if choice = [Bottom] " +
@@ -828,9 +829,6 @@ public class DefinitionToFunc {
                             "else choice",
                             functionName,
                             Integer.toString(ruleNum));
-
-                outprintfln("DBG: orig: %s", sb2);
-                outprintfln("DBG:  new: %s", testsb2);
 
                 functionStr = "map choice";
                 arity = 2;
@@ -840,8 +838,29 @@ public class DefinitionToFunc {
         sb.append(res);
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
-        while(!suffix.isEmpty()) {
-            suffSB.append(suffix.pollLast());
+        while(!suffix.isEmpty()) { suffSB.append(suffix.pollLast()); }
+
+        int newParens = sb.getNumParens();
+
+        int sufParens = suffSB.getNumParens();
+
+        if((newParens + sufParens) != oldParens) {
+            outprintfln("DBG: ");
+            outprintfln("DBG: ");
+            outprintfln("DBG: ");
+            outprintfln("DBG:     ERROR: %s != %s",
+                        Integer.toString(newParens + sufParens),
+                        Integer.toString(oldParens));
+            outprintfln("DBG: oldParens: %s", Integer.toString(oldParens));
+            outprintfln("DBG: newParens: %s", Integer.toString(newParens));
+            outprintfln("DBG: sufParens: %s", Integer.toString(sufParens));
+            outprintfln("DBG:    Rule #: %s", Integer.toString(ruleNum));
+            outprintfln("DBG: Func name: %s", functionName);
+            outprintfln("DBG: SEPARATOR - res:");
+            outprintfln("DBG: %s", res.toString().replaceAll("\n", "\nDBG: "));
+            outprintfln("DBG: SEPARATOR - suffSB:");
+            outprintfln("DBG: %s", suffSB.toString().replaceAll("\n", "\nDBG: "));
+            outprintfln("DBG: SEPARATOR");
         }
 
         return suffSB;
