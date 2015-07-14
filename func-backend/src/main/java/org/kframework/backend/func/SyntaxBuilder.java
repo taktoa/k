@@ -68,24 +68,24 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder append(Syntax s) {
         stx.add(s);
-        if("(".equals(s.getString())) {
+        if("(".equals(s.render())) {
             parens++;
-        } else if(s.getString().contains("(")) {
-            Matcher m = isOpenParen.matcher(s.getString());
+        } else if(s.render().contains("(")) {
+            Matcher m = isOpenParen.matcher(s.render());
             while(m.find()) { parens++; }
         }
 
-        if(")".equals(s.getString())) {
+        if(")".equals(s.render())) {
             parens--;
-        } else if(s.getString().contains(")")) {
-            Matcher m = isCloseParen.matcher(s.getString());
+        } else if(s.render().contains(")")) {
+            Matcher m = isCloseParen.matcher(s.render());
             while(m.find()) { parens--; }
         }
 
-        if("\n".equals(s.getString())) {
+        if("\n".equals(s.render())) {
             linum++;
-        } else if(s.getString().contains("\n")) {
-            Matcher m = isNewline.matcher(s.getString());
+        } else if(s.render().contains("\n")) {
+            Matcher m = isNewline.matcher(s.render());
             while(m.find()) { linum++; }
         }
         // if(between(linum, 26900, 27000)) {
@@ -100,7 +100,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder append(SyntaxBuilder sb) {
         for(Syntax s : sb.getStx()) {
-            append(s.clone());
+            append(s);
         }
         return this;
     }
@@ -115,7 +115,7 @@ public class SyntaxBuilder implements Cloneable {
     public String render() {
         StringBuilder sb = new StringBuilder();
         for(Syntax s : stx) {
-            sb.append(s.getString());
+            sb.append(s.render());
         }
         return sb.toString();
     }
@@ -132,7 +132,7 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder clone() {
         SyntaxBuilder res = newsb();
         for(Syntax s : stx) {
-            res.append(s.clone());
+            res.append(s);
         }
         return res;
     }
@@ -183,7 +183,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder stripSpaceBefore() {
         synchronized(stx) {
-            while(isSpace.matcher(stx.get(0).getString()).matches()) {
+            while(isSpace.matcher(stx.get(0).render()).matches()) {
                 stx.remove(0);
             }
             stx.get(0).stripSpaceBefore();
@@ -194,7 +194,7 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder stripSpaceAfter() {
         synchronized(stx) {
             int size = stx.size();
-            while(isSpace.matcher(stx.get(size - 1).getString()).matches()) {
+            while(isSpace.matcher(stx.get(size - 1).render()).matches()) {
                 stx.remove(size - 1);
                 size = stx.size();
             }
@@ -214,11 +214,13 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginMultilineComment() {
-        return addKeyword("(*");
+        return append(SyntaxEnum.BEGIN_COMMENT);
+        //return addKeyword("(*");
     }
 
     public SyntaxBuilder endMultilineComment() {
-        return addKeyword("*)");
+        return append(SyntaxEnum.END_COMMENT);
+        //return addKeyword("*)");
     }
 
     public SyntaxBuilder addImport(String i) {
@@ -737,87 +739,194 @@ public class SyntaxBuilder implements Cloneable {
 
 
 
+    private enum SyntaxEnum implements Syntax {
+        BEGIN_PARENTHESIS           ("BEGIN_PARENTHESIS",           "("),
+        END_PARENTHESIS             ("END_PARENTHESIS",             ")"),
 
+        BEGIN_COMMENT               ("BEGIN_COMMENT",               "(*"),
+        END_COMMENT                 ("END_COMMENT",                 "*)"),
 
+        BEGIN_NAME                  ("BEGIN_NAME",                  ""),
+        END_NAME                    ("END_NAME",                    ""),
 
-    private class Syntax implements Cloneable {
+        BEGIN_INTRODUCE             ("BEGIN_INTRODUCE",             " (* introduce "),
+        END_INTRODUCE               ("END_INTRODUCE",               " *) "),
+
+        BEGIN_INTEGER               ("BEGIN_INTEGER",               ""),
+        END_INTEGER                 ("END_INTEGER",                 ""),
+        BEGIN_FLOAT                 ("BEGIN_FLOAT",                 ""),
+        END_FLOAT                   ("END_FLOAT",                   ""),
+        BEGIN_BOOLEAN               ("BEGIN_BOOLEAN",               ""),
+        END_BOOLEAN                 ("END_BOOLEAN",                 ""),
+        BEGIN_STRING                ("BEGIN_STRING",                ""),
+        END_STRING                  ("END_STRING",                  ""),
+        BEGIN_TYPE                  ("BEGIN_TYPE",                  ""),
+        END_TYPE                    ("END_TYPE",                    ""),
+
+        BEGIN_MATCH_EXPRESSION      ("BEGIN_MATCH_EXPRESSION",      "("),
+        END_MATCH_EXPRESSION        ("END_MATCH_EXPRESSION",        ")"),
+        BEGIN_MATCH_INPUT           ("BEGIN_MATCH_INPUT",           "match "),
+        END_MATCH_INPUT             ("END_MATCH_INPUT",             " with "),
+        BEGIN_MATCH_EQUATIONS       ("BEGIN_MATCH_EQUATIONS",       ""),
+        END_MATCH_EQUATIONS         ("END_MATCH_EQUATIONS",         ""),
+        BEGIN_MATCH_EQUATION        ("BEGIN_MATCH_EQUATION",        "\n| "),
+        END_MATCH_EQUATION          ("END_MATCH_EQUATION",          ""),
+        BEGIN_MATCH_EQUATION_VAL    ("BEGIN_MATCH_EQUATION_VAL",    "("),
+        END_MATCH_EQUATION_VAL      ("END_MATCH_EQUATION_VAL",      ")"),
+        BEGIN_MATCH_EQUATION_PAT    ("BEGIN_MATCH_EQUATION_PAT",    ""),
+        END_MATCH_EQUATION_PAT      ("END_MATCH_EQUATION_PAT",      " -> "),
+
+        BEGIN_LET_EXPRESSION        ("BEGIN_LET_EXPRESSION",        "(let"),
+        END_LET_EXPRESSION          ("END_LET_EXPRESSION",          ")"),
+        BEGIN_LET_DECL              ("BEGIN_LET_DECL",              "let"),
+        END_LET_DECL                ("END_LET_DECL",                ""),
+        BEGIN_LET_DECLARATIONS      ("BEGIN_LET_DECLARATIONS",      ""),
+        END_LET_DECLARATIONS        ("END_LET_DECLARATIONS",        "_ = 1"),
+        BEGIN_LET_EQUATION          ("BEGIN_LET_EQUATION",          ""),
+        END_LET_EQUATION            ("END_LET_EQUATION",            " and "),
+        BEGIN_LET_EQUATION_NAME     ("BEGIN_LET_EQUATION_NAME",     ""),
+        END_LET_EQUATION_NAME       ("END_LET_EQUATION_NAME",       " = "),
+        BEGIN_LET_EQUATION_VAL      ("BEGIN_LET_EQUATION_VAL",      "("),
+        END_LET_EQUATION_VAL        ("END_LET_EQUATION_VAL",        ")"),
+        BEGIN_LET_SCOPE             ("BEGIN_LET_SCOPE",             " in ("),
+        END_LET_SCOPE               ("END_LET_SCOPE",               ")"),
+
+        BEGIN_LETREC_EXPRESSION     ("BEGIN_LETREC_EXPRESSION",     "(let rec"),
+        END_LETREC_EXPRESSION       ("END_LETREC_EXPRESSION",       ")"),
+        BEGIN_LETREC_DECL           ("BEGIN_LETREC_DECL",           "let rec"),
+        END_LETREC_DECL             ("END_LETREC_DECL",             ""),
+        BEGIN_LETREC_DECLARATIONS   ("BEGIN_LETREC_DECLARATIONS",   ""),
+        END_LETREC_DECLARATIONS     ("END_LETREC_DECLARATIONS",     "_ = 1"),
+        BEGIN_LETREC_EQUATION       ("BEGIN_LETREC_EQUATION",       ""),
+        END_LETREC_EQUATION         ("END_LETREC_EQUATION",         " and "),
+        BEGIN_LETREC_EQUATION_NAME  ("BEGIN_LETREC_EQUATION_NAME",  ""),
+        END_LETREC_EQUATION_NAME    ("END_LETREC_EQUATION_NAME",    " = "),
+        BEGIN_LETREC_EQUATION_VAL   ("BEGIN_LETREC_EQUATION_VAL",   "("),
+        END_LETREC_EQUATION_VAL     ("END_LETREC_EQUATION_VAL",     ") and "),
+        BEGIN_LETREC_SCOPE          ("BEGIN_LETREC_SCOPE",          " in ("),
+        END_LETREC_SCOPE            ("END_LETREC_SCOPE",            ")"),
+
+        BEGIN_LAMBDA                ("BEGIN_LAMBDA",                "(fun "),
+        END_LAMBDA                  ("END_LAMBDA",                  ")"),
+        BEGIN_LAMBDA_VAR            ("BEGIN_LAMBDA_VAR",            ""),
+        END_LAMBDA_VAR              ("END_LAMBDA_VAR",              ""),
+        BEGIN_LAMBDA_VARS           ("BEGIN_LAMBDA_VARS",           ""),
+        END_LAMBDA_VARS             ("END_LAMBDA_VARS",             " -> "),
+        BEGIN_LAMBDA_BODY           ("BEGIN_LAMBDA_BODY",           "("),
+        END_LAMBDA_BODY             ("END_LAMBDA_BODY",             ")"),
+
+        BEGIN_APPLICATION           ("BEGIN_APPLICATION",           "("),
+        END_APPLICATION             ("END_APPLICATION",             ")"),
+        BEGIN_FUNCTION              ("BEGIN_FUNCTION",              ""),
+        END_FUNCTION                ("END_FUNCTION",                ""),
+        BEGIN_ARGUMENT              ("BEGIN_ARGUMENT",              "("),
+        END_ARGUMENT                ("END_ARGUMENT",                ")"),
+
+        BEGIN_TYPE_DEFINITION       ("BEGIN_TYPE_DEFINITION",       "type "),
+        END_TYPE_DEFINITION         ("END_TYPE_DEFINITION",         ""),
+        BEGIN_TYPE_DEFINITION_VAR   ("BEGIN_TYPE_DEFINITION_VAR",   ""),
+        END_TYPE_DEFINITION_VAR     ("END_TYPE_DEFINITION_VAR",     ""),
+        BEGIN_TYPE_DEFINITION_VARS  ("BEGIN_TYPE_DEFINITION_VARS",  ""),
+        END_TYPE_DEFINITION_VARS    ("END_TYPE_DEFINITION_VARS",    ""),
+        BEGIN_TYPE_DEFINITION_NAME  ("BEGIN_TYPE_DEFINITION_NAME",  ""),
+        END_TYPE_DEFINITION_NAME    ("END_TYPE_DEFINITION_NAME",    " = "),
+        BEGIN_TYPE_DEFINITION_CONS  ("BEGIN_TYPE_DEFINITION_CONS",  ""),
+        END_TYPE_DEFINITION_CONS    ("END_TYPE_DEFINITION_CONS",    ""),
+
+        BEGIN_CONSTRUCTOR           ("BEGIN_CONSTRUCTOR",           ""),
+        END_CONSTRUCTOR             ("END_CONSTRUCTOR",             ""),
+        BEGIN_CONSTRUCTOR_NAME      ("BEGIN_CONSTRUCTOR_NAME",      ""),
+        END_CONSTRUCTOR_NAME        ("END_CONSTRUCTOR_NAME",        ""),
+        BEGIN_CONSTRUCTOR_ARGUMENT  ("BEGIN_CONSTRUCTOR_ARGUMENT",  ""),
+        END_CONSTRUCTOR_ARGUMENT    ("END_CONSTRUCTOR_ARGUMENT",    ""),
+        BEGIN_CONSTRUCTOR_ARGUMENTS ("BEGIN_CONSTRUCTOR_ARGUMENTS", " of ("),
+        END_CONSTRUCTOR_ARGUMENTS   ("END_CONSTRUCTOR_ARGUMENTS",   ")");
+
+        private final String name;
         private String str;
-        private final Pattern isNewline = Pattern.compile("\n");
 
-        private Syntax(String str) {
-            this.str = str;
+        private SyntaxEnum(String name, String str) {
+            this.name = name;
+            this.str  = str;
         }
 
-        public String getString() {
-            return str;
+        @Override
+        public String render() { return str; }
+
+        @Override
+        public void setRenderString(String str) { this.str = str; }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+
+    private interface Syntax {
+        Pattern isNewline = Pattern.compile("\n");
+        String render();
+        void setRenderString(String s);
+
+        public default void stripSurroundingSpaces() {
+            setRenderString(render().trim());
         }
 
-
-        public final void stripSurroundingSpaces() {
-            str = str.trim();
-        }
-
-        public final void stripSpaceBefore() {
+        public default void stripSpaceBefore() {
+            String str = render();
             String[] split = isSpace.split(str);
             int sl = split.length;
             int idx = 0;
             while(sl > idx && StringUtils.isNotEmpty(split[idx])) { idx++; }
             List<String> res = newArrayListWithCapacity(sl - idx + 2);
             for(int i = idx; sl > i; i++) { res.add(split[i]); }
-            str = res.stream().collect(joining(" "));
+            setRenderString(res.stream().collect(joining(" ")));
         }
 
-        public final void stripSpaceAfter() {
+        public default void stripSpaceAfter() {
+            String str = render();
             String[] split = isSpace.split(str);
             int sl = split.length;
             int idx = sl - 1;
             while(idx > 0 && "".equals(split[idx])) { idx--; }
             List<String> res = newArrayListWithCapacity(idx + 2);
             for(int i = 0; idx > i; i++) { res.add(split[i]); }
-            str = res.stream().collect(joining(" "));
+            setRenderString(res.stream().collect(joining(" ")));
         }
 
-        public final void removeNewlines() {
-            str = asList(isNewline.split(str)).stream().collect(joining(" "));
+        public default void removeNewlines() {
+            setRenderString(asList(isNewline.split(render()))
+                            .stream()
+                            .collect(joining(" ")));
         }
 
-        protected String getEscapedString() {
-            return StringEscapeUtils.escapeJava(str);
-        }
-
-        @Override
-        public Syntax clone() {
-            return new Syntax(str);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if(o instanceof Syntax) {
-                return str.equals(((Syntax) o).str);
-            }
-            return false;
-        }
-
-        @Override
-        public int hashCode() {
-            return str.hashCode();
+        public default String getEscapedString() {
+            return StringEscapeUtils.escapeJava(render());
         }
     }
 
-    private class SyntaxString extends Syntax implements Cloneable {
+    private class SyntaxString implements Syntax, Cloneable {
+        private String str;
+
         public SyntaxString(String str) {
-            super(str);
+            setRenderString(str);
         }
 
         @Override
+        public String render() { return str; }
+
+        @Override
+        public void setRenderString(String str) { this.str = str; }
+
+        @Override
         public SyntaxString clone() {
-            return new SyntaxString(getString());
+            return new SyntaxString(render());
         }
 
         @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxString) {
-                return super.equals((Syntax) o);
+                return render().equals(((SyntaxString) o).render());
             }
             return false;
         }
@@ -828,20 +937,28 @@ public class SyntaxBuilder implements Cloneable {
         }
     }
 
-    private class SyntaxKeyword extends Syntax implements Cloneable {
+    private class SyntaxKeyword implements Syntax, Cloneable {
+        private String str;
+
         public SyntaxKeyword(String str) {
-            super(str);
+            setRenderString(str);
         }
 
         @Override
+        public String render() { return str; }
+
+        @Override
+        public void setRenderString(String str) { this.str = str; }
+
+        @Override
         public SyntaxKeyword clone() {
-            return new SyntaxKeyword(getString());
+            return new SyntaxKeyword(render());
         }
 
         @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxKeyword) {
-                return super.equals((Syntax) o);
+                return render().equals(((SyntaxKeyword) o).render());
             }
             return false;
         }
@@ -852,20 +969,28 @@ public class SyntaxBuilder implements Cloneable {
         }
     }
 
-    private class SyntaxValue extends Syntax implements Cloneable {
+    private class SyntaxValue implements Syntax, Cloneable {
+        private String str;
+
         public SyntaxValue(String str) {
-            super(str);
+            setRenderString(str);
         }
 
         @Override
+        public String render() { return str; }
+
+        @Override
+        public void setRenderString(String str) { this.str = str; }
+
+        @Override
         public SyntaxValue clone() {
-            return new SyntaxValue(getString());
+            return new SyntaxValue(render());
         }
 
         @Override
         public boolean equals(Object o) {
             if(o instanceof SyntaxValue) {
-                return super.equals((Syntax) o);
+                return render().equals(((SyntaxValue) o).render());
             }
             return false;
         }

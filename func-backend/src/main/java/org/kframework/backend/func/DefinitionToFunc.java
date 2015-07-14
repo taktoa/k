@@ -47,7 +47,7 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class DefinitionToFunc {
     /** Flag that determines whether or not we annotate output OCaml with rules */
-    public static final boolean annotateOutput = false;
+    public static final boolean annotateOutput = true;
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -671,9 +671,11 @@ public class DefinitionToFunc {
                 K fstKLabel = kitems.get(0);
                 K sndKLabel = kitems.get(1);
 
-                res.addSpace();
-                res.addKeyword("->");
-                res.addSpace();
+//                res.beginMultilineComment();
+//                res.addValue("DBG: begin");
+//                res.endMultilineComment();
+                res.endMatchEquationPattern();
+                res.beginMatchEquationValue();
                 res.beginMatchExpression(oldConvert(ppk, true,
                                                     vars, false)
                                          .apply(sndKLabel));
@@ -689,6 +691,8 @@ public class DefinitionToFunc {
                 sb3.addMatchEquation(wildcard,
                                      newsb(tmp));
                 sb3.endMatchExpression();
+                sb3.endMatchEquationValue();
+                sb3.endMatchEquation();
                 suffix.add(sb3);
                 suffix.add(sb2);
                 h.i++;
