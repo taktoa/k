@@ -49,6 +49,8 @@ public class DefinitionToFunc {
     /** Flag that determines whether or not we annotate output OCaml with rules */
     public static final boolean annotateOutput = true;
 
+    public boolean debug = true;
+
     private final KExceptionManager kem;
     private final FileUtil files;
     private final GlobalOptions globalOptions;
@@ -711,6 +713,7 @@ public class DefinitionToFunc {
                     .addMatchEquationPattern(newsbv("[Set s]"))
                     .beginMatchEquationValue()
                     .beginLetExpression()
+                    .beginLetDefinitions()
                     .beginLetEquation()
                     .addLetEquationName(newsbv("choice"))
                     .beginLetEquationValue()
@@ -763,7 +766,11 @@ public class DefinitionToFunc {
 
                     .addConditionalElse()
 
-                    .addValue("choice");
+                    .addValue("choice")
+                    .endLetScope()
+                    .endLetExpression()
+                    .endMatchEquationValue()
+                    .endMatchEquation();
 
                 functionStr = "set choice";
                 arity = 2;
@@ -823,7 +830,9 @@ public class DefinitionToFunc {
 //                    .addConditionalElse()
 //                    .addValue("choice")
 //                    .endLetScope()
-//                    .endLetExpression();
+//                    .endLetExpression()
+//                    .endMatchEquationValue()
+//                    .endMatchEquation();
 
                 sb2.appendf("\n| _ -> [Bottom]) else result) m [Bottom])" +
                             " in if choice = [Bottom] " +
@@ -858,11 +867,6 @@ public class DefinitionToFunc {
             outprintfln("DBG: sufParens: %d", sufParens);
             outprintfln("DBG:    Rule #: %d", ruleNum);
             outprintfln("DBG: Func name: %s", functionName);
-            outprintfln("DBG: SEPARATOR - res:");
-            outprintfln("DBG: %s", res.toString().replaceAll("\n", "\nDBG: "));
-            outprintfln("DBG: SEPARATOR - suffSB:");
-            outprintfln("DBG: %s", suffSB.toString().replaceAll("\n", "\nDBG: "));
-            outprintfln("DBG: SEPARATOR");
         }
 
         return suffSB;
