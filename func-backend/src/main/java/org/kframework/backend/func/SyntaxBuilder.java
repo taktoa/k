@@ -156,9 +156,15 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
-    public SyntaxBuilder addSpace() {
-        addKeyword(" ");
+    public SyntaxBuilder addName(String name) {
+        append(SyntaxEnum.BEGIN_NAME);
+        append(name);
+        append(SyntaxEnum.END_NAME);
         return this;
+    }
+
+    public SyntaxBuilder addSpace() {
+        return append(SyntaxEnum.SPACE);
     }
 
     public SyntaxBuilder addStackTrace() {
@@ -174,8 +180,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addNewline() {
-        addKeyword("\n");
-        return this;
+        return append(SyntaxEnum.NEWLINE);
     }
 
     public SyntaxBuilder stripSurroundingSpaces() {
@@ -216,12 +221,10 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder beginMultilineComment() {
         return append(SyntaxEnum.BEGIN_COMMENT);
-        //return addKeyword("(*");
     }
 
     public SyntaxBuilder endMultilineComment() {
         return append(SyntaxEnum.END_COMMENT);
-        //return addKeyword("*)");
     }
 
     public SyntaxBuilder addImport(String i) {
@@ -248,32 +251,30 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginApplication() {
-        return beginParenthesis();
+        return append(SyntaxEnum.BEGIN_APPLICATION);
     }
 
     public SyntaxBuilder endApplication() {
-        return endParenthesis();
+        return append(SyntaxEnum.END_APPLICATION);
     }
 
     public SyntaxBuilder addFunction(String fnName) {
-        return addValue(fnName);
+        append(SyntaxEnum.BEGIN_FUNCTION);
+        addName(fnName);
+        append(SyntaxEnum.END_FUNCTION);
+        return this;
     }
 
     public SyntaxBuilder addArgument(SyntaxBuilder arg) {
-        beginArgument();
-        append(arg);
-        endArgument();
-        return this;
+        return beginArgument().append(arg).endArgument();
     }
 
     public SyntaxBuilder beginArgument() {
-        addSpace();
-        beginParenthesis();
-        return this;
+        return append(SyntaxEnum.BEGIN_ARGUMENT);
     }
 
     public SyntaxBuilder endArgument() {
-        return endParenthesis();
+        return append(SyntaxEnum.END_ARGUMENT);
     }
 
     public SyntaxBuilder beginLambda(String... vars) {
@@ -282,7 +283,7 @@ public class SyntaxBuilder implements Cloneable {
 
         for(String v : vars) {
             append(SyntaxEnum.BEGIN_LAMBDA_VAR);
-            append(v);
+            addName(v);
             append(SyntaxEnum.END_LAMBDA_VAR);
         }
 
@@ -292,7 +293,8 @@ public class SyntaxBuilder implements Cloneable {
         if(introduce) {
             append(SyntaxEnum.BEGIN_INTRODUCE);
             for(String v : vars) {
-                appendf("%s ", v);
+                addName(v);
+                addSpace();
             }
             append(SyntaxEnum.END_INTRODUCE);
         }
@@ -325,45 +327,34 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addConditionalIf() {
-        addSpace();
-        addKeyword("if");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.CONDITIONAL_IF);
     }
 
     public SyntaxBuilder addConditionalThen() {
-        addSpace();
-        addKeyword("then");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.CONDITIONAL_THEN);
     }
 
     public SyntaxBuilder addConditionalElse() {
-        addSpace();
-        addKeyword("else");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.CONDITIONAL_ELSE);
     }
 
     public SyntaxBuilder beginParenthesis() {
-        addKeyword("(");
-        return this;
+        return append(SyntaxEnum.BEGIN_PARENTHESIS);
     }
 
     public SyntaxBuilder endParenthesis() {
-        addKeyword(")");
-        return this;
+        return append(SyntaxEnum.END_PARENTHESIS);
     }
 
 
 
     public SyntaxBuilder addGlobalLet(SyntaxBuilder name,
                                       SyntaxBuilder value) {
-        beginLetExpression();
+        beginLetDeclaration();
         beginLetDefinitions();
         addLetEquation(name, value);
         endLetDefinitions();
-        endLetExpression();
+        endLetDeclaration();
         return this;
     }
 
@@ -398,79 +389,82 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginLetEquation() {
-        // Begin let equation
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_EQUATION);
     }
 
     public SyntaxBuilder endLetEquation() {
-        // End let equation
-        return this;
+        return append(SyntaxEnum.END_LET_EQUATION);
     }
 
     public SyntaxBuilder beginLetEquationName() {
-        // Begin let equation name
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_EQUATION_NAME);
     }
 
     public SyntaxBuilder endLetEquationName() {
-        addSpace();
-        addKeyword("=");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.END_LET_EQUATION_NAME);
     }
 
     public SyntaxBuilder beginLetEquationValue() {
-        // Begin let equation value
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_EQUATION_VAL);
     }
 
     public SyntaxBuilder endLetEquationValue() {
-        // End let equation value
-        return this;
+        return append(SyntaxEnum.END_LET_EQUATION_VAL);
     }
 
     public SyntaxBuilder addLetEquationSeparator() {
-        addNewline();
-        addSpace();
-        addKeyword("and");
-        addSpace();
-        return this;
+        // addNewline();
+        // addSpace();
+        // addKeyword("and");
+        // addSpace();
+        // return this;
+        return this; // likely bug spot
     }
 
     public SyntaxBuilder beginLetDefinitions() {
-        // Begin let definitions
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_DEFINITIONS);
     }
 
     public SyntaxBuilder endLetDefinitions() {
-        // End let definitions
-        return this;
+        return append(SyntaxEnum.END_LET_DEFINITIONS);
     }
 
     public SyntaxBuilder beginLetScope() {
-        addSpace();
-        addKeyword("in");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_SCOPE);
     }
 
     public SyntaxBuilder endLetScope() {
-        // End let scope
-        return this;
+        return append(SyntaxEnum.END_LET_SCOPE);
     }
 
     public SyntaxBuilder beginLetExpression() {
-        addKeyword("let");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_LET_EXPRESSION);
     }
 
     public SyntaxBuilder endLetExpression() {
-        // End let expression
-        return this;
+        return append(SyntaxEnum.END_LET_EXPRESSION);
+    }
+
+    public SyntaxBuilder beginLetDeclaration() {
+        return append(SyntaxEnum.BEGIN_LET_DECLARATION);
+    }
+
+    public SyntaxBuilder endLetDeclaration() {
+        return append(SyntaxEnum.END_LET_DECLARATION);
     }
 
 
+
+
+    public SyntaxBuilder addGlobalLetrec(SyntaxBuilder name,
+                                         SyntaxBuilder value) {
+        beginLetrecDeclaration();
+        beginLetrecDefinitions();
+        addLetrecEquation(name, value);
+        endLetrecDefinitions();
+        endLetrecDeclaration();
+        return this;
+    }
 
     public SyntaxBuilder addLetrecEquation(SyntaxBuilder name,
                                   SyntaxBuilder value) {
@@ -496,76 +490,68 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginLetrecEquation() {
-        // Begin letrec equation
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_EQUATION);
     }
 
     public SyntaxBuilder endLetrecEquation() {
-        addNewline();
-        return this;
+        return append(SyntaxEnum.END_LETREC_EQUATION);
     }
 
     public SyntaxBuilder beginLetrecEquationName() {
-        // Begin letrec equation name
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_EQUATION_NAME);
     }
 
     public SyntaxBuilder endLetrecEquationName() {
-        addSpace();
-        addKeyword("=");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.END_LETREC_EQUATION_NAME);
     }
 
     public SyntaxBuilder beginLetrecEquationValue() {
-        // Begin letrec equation value
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_EQUATION_VAL);
     }
 
     public SyntaxBuilder endLetrecEquationValue() {
-        // End letrec equation value
-        return this;
+        return append(SyntaxEnum.END_LETREC_EQUATION_VAL);
     }
 
     public SyntaxBuilder addLetrecEquationSeparator() {
-        addNewline();
-        addSpace();
-        addKeyword("and");
-        addSpace();
-        return this;
+        // addNewline();
+        // addSpace();
+        // addKeyword("and");
+        // addSpace();
+        // return this;
+        return this; // likely bug spot
     }
 
     public SyntaxBuilder beginLetrecDefinitions() {
-        // Begin letrec definitions
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_DEFINITIONS);
     }
 
     public SyntaxBuilder endLetrecDefinitions() {
-        // End letrec definitions
-        return this;
+        return append(SyntaxEnum.END_LETREC_DEFINITIONS);
     }
 
     public SyntaxBuilder beginLetrecScope() {
-        addSpace();
-        addKeyword("in");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_SCOPE);
     }
 
     public SyntaxBuilder endLetrecScope() {
-        // End letrec scope
-        return this;
+        return append(SyntaxEnum.END_LETREC_SCOPE);
     }
 
     public SyntaxBuilder beginLetrecExpression() {
-        addKeyword("let rec");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_LETREC_EXPRESSION);
     }
 
     public SyntaxBuilder endLetrecExpression() {
-        // End letrec expression
-        return this;
+        return append(SyntaxEnum.END_LETREC_EXPRESSION);
+    }
+
+    public SyntaxBuilder beginLetrecDeclaration() {
+        return append(SyntaxEnum.BEGIN_LETREC_DECLARATION);
+    }
+
+    public SyntaxBuilder endLetrecDeclaration() {
+        return append(SyntaxEnum.END_LETREC_DECLARATION);
     }
 
 
@@ -615,54 +601,42 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginMatchExpression(SyntaxBuilder varname) {
-        beginParenthesis();
-        addKeyword("match");
-        addSpace();
+        append(SyntaxEnum.BEGIN_MATCH_EXPRESSION);
+        append(SyntaxEnum.BEGIN_MATCH_INPUT);
         append(varname);
-        addSpace();
-        addKeyword("with");
-        addSpace();
+        append(SyntaxEnum.END_MATCH_INPUT);
+        append(SyntaxEnum.BEGIN_MATCH_EQUATIONS);
         return this;
     }
 
     public SyntaxBuilder endMatchExpression() {
-        endParenthesis();
-        addNewline();
+        append(SyntaxEnum.END_MATCH_EQUATIONS);
+        append(SyntaxEnum.END_MATCH_EXPRESSION);
         return this;
     }
 
     public SyntaxBuilder beginMatchEquation() {
-        addNewline();
-        addKeyword("|");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_MATCH_EQUATION);
     }
 
     public SyntaxBuilder endMatchEquation() {
-        addNewline();
-        return this;
+        return append(SyntaxEnum.END_MATCH_EQUATION);
     }
 
     public SyntaxBuilder beginMatchEquationPattern() {
-        // Begin match equation pattern
-        return this;
+        return append(SyntaxEnum.BEGIN_MATCH_EQUATION_PAT);
     }
 
     public SyntaxBuilder endMatchEquationPattern() {
-        addSpace();
-        addKeyword("->");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.END_MATCH_EQUATION_PAT);
     }
 
     public SyntaxBuilder beginMatchEquationValue() {
-        // Begin match equation value
-        return this;
+        return append(SyntaxEnum.BEGIN_MATCH_EQUATION_VAL);
     }
 
     public SyntaxBuilder endMatchEquationValue() {
-        // End match equation value
-        return this;
+        return append(SyntaxEnum.END_MATCH_EQUATION_VAL);
     }
 
 
@@ -754,6 +728,9 @@ public class SyntaxBuilder implements Cloneable {
 
 
     private enum SyntaxEnum implements Syntax {
+        SPACE                       ("SPACE",                       " "),
+        NEWLINE                     ("NEWLINE",                     "\n"),
+
         BEGIN_PARENTHESIS           ("BEGIN_PARENTHESIS",           "("),
         END_PARENTHESIS             ("END_PARENTHESIS",             ")"),
 
@@ -777,6 +754,12 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_TYPE                  ("BEGIN_TYPE",                  ""),
         END_TYPE                    ("END_TYPE",                    ""),
 
+        CONDITIONAL_BEGIN           ("CONDITIONAL_BEGIN",           "("),
+        CONDITIONAL_END             ("CONDITIONAL_END",             ")"),
+        CONDITIONAL_IF              ("CONDITIONAL_IF",              "if "),
+        CONDITIONAL_THEN            ("CONDITIONAL_THEN",            " then "),
+        CONDITIONAL_ELSE            ("CONDITIONAL_ELSE",            " else "),
+
         BEGIN_MATCH_EXPRESSION      ("BEGIN_MATCH_EXPRESSION",      "("),
         END_MATCH_EXPRESSION        ("END_MATCH_EXPRESSION",        ")"),
         BEGIN_MATCH_INPUT           ("BEGIN_MATCH_INPUT",           "match "),
@@ -790,12 +773,12 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_MATCH_EQUATION_PAT    ("BEGIN_MATCH_EQUATION_PAT",    ""),
         END_MATCH_EQUATION_PAT      ("END_MATCH_EQUATION_PAT",      " -> "),
 
-        BEGIN_LET_EXPRESSION        ("BEGIN_LET_EXPRESSION",        "(let"),
-        END_LET_EXPRESSION          ("END_LET_EXPRESSION",          ")"),
-        BEGIN_LET_DECL              ("BEGIN_LET_DECL",              "let"),
-        END_LET_DECL                ("END_LET_DECL",                ""),
-        BEGIN_LET_DECLARATIONS      ("BEGIN_LET_DECLARATIONS",      ""),
-        END_LET_DECLARATIONS        ("END_LET_DECLARATIONS",        "_ = 1"),
+        BEGIN_LET_EXPRESSION        ("BEGIN_LET_EXPRESSION",        "(let "),
+        END_LET_EXPRESSION          ("END_LET_EXPRESSION",          ")\n"),
+        BEGIN_LET_DECLARATION       ("BEGIN_LET_DECLARATION",       "let "),
+        END_LET_DECLARATION         ("END_LET_DECLARATION",         "\n"),
+        BEGIN_LET_DEFINITIONS       ("BEGIN_LET_DEFINITIONS",       ""),
+        END_LET_DEFINITIONS         ("END_LET_DEFINITIONS",         "_ = 1"),
         BEGIN_LET_EQUATION          ("BEGIN_LET_EQUATION",          ""),
         END_LET_EQUATION            ("END_LET_EQUATION",            " and "),
         BEGIN_LET_EQUATION_NAME     ("BEGIN_LET_EQUATION_NAME",     ""),
@@ -805,18 +788,18 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LET_SCOPE             ("BEGIN_LET_SCOPE",             " in ("),
         END_LET_SCOPE               ("END_LET_SCOPE",               ")"),
 
-        BEGIN_LETREC_EXPRESSION     ("BEGIN_LETREC_EXPRESSION",     "(let rec"),
-        END_LETREC_EXPRESSION       ("END_LETREC_EXPRESSION",       ")"),
-        BEGIN_LETREC_DECL           ("BEGIN_LETREC_DECL",           "let rec"),
-        END_LETREC_DECL             ("END_LETREC_DECL",             ""),
-        BEGIN_LETREC_DECLARATIONS   ("BEGIN_LETREC_DECLARATIONS",   ""),
-        END_LETREC_DECLARATIONS     ("END_LETREC_DECLARATIONS",     "_ = 1"),
+        BEGIN_LETREC_EXPRESSION     ("BEGIN_LETREC_EXPRESSION",     "(let rec "),
+        END_LETREC_EXPRESSION       ("END_LETREC_EXPRESSION",       ")\n"),
+        BEGIN_LETREC_DECLARATION    ("BEGIN_LETREC_DECLARATION",    "let rec "),
+        END_LETREC_DECLARATION      ("END_LETREC_DECLARATION",      "\n"),
+        BEGIN_LETREC_DEFINITIONS    ("BEGIN_LETREC_DEFINITIONS",    ""),
+        END_LETREC_DEFINITIONS      ("END_LETREC_DEFINITIONS",      "throwaway = 1"),
         BEGIN_LETREC_EQUATION       ("BEGIN_LETREC_EQUATION",       ""),
         END_LETREC_EQUATION         ("END_LETREC_EQUATION",         " and "),
         BEGIN_LETREC_EQUATION_NAME  ("BEGIN_LETREC_EQUATION_NAME",  ""),
         END_LETREC_EQUATION_NAME    ("END_LETREC_EQUATION_NAME",    " = "),
         BEGIN_LETREC_EQUATION_VAL   ("BEGIN_LETREC_EQUATION_VAL",   "("),
-        END_LETREC_EQUATION_VAL     ("END_LETREC_EQUATION_VAL",     ") and "),
+        END_LETREC_EQUATION_VAL     ("END_LETREC_EQUATION_VAL",     ")"),
         BEGIN_LETREC_SCOPE          ("BEGIN_LETREC_SCOPE",          " in ("),
         END_LETREC_SCOPE            ("END_LETREC_SCOPE",            ")"),
 

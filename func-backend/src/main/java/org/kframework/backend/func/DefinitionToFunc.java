@@ -109,7 +109,7 @@ public class DefinitionToFunc {
                                              false);
         sb.addImport("Def");
         sb.addImport("K");
-        sb.beginLetExpression();
+        sb.beginLetDeclaration();
         sb.beginLetDefinitions();
         String runFmt = "print_string(print_k(try(run(%s) (%s)) with Stuck c' -> c'))";
         sb.addLetEquation(newsb("_"),
@@ -117,7 +117,7 @@ public class DefinitionToFunc {
                                  convVisitor.apply(preproc.runtimeProcess(k)),
                                  depth));
         sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.endLetDeclaration();
         outprintfln("DBG: runtime # of parens: %d", sb.getNumParens());
         return sb;
     }
@@ -411,7 +411,7 @@ public class DefinitionToFunc {
 
         for(List<KLabel> component : ppk.functionOrder) {
             boolean inLetrec = false;
-            sb.beginLetrecExpression();
+            sb.beginLetrecDeclaration();
             sb.beginLetrecDefinitions();
             for(KLabel functionLabel : component) {
                 if(inLetrec) { sb.addLetrecEquationSeparator(); }
@@ -419,20 +419,20 @@ public class DefinitionToFunc {
                 inLetrec = true;
             }
             sb.endLetrecDefinitions();
-            sb.endLetrecExpression();
+            sb.endLetrecDeclaration();
         }
 
-        sb.beginLetrecExpression();
+        sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
         addFreshFunction(ppk, sb);
         sb.addLetrecEquationSeparator();
         addEval(funcAndAny, ppk, sb);
         sb.endLetrecDefinitions();
-        sb.endLetrecExpression();
+        sb.endLetrecDeclaration();
     }
 
     private void addSteps(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.beginLetrecExpression();
+        sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb("lookups_step (c: k) (guards: Guard.t) : k"));
@@ -458,10 +458,10 @@ public class DefinitionToFunc {
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
         sb.endLetrecDefinitions();
-        sb.endLetrecExpression();
+        sb.endLetrecDeclaration();
 
 
-        sb.beginLetExpression();
+        sb.beginLetDeclaration();
         sb.beginLetDefinitions();
         sb.beginLetEquation();
         sb.addLetEquationName(newsb("step (c: k) : k"));
@@ -477,8 +477,9 @@ public class DefinitionToFunc {
                             newsb("lookups_step c Guard.empty"));
         sb.endMatchExpression();
         sb.endLetEquationValue();
+        sb.endLetEquation();
         sb.endLetDefinitions();
-        sb.endLetExpression();
+        sb.endLetDeclaration();
     }
 
     private SyntaxBuilder mainConvert(PreprocessedKORE ppk) {
