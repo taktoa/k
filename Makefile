@@ -25,20 +25,17 @@ all: build test func-test
 
 build: package etags doc
 
-package:
+package: func-test-clean
 	${MAVEN} ${PACKAGE} ${PACKAGE_FLAGS}
 
-test:
+test: func-test-clean
 	${MAVEN} ${TEST} ${TEST_FLAGS}
 
-doc:
+doc: func-test-clean
 	${MAVEN} ${DOC} ${DOC_FLAGS}
 
-etags:
+etags: func-test-clean
 	${FIND} . -name '*.java' | ${XARGS} etags
-
-ctags:
-	${FIND} . -name '*.java' | ${XARGS} ctags
 
 
 
