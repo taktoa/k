@@ -725,7 +725,6 @@ public class DefinitionToFunc {
                     .addEqualityTest(newsbv("result"), bot)
                     .addConditionalThen()
                     .beginMatchExpression(newsbv("e"));
-                // endMatchExpression
 
                 sb2 = newsb()
                     .addMatchEquation(wildcard, bot)
@@ -777,69 +776,56 @@ public class DefinitionToFunc {
             }
 
             private void isMapChoice() {
-//                SyntaxBuilder testsb1 = newsb();
-//                testsb1
-//                    .addNewline()
-//                    .beginMatchEquation()
-//                    .addMatchEquationPattern(newsbv("[Map m]"))
-//                    .beginMatchEquationValue()
-//                    .beginLetExpression()
-//                    .beginLetDefinitions()
-//                    .beginLetEquation()
-//                    .addLetEquationName(newsbv("choice"))
-//                    .beginLetEquationValue()
-//                    .beginApplication()
-//                    .addFunction(foldMap)
-//                    .beginArgument()
-//                    .beginLambda("k", "v", "result")
-//                    .addConditionalIf()
-//                    .addEqualityTest(newsbv("result"), bot)
-//                    .addConditionalThen()
-//                    .beginMatchExpression(newsbv("k"));
+                sb1
+                    .addNewline()
+                    .beginMatchEquation()
+                    .addMatchEquationPattern(newsbv("[Map m]"))
+                    .beginMatchEquationValue()
+                    .beginLetExpression()
+                    .beginLetDefinitions()
+                    .beginLetEquation()
+                    .addLetEquationName(newsbv("choice"))
+                    .beginLetEquationValue()
+                    .beginApplication()
+                    .addFunction(foldMap)
+                    .beginArgument()
+                    .beginLambda("k", "v", "result")
+                    .addConditionalIf()
+                    .addEqualityTest(newsbv("result"), bot)
+                    .addConditionalThen()
+                    .beginMatchExpression(newsbv("k"));
 
-                sb1.append("\n| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
+                SyntaxBuilder guardSB =
+                    newsb().addApplication(guardAdd,
+                                           newsb().addApplication(guardCon, rnsb),
+                                           newsbv("guards"));
 
-
-
-//                SyntaxBuilder guardSB =
-//                    newsb().addApplication(guardAdd,
-//                                           newsb().addApplication(guardCon, rnsb),
-//                                           newsbv("guards"));
-//
-//                SyntaxBuilder testsb2 = newsb();
-//                testsb2
-//                    .addMatchEquation(wildcard, bot)
-//                    .endMatchExpression()
-//                    .addConditionalElse()
-//                    .addValue("result")
-//                    .endLambda()
-//                    .endArgument()
-//                    .addArgument(newsbv("m"))
-//                    .addArgument(bot)
-//                    .endApplication()
-//                    .endLetEquationValue()
-//                    .endLetEquation()
-//                    .endLetDefinitions()
-//                    .beginLetScope()
-//                    .addConditionalIf()
-//                    .addEqualityTest(newsbv("choice"), bot)
-//                    .addConditionalThen()
-//                    .addApplication(functionName,
-//                                    newsbv("c"),
-//                                    newsb().addArgument(guardSB))
-//                    .addConditionalElse()
-//                    .addValue("choice")
-//                    .endLetScope()
-//                    .endLetExpression()
-//                    .endMatchEquationValue()
-//                    .endMatchEquation();
-
-                sb2.appendf("\n| _ -> [Bottom]) else result) m [Bottom])" +
-                            " in if choice = [Bottom] " +
-                            "then (%s c (Guard.add (GuardElt.Guard %d) guards)) " +
-                            "else choice",
-                            functionName,
-                            ruleNum);
+                sb2
+                    .addMatchEquation(wildcard, bot)
+                    .endMatchExpression()
+                    .addConditionalElse()
+                    .addValue("result")
+                    .endLambda()
+                    .endArgument()
+                    .addArgument(newsbv("m"))
+                    .addArgument(bot)
+                    .endApplication()
+                    .endLetEquationValue()
+                    .endLetEquation()
+                    .endLetDefinitions()
+                    .beginLetScope()
+                    .addConditionalIf()
+                    .addEqualityTest(newsbv("choice"), bot)
+                    .addConditionalThen()
+                    .addApplication(functionName,
+                                    newsbv("c"),
+                                    newsb().addArgument(guardSB))
+                    .addConditionalElse()
+                    .addValue("choice")
+                    .endLetScope()
+                    .endLetExpression()
+                    .endMatchEquationValue()
+                    .endMatchEquation();
 
                 functionStr = "map choice";
                 arity = 2;
