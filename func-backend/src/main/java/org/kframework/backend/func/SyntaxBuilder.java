@@ -26,6 +26,7 @@ public class SyntaxBuilder implements Cloneable {
     private static final Pattern isNewline    = Pattern.compile("\n");
     private static final Pattern isOpenParen  = Pattern.compile("\\(");
     private static final Pattern isCloseParen = Pattern.compile("\\)");
+    private static final boolean introduce = true;
 
     private SyntaxBuilder(List<Syntax> stx) {
         this.stx = stx;
@@ -276,20 +277,33 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginLambda(String... vars) {
-        beginParenthesis();
-        addKeyword("fun");
+        append(SyntaxEnum.BEGIN_LAMBDA);
+        append(SyntaxEnum.BEGIN_LAMBDA_VARS);
+
         for(String v : vars) {
-            addSpace();
-            addValue(v);
+            append(SyntaxEnum.BEGIN_LAMBDA_VAR);
+            append(v);
+            append(SyntaxEnum.END_LAMBDA_VAR);
         }
-        addSpace();
-        addKeyword("->");
-        addSpace();
+
+        append(SyntaxEnum.END_LAMBDA_VARS);
+        append(SyntaxEnum.BEGIN_LAMBDA_BODY);
+
+        if(introduce) {
+            append(SyntaxEnum.BEGIN_INTRODUCE);
+            for(String v : vars) {
+                appendf("%s ", v);
+            }
+            append(SyntaxEnum.END_INTRODUCE);
+        }
+
         return this;
     }
 
     public SyntaxBuilder endLambda() {
-        return endParenthesis();
+        append(SyntaxEnum.END_LAMBDA_BODY);
+        append(SyntaxEnum.END_LAMBDA);
+        return this;
     }
 
     public SyntaxBuilder addEqualityTest(SyntaxBuilder a,
@@ -750,7 +764,7 @@ public class SyntaxBuilder implements Cloneable {
         END_NAME                    ("END_NAME",                    ""),
 
         BEGIN_INTRODUCE             ("BEGIN_INTRODUCE",             " (* introduce "),
-        END_INTRODUCE               ("END_INTRODUCE",               " *) "),
+        END_INTRODUCE               ("END_INTRODUCE",               "*) "),
 
         BEGIN_INTEGER               ("BEGIN_INTEGER",               ""),
         END_INTEGER                 ("END_INTEGER",                 ""),
@@ -806,9 +820,9 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LETREC_SCOPE          ("BEGIN_LETREC_SCOPE",          " in ("),
         END_LETREC_SCOPE            ("END_LETREC_SCOPE",            ")"),
 
-        BEGIN_LAMBDA                ("BEGIN_LAMBDA",                "(fun "),
+        BEGIN_LAMBDA                ("BEGIN_LAMBDA",                "(fun"),
         END_LAMBDA                  ("END_LAMBDA",                  ")"),
-        BEGIN_LAMBDA_VAR            ("BEGIN_LAMBDA_VAR",            ""),
+        BEGIN_LAMBDA_VAR            ("BEGIN_LAMBDA_VAR",            " "),
         END_LAMBDA_VAR              ("END_LAMBDA_VAR",              ""),
         BEGIN_LAMBDA_VARS           ("BEGIN_LAMBDA_VARS",           ""),
         END_LAMBDA_VARS             ("END_LAMBDA_VARS",             " -> "),
