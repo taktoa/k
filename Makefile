@@ -81,7 +81,12 @@ func-test-kompile:
 func-test-krun:
 	cd ${FUNC_TEST_TMPDIR} && ${FUNC_TEST_KRUN_CMD} |& ${TEE} ${FUNC_TEST_KRUN_LOG_FILE} | ${CAT}
 
-func-test: func-test-prepare func-test-kompile func-test-krun func-test-clean
+func-test: func-test-prepare func-test-kompile func-test-krun
+	cp ${FUNC_TEST_TMPDIR}/${FUNC_TEST_FILE_NAME}-kompiled/def.ml ${FUNC_TEST_LOG_DIR}/def.ml
+	cp ${FUNC_TEST_TMPDIR}/.krun*/pgm.ml ${FUNC_TEST_LOG_DIR}/pgm.ml
+	cp ${FUNC_TEST_TMPDIR}/.krun*/compile.err ${FUNC_TEST_LOG_DIR}/compile.err
+	cp ${FUNC_TEST_TMPDIR}/.krun*/compile.out ${FUNC_TEST_LOG_DIR}/compile.out
+	make func-test-clean
 
 
 
