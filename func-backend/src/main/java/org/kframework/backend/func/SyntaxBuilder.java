@@ -26,7 +26,7 @@ public class SyntaxBuilder implements Cloneable {
     private static final Pattern isNewline    = Pattern.compile("\n");
     private static final Pattern isOpenParen  = Pattern.compile("\\(");
     private static final Pattern isCloseParen = Pattern.compile("\\)");
-    private static final boolean introduce = true;
+    private static final boolean introduce = false;
 
     private SyntaxBuilder(List<Syntax> stx) {
         this.stx = stx;
@@ -324,6 +324,28 @@ public class SyntaxBuilder implements Cloneable {
         endParenthesis();
         addSpace();
         return this;
+    }
+
+    public SyntaxBuilder addConditional(SyntaxBuilder predicate,
+                                        SyntaxBuilder trueVal,
+                                        SyntaxBuilder falseVal) {
+        beginConditional();
+        addConditionalIf();
+        append(predicate);
+        addConditionalThen();
+        append(trueVal);
+        addConditionalElse();
+        append(falseVal);
+        endConditional();
+        return this;
+    }
+
+    public SyntaxBuilder beginConditional() {
+        return append(SyntaxEnum.BEGIN_CONDITIONAL);
+    }
+
+    public SyntaxBuilder endConditional() {
+        return append(SyntaxEnum.END_CONDITIONAL);
     }
 
     public SyntaxBuilder addConditionalIf() {
@@ -642,22 +664,25 @@ public class SyntaxBuilder implements Cloneable {
 
 
 
-
-
-
-    public SyntaxBuilder beginTypeDefinition(String typename) {
-        addKeyword("type");
-        addSpace();
-        addValue(typename);
-        addSpace();
-        addKeyword("=");
-        addSpace();
-        addNewline();
+    public SyntaxBuilder beginTypeDefinition(String name, String... vars) {
+        append(SyntaxEnum.BEGIN_TYPE_DEFINITION);
+        append(SyntaxEnum.BEGIN_TYPE_DEFINITION_VARS);
+        for(String v : vars) {
+            append(SyntaxEnum.BEGIN_TYPE_DEFINITION_VARS);
+            append(v);
+            append(SyntaxEnum.END_TYPE_DEFINITION_VARS);
+        }
+        append(SyntaxEnum.END_TYPE_DEFINITION_VARS);
+        append(SyntaxEnum.BEGIN_TYPE_DEFINITION_NAME);
+        addName(name);
+        append(SyntaxEnum.END_TYPE_DEFINITION_NAME);
+        append(SyntaxEnum.BEGIN_TYPE_DEFINITION_CONS);
         return this;
     }
 
     public SyntaxBuilder endTypeDefinition() {
-        // End type definition
+        append(SyntaxEnum.END_TYPE_DEFINITION_CONS);
+        append(SyntaxEnum.END_TYPE_DEFINITION);
         return this;
     }
 
@@ -676,41 +701,31 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginConstructor() {
-        addKeyword("|");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_CONSTRUCTOR);
     }
 
     public SyntaxBuilder endConstructor() {
-        addNewline();
-        return this;
+        return append(SyntaxEnum.END_CONSTRUCTOR);
     }
 
     public SyntaxBuilder beginConstructorName() {
-        // Begin constructor name
-        return this;
+        return append(SyntaxEnum.BEGIN_CONSTRUCTOR_NAME);
     }
 
     public SyntaxBuilder endConstructorName() {
-        // End constructor name
-        return this;
+        return append(SyntaxEnum.END_CONSTRUCTOR_NAME);
     }
 
     public SyntaxBuilder beginConstructorArgs() {
-        addSpace();
-        addKeyword("of");
-        addSpace();
-        return this;
+        return append(SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENTS);
     }
 
     public SyntaxBuilder endConstructorArgs() {
-        // End constructor args
-        return this;
+        return append(SyntaxEnum.END_CONSTRUCTOR_ARGUMENTS);
     }
 
     public SyntaxBuilder addType(SyntaxBuilder typename) {
-        append(typename);
-        return this;
+        return append(typename);
     }
 
     public SyntaxBuilder addTypeProduct() {
@@ -719,9 +734,6 @@ public class SyntaxBuilder implements Cloneable {
         addSpace();
         return this;
     }
-
-
-
 
 
 
@@ -793,7 +805,7 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LETREC_DECLARATION    ("<letrec-declaration>",     "let rec "),
         END_LETREC_DECLARATION      ("</letrec-declaration>",    "\n"),
         BEGIN_LETREC_DEFINITIONS    ("<letrec-definitions>",     ""),
-        END_LETREC_DEFINITIONS      ("</letrec-definitions>",    "_ = 1"),
+        END_LETREC_DEFINITIONS      ("</letrec-definitions>",    "throwaway = 1"),
         BEGIN_LETREC_EQUATION       ("<letrec-equation>",        ""),
         END_LETREC_EQUATION         ("</letrec-equation>",       " and "),
         BEGIN_LETREC_EQUATION_NAME  ("<letrec-equation-name>",   ""),
@@ -816,22 +828,22 @@ public class SyntaxBuilder implements Cloneable {
         END_APPLICATION             ("</application>",           ")"),
         BEGIN_FUNCTION              ("<function>",               ""),
         END_FUNCTION                ("</function>",              ""),
-        BEGIN_ARGUMENT              ("<argument>",               "("),
+        BEGIN_ARGUMENT              ("<argument>",               " ("),
         END_ARGUMENT                ("</argument>",              ")"),
 
-        BEGIN_TYPE_DEFINITION       ("<type-definition>",        "type "),
+        BEGIN_TYPE_DEFINITION       ("<type-definition>",        "type"),
         END_TYPE_DEFINITION         ("</type-definition>",       ""),
-        BEGIN_TYPE_DEFINITION_VAR   ("<type-definition-var>",    ""),
+        BEGIN_TYPE_DEFINITION_VAR   ("<type-definition-var>",    " "),
         END_TYPE_DEFINITION_VAR     ("</type-definition-var>",   ""),
         BEGIN_TYPE_DEFINITION_VARS  ("<type-definition-vars>",   ""),
-        END_TYPE_DEFINITION_VARS    ("</type-definition-vars>",  ""),
+        END_TYPE_DEFINITION_VARS    ("</type-definition-vars>",  " "),
         BEGIN_TYPE_DEFINITION_NAME  ("<type-definition-name>",   ""),
-        END_TYPE_DEFINITION_NAME    ("</type-definition-name>",  " = "),
+        END_TYPE_DEFINITION_NAME    ("</type-definition-name>",  " = \n"),
         BEGIN_TYPE_DEFINITION_CONS  ("<type-definition-cons>",   ""),
         END_TYPE_DEFINITION_CONS    ("</type-definition-cons>",  ""),
 
-        BEGIN_CONSTRUCTOR           ("<constructor>",            ""),
-        END_CONSTRUCTOR             ("</constructor>",           ""),
+        BEGIN_CONSTRUCTOR           ("<constructor>",            "| "),
+        END_CONSTRUCTOR             ("</constructor>",           "\n"),
         BEGIN_CONSTRUCTOR_NAME      ("<constructor-name>",       ""),
         END_CONSTRUCTOR_NAME        ("</constructor-name>",      ""),
         BEGIN_CONSTRUCTOR_ARGUMENT  ("<constructor-argument>",   ""),

@@ -44,6 +44,8 @@ etags: func-test-clean
 
 FUNC_TEST_FILE_NAME = kore_imp
 FUNC_TEST_MODULE = IMP
+#FUNC_TEST_FILE_NAME = comp
+#FUNC_TEST_MODULE = COMP
 FUNC_TEST_FILE_DIR = ${MDIR}/k-distribution/tests/regression/func-backend
 FUNC_TEST_FILE = ${FUNC_TEST_FILE_DIR}/${FUNC_TEST_FILE_NAME}.k
 FUNC_TEST_INPUT = ${FUNC_TEST_FILE_DIR}/${FUNC_TEST_FILE_NAME}_1.imp

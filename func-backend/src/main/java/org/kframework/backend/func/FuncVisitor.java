@@ -61,6 +61,11 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         } else if(isKTokenKLabel(kl)) {
             //magic down-ness
 
+// BUG SPOT? was originally:
+// - return String.format("KToken (%s, %s)",
+// -  apply(Sort(((KToken) ((KSequence) k.klist().items().get(0)).items().get(0)).s())),
+// -  apply(((KSequence) k.klist().items().get(1)).items().get(0)));
+
             KSequence kseq1 = (KSequence) k.klist().items().get(0);
             KSequence kseq2 = (KSequence) k.klist().items().get(1);
             KToken    ktok1 = (KToken)    kseq1.items().get(0);
@@ -74,10 +79,6 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
                 .append(apply(kseq2.items().get(0)))
                 .endParenthesis();
         } else if(isFunctionKLabel(kl) || (isAnywhereKLabel(kl) && rhs)) {
-//        } else if(isFunctionKLabel(kl)) {
-//            outprintfln("DBG: %20s, func: %5b, any: %5b", kl,
-//                        isFunctionKLabel(kl),
-//                        isAnywhereKLabel(kl));
             return applyFunction(k);
         } else {
             return applyKLabel(k);
@@ -365,11 +366,9 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     }
 
     private boolean isLookupKLabel(KLabel k) {
-        boolean res = false;
-        res |= k.name().equals("#match");
-        res |= k.name().equals("#mapChoice");
-        res |= k.name().equals("#setChoice");
-        return res;
+        return k.name().equals("#match")
+            || k.name().equals("#mapChoice")
+            || k.name().equals("#setChoice");
     }
 
     private boolean isKTokenKLabel(KLabel k) {
