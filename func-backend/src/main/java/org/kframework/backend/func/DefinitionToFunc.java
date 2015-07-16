@@ -34,6 +34,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 import java.util.function.Function;
 
 import static org.kframework.kore.KORE.*;
@@ -100,6 +101,10 @@ public class DefinitionToFunc {
 //        for(String s : sb.pretty()) {
 //            outprintfln("DBG: %s", s);
 //        }
+
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         outprintfln("%s", sb.trackPrint());
         outprintfln("Number of parens: %d", sb.getNumParens());
@@ -238,7 +243,8 @@ public class DefinitionToFunc {
     }
 
 
-    private void addSortType(PreprocessedKORE ppk, SyntaxBuilder sb) {
+    private SyntaxBuilder addSortType(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
         sb.beginTypeDefinition("sort");
         for(Sort s : ppk.definedSorts) {
             sb.addConstructor(newsb()
@@ -249,59 +255,58 @@ public class DefinitionToFunc {
                               .addConstructorName("SortString"));
         }
         sb.endTypeDefinition();
+        return sb;
     }
 
-    private void addKLabelType(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addEnumType(ppk.definedKLabels,
-                              x -> x.name(),
-                              "Lbl",
-                              "klabel"));
+    private SyntaxBuilder addKLabelType(PreprocessedKORE ppk) {
+        return addEnumType(ppk.definedKLabels,
+                           x -> x.name(),
+                           "Lbl",
+                           "klabel");
     }
 
-    private void addSortOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addOrderFunc(ppk.definedSorts,
-                               x -> x.name(),
-                               "Sort",
-                               "sort"));
+    private SyntaxBuilder addSortOrderFunc(PreprocessedKORE ppk) {
+        return addOrderFunc(ppk.definedSorts,
+                            x -> x.name(),
+                            "Sort",
+                            "sort");
     }
 
-    private void addKLabelOrderFunc(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addOrderFunc(ppk.definedKLabels,
-                               x -> x.name(),
-                               "Lbl",
-                               "klabel"));
+    private SyntaxBuilder addKLabelOrderFunc(PreprocessedKORE ppk) {
+        return addOrderFunc(ppk.definedKLabels,
+                            x -> x.name(),
+                            "Lbl",
+                            "klabel");
     }
 
-    private void addPrintSort(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addPrintFunc(ppk.definedSorts,
-                               x -> x.name(),
-                               x -> x.name(),
-                               "Sort",
-                               "sort"));
+    private SyntaxBuilder addPrintSort(PreprocessedKORE ppk) {
+        return addPrintFunc(ppk.definedSorts,
+                            x -> x.name(),
+                            x -> x.name(),
+                            "Sort",
+                            "sort");
     }
 
-    private void addPrintKLabel(PreprocessedKORE ppk, SyntaxBuilder sb) {
-        sb.append(addPrintFunc(ppk.definedKLabels,
-                               x -> x.name(),
-                               x -> ToKast.apply(x),
-                               "Lbl",
-                               "klabel"));
+    private SyntaxBuilder addPrintKLabel(PreprocessedKORE ppk) {
+        return addPrintFunc(ppk.definedKLabels,
+                            x -> x.name(),
+                            x -> ToKast.apply(x),
+                            "Lbl",
+                            "klabel");
     }
 
-    private void addFunctionMatch(String functionName,
-                                  KLabel functionLabel,
-                                  PreprocessedKORE ppk,
-                                  SyntaxBuilder sb) {
+    private SyntaxBuilder addFunctionMatch(String functionName,
+                                           KLabel functionLabel,
+                                           PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
         String hook = ppk.attrLabels
                          .get(Attribute.HOOK_KEY)
                          .getOrDefault(functionLabel, "");
-        boolean isHook = OCamlIncludes.hooks
-                                      .containsKey(hook);
-        boolean isPred = OCamlIncludes.predicateRules
-                                      .containsKey(functionLabel.name());
+        String fn = functionLabel.name();
+        boolean isHook = OCamlIncludes.hooks.containsKey(hook);
+        boolean isPred = OCamlIncludes.predicateRules.containsKey(fn);
         Collection<Rule> rules = ppk.functionRulesOrdered
-                                    .getOrDefault(functionLabel,
-                                                  newArrayList());
+                                    .getOrDefault(functionLabel, newArrayList());
 
         if(!isHook && !hook.isEmpty()) {
             kem.registerCompilerWarning("missing entry for hook " + hook);
@@ -310,26 +315,28 @@ public class DefinitionToFunc {
         sb.beginMatchExpression(newsbv("c"));
 
         if(isHook) {
-            sb.addMatchEquation(newsb(OCamlIncludes.hooks.get(hook)));
+            sb.append(OCamlIncludes.hooks.get(hook));
         }
 
         if(isPred) {
-            sb.addMatchEquation(newsb(OCamlIncludes.predicateRules
-                                                   .get(functionLabel.name())));
+            sb.append(OCamlIncludes.predicateRules.get(fn));
         }
 
         int i = 0;
         for(Rule r : rules) {
-            oldConvert(ppk, r, sb, true, i++, functionName);
+            sb.append(oldConvert(ppk, r, true, i++, functionName));
         }
 
         sb.addMatchEquation(wildcardSB, raiseStuck(newsbv("[KApply(lbl, c)]")));
         sb.endMatchExpression();
+
+        return sb;
     }
 
-    private void addFunctionEquation(KLabel functionLabel,
-                                     PreprocessedKORE ppk,
-                                     SyntaxBuilder sb) {
+    private SyntaxBuilder addFunctionEquation(KLabel functionLabel,
+                                              PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
         String functionName = encodeStringToFunction(functionLabel.name());
 
         sb.beginLetrecEquation();
@@ -351,15 +358,19 @@ public class DefinitionToFunc {
         sb.endLetDefinitions();
 
         sb.beginLetScope();
-        addFunctionMatch(functionName, functionLabel, ppk, sb);
+        sb.append(addFunctionMatch(functionName, functionLabel, ppk));
         sb.endLetScope();
 
         sb.endLetExpression();
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
+
+        return sb;
     }
 
-    private void addFreshFunction(PreprocessedKORE ppk, SyntaxBuilder sb) {
+    private SyntaxBuilder addFreshFunction(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
                                  .addValue("freshFunction")
@@ -385,11 +396,14 @@ public class DefinitionToFunc {
 
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
+
+        return sb;
     }
 
-    private void addEval(Set<KLabel> labels,
-                         PreprocessedKORE ppk,
-                         SyntaxBuilder sb) {
+    private SyntaxBuilder addEval(Set<KLabel> labels,
+                                  PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb("eval (c: kitem) : k"));
         sb.beginLetrecEquationValue();
@@ -413,6 +427,7 @@ public class DefinitionToFunc {
         }
         sb.endMatchExpression();
         sb.endMatchEquationValue();
+        sb.endMatchEquation();
 
         sb.addMatchEquation(wildcardSB, newsbv("[c]"));
 
@@ -420,22 +435,23 @@ public class DefinitionToFunc {
 
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
+
+        return sb;
     }
 
-    private void addFunctions(PreprocessedKORE ppk, SyntaxBuilder sb) {
+    private SyntaxBuilder addFunctions(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
         Set<KLabel> functions = ppk.functionSet;
         Set<KLabel> anywheres = ppk.anywhereSet;
 
         Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
 
         for(List<KLabel> component : ppk.functionOrder) {
-            boolean inLetrec = false;
             sb.beginLetrecDeclaration();
             sb.beginLetrecDefinitions();
             for(KLabel functionLabel : component) {
-                if(inLetrec) { sb.addLetrecEquationSeparator(); }
-                addFunctionEquation(functionLabel, ppk, sb);
-                inLetrec = true;
+                sb.append(addFunctionEquation(functionLabel, ppk));
             }
             sb.endLetrecDefinitions();
             sb.endLetrecDeclaration();
@@ -443,11 +459,13 @@ public class DefinitionToFunc {
 
         sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
-        addFreshFunction(ppk, sb);
+        sb.append(addFreshFunction(ppk));
         sb.addLetrecEquationSeparator();
-        addEval(funcAndAny, ppk, sb);
+        sb.append(addEval(funcAndAny, ppk));
         sb.endLetrecDefinitions();
         sb.endLetrecDeclaration();
+
+        return sb;
     }
 
     private SyntaxBuilder makeStuck(SyntaxBuilder body) {
@@ -458,7 +476,9 @@ public class DefinitionToFunc {
         return newsb().addApplication("raise", makeStuck(body));
     }
 
-    private void addSteps(PreprocessedKORE ppk, SyntaxBuilder sb) {
+    private SyntaxBuilder addSteps(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
         sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
         sb.beginLetrecEquation();
@@ -469,7 +489,7 @@ public class DefinitionToFunc {
         for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(cap.contains("lookup") && !cap.contains("function")) {
-                oldConvert(ppk, r, sb, false, i++, "lookups_step");
+                sb.append(oldConvert(ppk, r, false, i++, "lookups_step"));
             }
         }
 
@@ -491,7 +511,7 @@ public class DefinitionToFunc {
         for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(!cap.contains("lookup") && !cap.contains("function")) {
-                oldConvert(ppk, r, sb, false, i++, "step");
+                sb.append(oldConvert(ppk, r, false, i++, "step"));
             }
         }
         sb.addMatchEquation(newsb("_"),
@@ -501,27 +521,31 @@ public class DefinitionToFunc {
         sb.endLetEquation();
         sb.endLetDefinitions();
         sb.endLetDeclaration();
-    }
-
-    private SyntaxBuilder mainConvert(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = new SyntaxBuilder();
-
-        addSortType(ppk, sb);
-        addSortOrderFunc(ppk, sb);
-        addKLabelType(ppk, sb);
-        addKLabelOrderFunc(ppk, sb);
-        OCamlIncludes.addPrelude(sb);
-        addPrintSort(ppk, sb);
-        addPrintKLabel(ppk, sb);
-        OCamlIncludes.addMidlude(sb);
-        addFunctions(ppk, sb);
-        addSteps(ppk, sb);
-        OCamlIncludes.addPostlude(sb);
 
         return sb;
     }
 
-    private void outputAnnotate(Rule r, SyntaxBuilder sb) {
+    private SyntaxBuilder mainConvert(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
+        sb.append(addSortType(ppk));
+        sb.append(addSortOrderFunc(ppk));
+        sb.append(addKLabelType(ppk));
+        sb.append(addKLabelOrderFunc(ppk));
+        sb.append(OCamlIncludes.preludeSB);
+        sb.append(addPrintSort(ppk));
+        sb.append(addPrintKLabel(ppk));
+        sb.append(OCamlIncludes.midludeSB);
+        sb.append(addFunctions(ppk));
+        sb.append(addSteps(ppk));
+        sb.append(OCamlIncludes.postludeSB);
+
+        return sb;
+    }
+
+    private SyntaxBuilder outputAnnotate(Rule r) {
+        SyntaxBuilder sb = newsb();
+
         sb.beginMultilineComment();
         sb.appendf("rule %s requires %s ensures %s %s",
                    ToKast.apply(r.body()),
@@ -530,90 +554,129 @@ public class DefinitionToFunc {
                    r.att().toString());
         sb.endMultilineComment();
         sb.addNewline();
+
+        return sb;
     }
 
-    private void unhandledOldConvert(PreprocessedKORE ppk,
-                                     Rule r,
-                                     SyntaxBuilder sb,
-                                     boolean function,
-                                     int ruleNum,
-                                     String functionName) throws KEMException {
-        if(annotateOutput) { outputAnnotate(r, sb); }
+    private SyntaxBuilder unhandledOldConvert(PreprocessedKORE ppk,
+                                              Rule r,
+                                              boolean isFunction,
+                                              int ruleNum,
+                                              String functionName) throws KEMException {
+        SyntaxBuilder sb = newsb();
 
-        sb.beginMatchEquation();
+        if(annotateOutput) { sb.append(outputAnnotate(r)); }
 
         K left     = RewriteToTop.toLeft(r.body());
         K right    = RewriteToTop.toRight(r.body());
         K requires = r.requires();
 
+        Set<String> indices = ppk.indexedRules.get(r);
         SetMultimap<KVariable, String> vars = HashMultimap.create();
         FuncVisitor visitor = oldConvert(ppk, false, vars, false);
+        outprintfln("DBG: vars: %s", vars);
 
-        if(function) {
-            KApply kapp = (KApply) ((KSequence) left).items().get(0);
-            sb.append(visitor.apply(kapp.klist().items(), true));
-        } else {
-            sb.append(visitor.apply(left));
-        }
+        sb.beginMatchEquation();
+        sb.beginMatchEquationPattern();
 
-        SyntaxBuilder result = oldConvert(vars);
+        sb.append(handleLeft(isFunction, left, visitor));
 
-        if(ppk.indexedRules.get(r).contains("lookup")) {
-            sb.addSpace();
-            sb.addKeyword("when");
-            sb.addSpace();
+        sb.append(handleLookup(indices, ruleNum));
 
-            sb.addKeyword("not");
-            sb.addSpace();
-            sb.beginApplication();
-            sb.addFunction("Guard.mem");
+        SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
 
-            sb.beginArgument();
-            sb.addApplication("GuardElt.Guard", newsbf("%d", ruleNum));
-            sb.endArgument();
-
-            sb.addArgument(newsb("guards"));
-
-            sb.endApplication();
-        }
-
-        SyntaxBuilder suffix = newsb();
-
-        // BUG SPOT? Was originally " when %s && (%s)"
-        if(   !(KSequence(BooleanUtils.TRUE).equals(requires))
-           || !("true".equals(result.toString()))) {
-            suffix = oldConvertLookups(ppk, sb, requires, vars,
-                                       functionName, ruleNum);
-            sb.addSpace();
-            sb.addKeyword("when");
-            sb.addSpace();
-            sb.append(oldConvert(ppk, true, vars, true).apply(requires));
-            sb.addSpace();
-            sb.addKeyword("&&");
-            sb.addSpace();
-            sb.beginParenthesis();
-            sb.append(result);
-            sb.endParenthesis();
-        }
-
+        sb.append(side.getFst());
         sb.endMatchEquationPattern();
         sb.beginMatchEquationValue();
-        sb.append(oldConvert(ppk, true, vars, false)
-                  .apply(right));
+        sb.append(oldConvert(ppk, true, vars, false).apply(right));
         sb.endMatchEquationValue();
         sb.endMatchEquation();
-        sb.append(suffix);
-        sb.addNewline();
+        sb.append(side.getSnd());
+
+        return sb;
     }
 
-    private void oldConvert(PreprocessedKORE ppk,
-                            Rule r,
-                            SyntaxBuilder sb,
-                            boolean function,
-                            int ruleNum,
-                            String functionName) {
+    private SyntaxBuilder handleLeft(boolean isFunction, K left, FuncVisitor visitor) {
+        if(isFunction) {
+            return handleFunction(left, visitor);
+        } else {
+            return handleNonFunction(left, visitor);
+        }
+    }
+
+    private SyntaxBuilder handleFunction(K left, FuncVisitor visitor) {
+        KApply kapp = (KApply) ((KSequence) left).items().get(0);
+        return visitor.apply(kapp.klist().items(), true);
+    }
+
+    private SyntaxBuilder handleNonFunction(K left, FuncVisitor visitor) {
+        return visitor.apply(left);
+    }
+
+    private SyntaxBuilder handleLookup(Set<String> indices, int ruleNum) {
+        if(indices.contains("lookup")) {
+            return newsb()
+                .addSpace()
+                .addKeyword("when")
+                .addSpace()
+                .addKeyword("not")
+                .addSpace()
+                .beginApplication()
+                .addFunction("Guard.mem")
+                .beginArgument()
+                .addApplication("GuardElt.Guard", newsbf("%d", ruleNum))
+                .endArgument()
+                .addArgument(newsb("guards"))
+                .endApplication();
+
+        } else {
+            return newsb();
+        }
+    }
+
+    private SBPair handleSideCondition(PreprocessedKORE ppk,
+                                       SetMultimap<KVariable, String> vars,
+                                       String functionName,
+                                       int ruleNum,
+                                       K requires) {
+         SBPair convLookups = oldConvertLookups(ppk, requires, vars,
+                                               functionName, ruleNum);
+
+         SyntaxBuilder result = oldConvert(vars);
+
+         if(hasSideCondition(requires, result.toString())) {
+             SyntaxBuilder fstSB =
+                 convLookups
+                 .getFst()
+                 .addSpace()
+                 .addKeyword("when")
+                 .addSpace()
+                 .append(oldConvert(ppk, true, vars, true).apply(requires))
+                 .addSpace()
+                 .addKeyword("&&")
+                 .addSpace()
+                 .beginParenthesis()
+                 .append(result)
+                 .endParenthesis();
+             SyntaxBuilder sndSB = convLookups.getSnd();
+             return newSBPair(fstSB, sndSB);
+         } else {
+             return newSBPair(newsb(), newsb());
+         }
+    }
+
+    private boolean hasSideCondition(K requires, String result) {
+        return !(KSequence(BooleanUtils.TRUE).equals(requires))
+            || !("true".equals(result));
+    }
+
+    private SyntaxBuilder oldConvert(PreprocessedKORE ppk,
+                                     Rule r,
+                                     boolean function,
+                                     int ruleNum,
+                                     String functionName) {
         try {
-            unhandledOldConvert(ppk, r, sb, function, ruleNum, functionName);
+            return unhandledOldConvert(ppk, r, function, ruleNum, functionName);
         } catch (KEMException e) {
             String src = r.att()
                           .getOptional(Source.class)
@@ -646,6 +709,8 @@ public class DefinitionToFunc {
                                                  String chPat,
                                                  String... chArgs) {
         return newsb()
+
+            .beginMatchEquation()
             .addMatchEquationPattern(newsbv(chPat))
             .beginMatchEquationValue()
             .beginLetExpression()
@@ -661,9 +726,7 @@ public class DefinitionToFunc {
             .addConditionalIf()
             .append(equalityTestSB)
             .addConditionalThen()
-            .beginMatchExpression(newsbv(chChoiceVar))
-            .beginMatchEquation()
-            .beginMatchEquationPattern();
+            .beginMatchExpression(newsbv(chChoiceVar));
     }
 
 
@@ -706,20 +769,23 @@ public class DefinitionToFunc {
     }
 
     // TODO(remy): this needs refactoring very badly
-    private SyntaxBuilder oldConvertLookups(PreprocessedKORE ppk,
-                                            SyntaxBuilder sb,
-                                            K requires,
-                                            SetMultimap<KVariable, String> vars,
-                                            String functionName,
-                                            int ruleNum) {
-        int oldParens = sb.getNumParens();
-
-        Deque<SyntaxBuilder> suffix = new ArrayDeque<>();
+    private SBPair oldConvertLookups(PreprocessedKORE ppk,
+                                     K requires,
+                                     SetMultimap<KVariable, String> vars,
+                                     String functionName,
+                                     int ruleNum) {
+        Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
 
         SyntaxBuilder res = new SyntaxBuilder();
         SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
         SyntaxBuilder mapChoiceSB2 = choiceSB2("m", ruleNum, functionName);
+        String formatSB3 = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
+        SyntaxBuilder sb3 =
+            newsb().addMatchEquation(wildcardSB, newsbf(formatSB3,
+                                                        functionName,
+                                                        ruleNum));
 
+//        new AbstractKORETransformer<SBPair>() {
         new VisitKORE() {
             private SyntaxBuilder sb1;
             private SyntaxBuilder sb2;
@@ -753,63 +819,59 @@ public class DefinitionToFunc {
                 default: return super.apply(k);
                 }
 
+                outprintfln("DBG: apply executed.");
+
                 checkApplyArity(k, arity, functionStr);
 
-                K fstKLabel = kitems.get(0);
-                K sndKLabel = kitems.get(1);
+                K kLabel1 = kitems.get(0);
+                K kLabel2 = kitems.get(1);
+
+                SyntaxBuilder luMatchValue  = oldConvert(ppk, true, vars, false).apply(kLabel2);
+                SyntaxBuilder luLevelUp     = sb1;
+                SyntaxBuilder luPattern     = oldConvert(ppk, false, vars, false).apply(kLabel1);
+                SyntaxBuilder luWildcardEqn = sb3;
+                SyntaxBuilder luLevelDown   = sb2;
 
                 res.endMatchEquationPattern();
                 res.beginMatchEquationValue();
-                res.beginMatchExpression(oldConvert(ppk, true, vars, false)
-                                         .apply(sndKLabel));
-                res.append(sb1);
-                res.append(oldConvert(ppk, false, vars, false)
-                           .apply(fstKLabel));
-                String format = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
-                suffix.add(newsb()
-                           .addMatchEquation(wildcardSB, newsbf(format,
-                                                                functionName,
-                                                                ruleNum))
-                           .endMatchExpression()
-                           .endMatchEquationValue()
-                           .endMatchEquation());
-                suffix.add(sb2);
+                res.beginMatchExpression(luMatchValue);
+                res.append(luLevelUp);
+                res.beginMatchEquation();
+                res.beginMatchEquationPattern();
+                res.append(luPattern);
+
+                suffStack.add(luWildcardEqn);
+                suffStack.add(luLevelDown);
                 return super.apply(k);
             }
         }.apply(requires);
 
-        sb.append(res);
-
         SyntaxBuilder suffSB = new SyntaxBuilder();
-        while(!suffix.isEmpty()) { suffSB.append(suffix.pollLast()); }
+        while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
 
-        // int newParens = sb.trackPrint();
+        return newSBPair(res, suffSB);
+    }
 
-        // int sufParens = suffSB.getNumParens();
+    private static SBPair newSBPair(SyntaxBuilder a, SyntaxBuilder b) {
+        return new SBPair(a, b);
+    }
 
-//        if((newParens + sufParens) != oldParens) {
-//            outprintfln("DBG: ");
-//            outprintfln("DBG: ");
-//            outprintfln("DBG: ");
-//            outprintfln("DBG:     ERROR: %d != %d",
-//                        newParens + sufParens,
-//                        oldParens);
-//            outprintfln("DBG: oldParens: %d", oldParens);
-//            outprintfln("DBG: newParens: %d", newParens);
-//            outprintfln("DBG: sufParens: %d", sufParens);
-//            outprintfln("DBG:    Rule #: %d", ruleNum);
-//            outprintfln("DBG: Func name: %s", functionName);
-//            outprintfln("DBG: --------------------------");
-//            for(String s : res.pretty()) {
-//                outprintfln("DBG:    res contents: %s", s);
-//            }
-//            for(String s : suffSB.pretty()) {
-//                outprintfln("DBG: suffSB contents: %s", s);
-//            }
-//            outprintfln("DBG: --------------------------");
-//        }
+    private static class SBPair {
+        private final SyntaxBuilder fst, snd;
 
-        return suffSB;
+        public SBPair(SyntaxBuilder fst, SyntaxBuilder snd) {
+            this.fst = fst;
+            this.snd = snd;
+        }
+
+
+        public SyntaxBuilder getFst() {
+            return fst;
+        }
+
+        public SyntaxBuilder getSnd() {
+            return snd;
+        }
     }
 
     private static SyntaxBuilder oldConvert(SetMultimap<KVariable, String> vars) {
