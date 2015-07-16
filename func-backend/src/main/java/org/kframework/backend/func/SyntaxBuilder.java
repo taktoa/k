@@ -2,6 +2,8 @@
 package org.kframework.backend.func;
 
 import java.util.List;
+import java.util.Map;
+import java.util.EnumMap;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import com.google.common.collect.Lists;
@@ -27,6 +29,7 @@ public class SyntaxBuilder implements Cloneable {
     private static final Pattern isOpenParen  = Pattern.compile("\\(");
     private static final Pattern isCloseParen = Pattern.compile("\\)");
     private static final boolean introduce = false;
+    private final SyntaxTracker track = new SyntaxTracker();
 
     private SyntaxBuilder(List<Syntax> stx) {
         this.stx = stx;
@@ -61,11 +64,9 @@ public class SyntaxBuilder implements Cloneable {
         return parens;
     }
 
-    public int getLineNum() {
+    public int getNumLines() {
         return linum;
     }
-
-
 
     public SyntaxBuilder append(Syntax s) {
         stx.add(s);
@@ -88,6 +89,10 @@ public class SyntaxBuilder implements Cloneable {
         } else if(s.render().contains("\n")) {
             Matcher m = isNewline.matcher(s.render());
             while(m.find()) { linum++; }
+        }
+
+        if(s instanceof SyntaxEnum) {
+            track.addSyntax((SyntaxEnum) s);
         }
         // if(between(linum, 26900, 27000)) {
         //     addStackTrace();
@@ -129,6 +134,19 @@ public class SyntaxBuilder implements Cloneable {
         return ret;
     }
 
+    public Map<String, Integer> getTrack() {
+        Map<String, Integer> res = newHashMap();
+        EnumMap<SyntaxEnum, Integer> tm = track.getMap();
+        for(SyntaxEnum se : tm.keySet()) {
+            res.put(se.toString(), tm.get(se));
+        }
+        return res;
+    }
+
+    public String trackPrint() {
+        return track.toString();
+    }
+
     @Override
     public SyntaxBuilder clone() {
         SyntaxBuilder res = newsb();
@@ -165,6 +183,16 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addSpace() {
         return append(SyntaxEnum.SPACE);
+    }
+
+    public SyntaxBuilder addIntroduce(String... vars) {
+        append(SyntaxEnum.BEGIN_INTRODUCE);
+        for(String v : vars) {
+            addName(v);
+            addSpace();
+        }
+        append(SyntaxEnum.END_INTRODUCE);
+        return this;
     }
 
     public SyntaxBuilder addStackTrace() {
@@ -290,14 +318,7 @@ public class SyntaxBuilder implements Cloneable {
         append(SyntaxEnum.END_LAMBDA_VARS);
         append(SyntaxEnum.BEGIN_LAMBDA_BODY);
 
-        if(introduce) {
-            append(SyntaxEnum.BEGIN_INTRODUCE);
-            for(String v : vars) {
-                addName(v);
-                addSpace();
-            }
-            append(SyntaxEnum.END_INTRODUCE);
-        }
+        if(introduce) { addIntroduce(vars); }
 
         return this;
     }
@@ -736,7 +757,130 @@ public class SyntaxBuilder implements Cloneable {
     }
 
 
+    private class SyntaxTracker {
+        private final EnumMap<SyntaxEnum, Integer> stxData;
 
+        public SyntaxTracker() {
+            stxData = new EnumMap<>(SyntaxEnum.class);
+        }
+
+        public EnumMap<SyntaxEnum, Integer> getMap() {
+            return stxData;
+        }
+
+        public void addSyntax(SyntaxEnum s) {
+            if(stxData.keySet().contains(s)) {
+                stxData.put(s, stxData.get(s) + 1);
+            } else {
+                stxData.put(s, 1);
+            }
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder out = new StringBuilder();
+            for(SyntaxEnum se : stxData.keySet()) {
+                out.append(String.format("\n%30s ---> %s\n", se, stxData.get(se)));
+            }
+            return out.toString();
+        }
+
+// SyntaxEnum.BEGIN_PARENTHESIS
+// SyntaxEnum.END_PARENTHESIS
+// SyntaxEnum.BEGIN_COMMENT
+// SyntaxEnum.END_COMMENT
+// SyntaxEnum.BEGIN_NAME
+// SyntaxEnum.END_NAME
+// SyntaxEnum.BEGIN_INTRODUCE
+// SyntaxEnum.END_INTRODUCE
+// SyntaxEnum.BEGIN_INTEGER
+// SyntaxEnum.END_INTEGER
+// SyntaxEnum.BEGIN_FLOAT
+// SyntaxEnum.END_FLOAT
+// SyntaxEnum.BEGIN_BOOLEAN
+// SyntaxEnum.END_BOOLEAN
+// SyntaxEnum.BEGIN_STRING
+// SyntaxEnum.END_STRING
+// SyntaxEnum.BEGIN_TYPE
+// SyntaxEnum.END_TYPE
+// SyntaxEnum.BEGIN_CONDITIONAL
+// SyntaxEnum.END_CONDITIONAL
+// SyntaxEnum.CONDITIONAL_IF
+// SyntaxEnum.CONDITIONAL_THEN
+// SyntaxEnum.CONDITIONAL_ELSE
+// SyntaxEnum.BEGIN_MATCH_EXPRESSION
+// SyntaxEnum.END_MATCH_EXPRESSION
+// SyntaxEnum.BEGIN_MATCH_INPUT
+// SyntaxEnum.END_MATCH_INPUT
+// SyntaxEnum.BEGIN_MATCH_EQUATIONS
+// SyntaxEnum.END_MATCH_EQUATIONS
+// SyntaxEnum.BEGIN_MATCH_EQUATION
+// SyntaxEnum.END_MATCH_EQUATION
+// SyntaxEnum.BEGIN_MATCH_EQUATION_VAL
+// SyntaxEnum.END_MATCH_EQUATION_VAL
+// SyntaxEnum.BEGIN_MATCH_EQUATION_PAT
+// SyntaxEnum.END_MATCH_EQUATION_PAT
+// SyntaxEnum.BEGIN_LET_EXPRESSION
+// SyntaxEnum.END_LET_EXPRESSION
+// SyntaxEnum.BEGIN_LET_DECLARATION
+// SyntaxEnum.END_LET_DECLARATION
+// SyntaxEnum.BEGIN_LET_DEFINITIONS
+// SyntaxEnum.END_LET_DEFINITIONS
+// SyntaxEnum.BEGIN_LET_EQUATION
+// SyntaxEnum.END_LET_EQUATION
+// SyntaxEnum.BEGIN_LET_EQUATION_NAME
+// SyntaxEnum.END_LET_EQUATION_NAME
+// SyntaxEnum.BEGIN_LET_EQUATION_VAL
+// SyntaxEnum.END_LET_EQUATION_VAL
+// SyntaxEnum.BEGIN_LET_SCOPE
+// SyntaxEnum.END_LET_SCOPE
+// SyntaxEnum.BEGIN_LETREC_EXPRESSION
+// SyntaxEnum.END_LETREC_EXPRESSION
+// SyntaxEnum.BEGIN_LETREC_DECLARATION
+// SyntaxEnum.END_LETREC_DECLARATION
+// SyntaxEnum.BEGIN_LETREC_DEFINITIONS
+// SyntaxEnum.END_LETREC_DEFINITIONS
+// SyntaxEnum.BEGIN_LETREC_EQUATION
+// SyntaxEnum.END_LETREC_EQUATION
+// SyntaxEnum.BEGIN_LETREC_EQUATION_NAME
+// SyntaxEnum.END_LETREC_EQUATION_NAME
+// SyntaxEnum.BEGIN_LETREC_EQUATION_VAL
+// SyntaxEnum.END_LETREC_EQUATION_VAL
+// SyntaxEnum.BEGIN_LETREC_SCOPE
+// SyntaxEnum.END_LETREC_SCOPE
+// SyntaxEnum.BEGIN_LAMBDA
+// SyntaxEnum.END_LAMBDA
+// SyntaxEnum.BEGIN_LAMBDA_VAR
+// SyntaxEnum.END_LAMBDA_VAR
+// SyntaxEnum.BEGIN_LAMBDA_VARS
+// SyntaxEnum.END_LAMBDA_VARS
+// SyntaxEnum.BEGIN_LAMBDA_BODY
+// SyntaxEnum.END_LAMBDA_BODY
+// SyntaxEnum.BEGIN_APPLICATION
+// SyntaxEnum.END_APPLICATION
+// SyntaxEnum.BEGIN_FUNCTION
+// SyntaxEnum.END_FUNCTION
+// SyntaxEnum.BEGIN_ARGUMENT
+// SyntaxEnum.END_ARGUMENT
+// SyntaxEnum.BEGIN_TYPE_DEFINITION
+// SyntaxEnum.END_TYPE_DEFINITION
+// SyntaxEnum.BEGIN_TYPE_DEFINITION_VAR
+// SyntaxEnum.END_TYPE_DEFINITION_VAR
+// SyntaxEnum.BEGIN_TYPE_DEFINITION_VARS
+// SyntaxEnum.END_TYPE_DEFINITION_VARS
+// SyntaxEnum.BEGIN_TYPE_DEFINITION_NAME
+// SyntaxEnum.END_TYPE_DEFINITION_NAME
+// SyntaxEnum.BEGIN_TYPE_DEFINITION_CONS
+// SyntaxEnum.END_TYPE_DEFINITION_CONS
+// SyntaxEnum.BEGIN_CONSTRUCTOR
+// SyntaxEnum.END_CONSTRUCTOR
+// SyntaxEnum.BEGIN_CONSTRUCTOR_NAME
+// SyntaxEnum.END_CONSTRUCTOR_NAME
+// SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENT
+// SyntaxEnum.END_CONSTRUCTOR_ARGUMENT
+// SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENTS
+// SyntaxEnum.END_CONSTRUCTOR_ARGUMENTS
+    }
 
 
     private enum SyntaxEnum implements Syntax {
@@ -786,7 +930,7 @@ public class SyntaxBuilder implements Cloneable {
         END_MATCH_EQUATION_PAT      ("</match-equation-pat>",    " -> "),
 
         BEGIN_LET_EXPRESSION        ("<let-expression>",         "(let "),
-        END_LET_EXPRESSION          ("</let-expression>",        ")\n"),
+        END_LET_EXPRESSION          ("</let-expression>",        ")"),
         BEGIN_LET_DECLARATION       ("<let-declaration>",        "let "),
         END_LET_DECLARATION         ("</let-declaration>",       "\n"),
         BEGIN_LET_DEFINITIONS       ("<let-definitions>",        ""),
@@ -801,7 +945,7 @@ public class SyntaxBuilder implements Cloneable {
         END_LET_SCOPE               ("</let-scope>",             ")"),
 
         BEGIN_LETREC_EXPRESSION     ("<letrec-expression>",      "(let rec "),
-        END_LETREC_EXPRESSION       ("</letrec-expression>",     ")\n"),
+        END_LETREC_EXPRESSION       ("</letrec-expression>",     ")"),
         BEGIN_LETREC_DECLARATION    ("<letrec-declaration>",     "let rec "),
         END_LETREC_DECLARATION      ("</letrec-declaration>",    "\n"),
         BEGIN_LETREC_DEFINITIONS    ("<letrec-definitions>",     ""),

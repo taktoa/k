@@ -47,9 +47,7 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class DefinitionToFunc {
     /** Flag that determines whether or not we annotate output OCaml with rules */
-    public static final boolean annotateOutput = true;
-
-    public boolean debug = true;
+    public static final boolean annotateOutput = false;
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -57,6 +55,23 @@ public class DefinitionToFunc {
     private final KompileOptions kompileOptions;
 
     private PreprocessedKORE preproc;
+
+
+    private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
+    private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
+    private static final SyntaxBuilder equalityTestSB;
+
+    static {
+        wildcardSB = newsbv("_");
+        bottomSB = newsbv("[Bottom]");
+        choiceSB = newsbv("choice");
+        resultSB = newsbv("result");
+        equalityTestSB = newsb().addEqualityTest(choiceSB, bottomSB);
+        setChoiceSB1 = choiceSB1("e", "KSet.fold", "[Set s]",
+                                 "e", "result");
+        mapChoiceSB1 = choiceSB1("k", "KMap.fold", "[Map m]",
+                                 "k", "v", "result");
+    }
 
     /**
      * Constructor for DefinitionToFunc
@@ -78,17 +93,21 @@ public class DefinitionToFunc {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         SyntaxBuilder sb = langDefToFunc(preproc);
 
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+
 //        for(String s : sb.pretty()) {
 //            outprintfln("DBG: %s", s);
 //        }
-//
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+
+        outprintfln("%s", sb.trackPrint());
+        outprintfln("Number of parens: %d", sb.getNumParens());
+        outprintfln("Number of lines:  %d", sb.getNumLines());
+
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         return sb.toString();
     }
@@ -304,8 +323,7 @@ public class DefinitionToFunc {
             oldConvert(ppk, r, sb, true, i++, functionName);
         }
 
-        sb.addMatchEquation(newsbv("_"),
-                            newsbv("raise (Stuck [KApply(lbl, c)])"));
+        sb.addMatchEquation(wildcardSB, raiseStuck(newsbv("[KApply(lbl, c)]")));
         sb.endMatchExpression();
     }
 
@@ -396,8 +414,7 @@ public class DefinitionToFunc {
         sb.endMatchExpression();
         sb.endMatchEquationValue();
 
-        sb.addMatchEquation(newsbv("_"),
-                            newsbv("[c]"));
+        sb.addMatchEquation(wildcardSB, newsbv("[c]"));
 
         sb.endMatchExpression();
 
@@ -433,6 +450,14 @@ public class DefinitionToFunc {
         sb.endLetrecDeclaration();
     }
 
+    private SyntaxBuilder makeStuck(SyntaxBuilder body) {
+        return newsb().addApplication("Stuck", body);
+    }
+
+    private SyntaxBuilder raiseStuck(SyntaxBuilder body) {
+        return newsb().addApplication("raise", makeStuck(body));
+    }
+
     private void addSteps(PreprocessedKORE ppk, SyntaxBuilder sb) {
         sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
@@ -449,11 +474,7 @@ public class DefinitionToFunc {
         }
 
         // BUG SPOT? Can raise be parenthesized?
-        sb.addMatchEquation(newsbv("_"),
-                            newsb()
-                            .addApplication("raise",
-                                            newsb().addApplication("Stuck",
-                                                                   newsb("c"))));
+        sb.addMatchEquation(wildcardSB, raiseStuck(newsb("c")));
         sb.endMatchExpression();
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
@@ -602,9 +623,9 @@ public class DefinitionToFunc {
                           .getOptional(Location.class)
                           .map(Object::toString)
                           .orElse("<none>");
-            e.exception.addTraceFrame(String.format("while compiling rule at %s: %s",
-                                                    src,
-                                                    loc));
+            e.exception
+             .addTraceFrame(String.format("while compiling rule at %s: %s",
+                                          src, loc));
             throw e;
         }
     }
@@ -620,7 +641,70 @@ public class DefinitionToFunc {
         }
     }
 
-    private static class Holder { int i; }
+    private static final SyntaxBuilder choiceSB1(String chChoiceVar,
+                                                 String chFold,
+                                                 String chPat,
+                                                 String... chArgs) {
+        return newsb()
+            .addMatchEquationPattern(newsbv(chPat))
+            .beginMatchEquationValue()
+            .beginLetExpression()
+            .beginLetDefinitions()
+            .beginLetEquation()
+            .addLetEquationName(choiceSB)
+            .beginLetEquationValue()
+            .beginApplication()
+            .addFunction(chFold)
+            .beginArgument()
+            .beginLambda(chArgs)
+            .beginConditional()
+            .addIntroduce()
+            .addConditionalIf()
+            .append(equalityTestSB)
+            .addConditionalThen()
+            .beginMatchExpression(newsbv(chChoiceVar))
+            .beginMatchEquation()
+            .beginMatchEquationPattern();
+    }
+
+
+    private static final SyntaxBuilder choiceSB2(String chVar,
+                                                 int ruleNum,
+                                                 String functionName) {
+        String guardCon = "GuardElt.Guard";
+        String guardAdd = "Guard.add";
+        SyntaxBuilder rnsb = newsbv(Integer.toString(ruleNum));
+
+        SyntaxBuilder guardSB =
+            newsb().addApplication(guardAdd,
+                                   newsb().addApplication(guardCon, rnsb),
+                                   newsbv("guards"));
+        SyntaxBuilder condSB =
+            newsb().addConditional(equalityTestSB,
+                                   newsb().addApplication(functionName,
+                                                          newsbv("c"),
+                                                          guardSB),
+                                   choiceSB);
+
+        return newsb()
+            .addMatchEquation(wildcardSB, bottomSB)
+            .endMatchExpression()
+            .addConditionalElse()
+            .append(resultSB)
+            .endConditional()
+            .endLambda()
+            .endArgument()
+            .addArgument(newsbv(chVar))
+            .addArgument(bottomSB)
+            .endApplication()
+            .endLetEquationValue()
+            .endLetEquation()
+            .endLetDefinitions()
+            .addLetScope(condSB)
+            .endLetExpression()
+            .endMatchEquationValue()
+            .endMatchEquation();
+    }
 
     // TODO(remy): this needs refactoring very badly
     private SyntaxBuilder oldConvertLookups(PreprocessedKORE ppk,
@@ -632,20 +716,15 @@ public class DefinitionToFunc {
         int oldParens = sb.getNumParens();
 
         Deque<SyntaxBuilder> suffix = new ArrayDeque<>();
-        Holder h = new Holder();
-        h.i = 0;
 
         SyntaxBuilder res = new SyntaxBuilder();
+        SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
+        SyntaxBuilder mapChoiceSB2 = choiceSB2("m", ruleNum, functionName);
 
         new VisitKORE() {
-            private final SyntaxBuilder sb1 = newsb();
-            private final SyntaxBuilder sb2 = newsb();
-            private boolean choice = false;
+            private SyntaxBuilder sb1;
+            private SyntaxBuilder sb2;
             private String functionStr;
-            private String structureVar,
-                structurePat, structureFold,
-                structureChoiceVar;
-            private String[] structureLambdaArgs = new String[] {};
             private int arity;
 
             @Override
@@ -655,88 +734,24 @@ public class DefinitionToFunc {
 
                 switch(klabel) {
                 case "#match":
-                    choice = false;
                     functionStr = "lookup";
+                    sb1 = newsb();
+                    sb2 = newsb();
                     arity = 2;
                     break;
                 case "#setChoice":
-                    choice = true;
                     functionStr = "set choice";
-                    structurePat = "[Set s]";
-                    structureVar = "s";
-                    structureFold = "KSet.fold";
-                    structureLambdaArgs = new String[] { "e", "result" };
-                    structureChoiceVar = "e";
+                    sb1 = setChoiceSB1;
+                    sb2 = setChoiceSB2;
                     arity = 2;
                     break;
                 case "#mapChoice":
-                    choice = true;
                     functionStr = "map choice";
-                    structurePat = "[Map m]";
-                    structureVar = "m";
-                    structureFold = "KMap.fold";
-                    structureLambdaArgs = new String[] { "k", "v", "result" };
-                    structureChoiceVar = "k";
+                    sb1 = mapChoiceSB1;
+                    sb2 = mapChoiceSB2;
                     arity = 2;
                     break;
                 default: return super.apply(k);
-                }
-
-                if(choice) {
-                    String guardCon = "GuardElt.Guard";
-                    String guardAdd = "Guard.add";
-
-                    SyntaxBuilder bot = newsbv("[Bottom]");
-                    SyntaxBuilder rnsb = newsbv(Integer.toString(ruleNum));
-
-                    SyntaxBuilder guardSB =
-                        newsb().addApplication(guardAdd,
-                                               newsb().addApplication(guardCon, rnsb),
-                                               newsbv("guards"));
-                    SyntaxBuilder condSB =
-                        newsb().addConditional(newsb().addEqualityTest(newsbv("choice"),
-                                                                       bot),
-                                               newsb().addApplication(functionName,
-                                                                      newsbv("c"),
-                                                                      guardSB),
-                                               newsbv("choice"));
-
-                    sb1
-                        .addMatchEquationPattern(newsbv(structurePat))
-                        .beginMatchEquationValue()
-                        .beginLetExpression()
-                        .beginLetDefinitions()
-                        .beginLetEquation()
-                        .addLetEquationName(newsbv("choice"))
-                        .beginLetEquationValue()
-                        .beginApplication()
-                        .addFunction(structureFold)
-                        .beginArgument()
-                        .beginLambda(structureLambdaArgs)
-                        .addConditionalIf()
-                        .addEqualityTest(newsbv("result"), bot)
-                        .addConditionalThen()
-                        .beginMatchExpression(newsbv(structureChoiceVar))
-                        .beginMatchEquation()
-                        .beginMatchEquationPattern();
-
-                    sb2
-                        .addMatchEquation(newsbv("_"), bot)
-                        .endMatchExpression()
-                        .addConditionalElse()
-                        .addValue("result")
-                        .endLambda()
-                        .endArgument()
-                        .addArgument(newsbv(structureVar))
-                        .addArgument(bot)
-                        .endApplication()
-                        .endLetEquationValue()
-                        .endLetEquation()
-                        .endLetDefinitions()
-                        .addLetScope(condSB)
-                        .endLetExpression()
-                        .endMatchEquationValue()
-                        .endMatchEquation();
                 }
 
                 checkApplyArity(k, arity, functionStr);
@@ -746,36 +761,32 @@ public class DefinitionToFunc {
 
                 res.endMatchEquationPattern();
                 res.beginMatchEquationValue();
-                res.beginMatchExpression(oldConvert(ppk, true,
-                                                    vars, false)
+                res.beginMatchExpression(oldConvert(ppk, true, vars, false)
                                          .apply(sndKLabel));
                 res.append(sb1);
-                res.append(oldConvert(ppk, false,
-                                      vars, false)
+                res.append(oldConvert(ppk, false, vars, false)
                            .apply(fstKLabel));
-                String fmt = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
+                String format = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
                 suffix.add(newsb()
-                           .addMatchEquation(newsbv("_"), newsbf(fmt,
-                                                                 functionName,
-                                                                 ruleNum))
+                           .addMatchEquation(wildcardSB, newsbf(format,
+                                                                functionName,
+                                                                ruleNum))
                            .endMatchExpression()
                            .endMatchEquationValue()
                            .endMatchEquation());
                 suffix.add(sb2);
-                h.i++;
                 return super.apply(k);
             }
         }.apply(requires);
 
-        sb.append(res); // BUG SPOT? there could be some weird resource contention
-                        // that leads to this not being the same as appending-as-we-go
+        sb.append(res);
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
         while(!suffix.isEmpty()) { suffSB.append(suffix.pollLast()); }
 
-        int newParens = sb.getNumParens();
+        // int newParens = sb.trackPrint();
 
-        int sufParens = suffSB.getNumParens();
+        // int sufParens = suffSB.getNumParens();
 
 //        if((newParens + sufParens) != oldParens) {
 //            outprintfln("DBG: ");
@@ -811,6 +822,7 @@ public class DefinitionToFunc {
             while (iter.hasNext()) {
                 //handle nonlinear variables in pattern
                 String next = iter.next();
+                // BUG SPOT? Parenthesizes last and next
                 sb.addApplication("eq", newsb(last), newsb(next));
                 last = next;
                 sb.addSpace();
