@@ -101,9 +101,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
                              .get(Attribute.HOOK_KEY)
                              .getOrDefault(k.sort(), "");
             if(sortHooks.containsKey(hook)) {
-                return newsb(sortHooks
-                             .get(hook)
-                             .apply(k.s()));
+                return sortHooks.get(hook).apply(k.s());
             } else {
                 return newsbf("KToken (%s, %s)",
                               apply(k.sort()),

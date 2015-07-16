@@ -247,6 +247,13 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
+    public SyntaxBuilder addComment(String c) {
+        beginMultilineComment();
+        append(c);
+        endMultilineComment();
+        return this;
+    }
+
     public SyntaxBuilder beginMultilineComment() {
         return append(SyntaxEnum.BEGIN_COMMENT);
     }
@@ -1054,7 +1061,7 @@ public class SyntaxBuilder implements Cloneable {
         }
 
         public default String getEscapedString() {
-            return StringEscapeUtils.escapeJava(render());
+            return StringEscapeUtils.escapeXml(render());
         }
     }
 
