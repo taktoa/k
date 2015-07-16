@@ -658,7 +658,6 @@ public class DefinitionToFunc {
             .beginArgument()
             .beginLambda(chArgs)
             .beginConditional()
-            .addIntroduce()
             .addConditionalIf()
             .append(equalityTestSB)
             .addConditionalThen()

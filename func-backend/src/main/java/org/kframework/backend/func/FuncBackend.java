@@ -2,6 +2,8 @@
 package org.kframework.backend.func;
 
 import com.google.inject.Inject;
+import com.google.common.base.Stopwatch;
+
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.main.GlobalOptions;
@@ -12,6 +14,7 @@ import org.kframework.utils.file.FileUtil;
 import java.io.IOException;
 import java.io.File;
 import java.util.function.Consumer;
+import java.util.concurrent.TimeUnit;
 
 import static org.kframework.backend.func.FuncUtil.*;
 
@@ -23,6 +26,8 @@ import static org.kframework.backend.func.FuncUtil.*;
 public class FuncBackend implements Consumer<CompiledDefinition> {
     private final DefinitionToFunc converter;
     private final ProcessBuilder processBuilder;
+
+    private final Stopwatch timer = Stopwatch.createUnstarted();
 
     private static final String ocamlPackages = "zarith";
 
@@ -66,8 +71,12 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     @Override
     public void accept(CompiledDefinition def) {
+        timer.start();
         generateOCamlDef(def);
+        stopAndReportTimer("Time required to generate kompile OCaml: %d s");
+        resetAndStartTimer();
         compileOCamlDef();
+        stopAndReportTimer("Time required to compile kompile OCaml: %d s");
     }
 
     private void generateOCamlDef(CompiledDefinition def) {
@@ -112,5 +121,15 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private void defCompileIOError(IOException e) {
         throw kemCriticalErrorF(e, "Error starting OCaml compiler process: %s", e.getMessage());
+    }
+
+    private void resetAndStartTimer() {
+        timer.reset();
+        timer.start();
+    }
+
+    private void stopAndReportTimer(String format) {
+        timer.stop();
+        outprintfln(format, timer.elapsed(TimeUnit.SECONDS));
     }
 }
