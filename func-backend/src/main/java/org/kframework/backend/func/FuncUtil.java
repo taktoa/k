@@ -196,6 +196,16 @@ public final class FuncUtil {
     }
 
     /**
+     * Since, newArrayListWithCapacity is an awfully long name, we
+     * overload newArrayList to have an integer argument
+     * It shouldn't be confusing given that there are no other
+     * overloadings of Lists.newArrayList
+     */
+    public static <E> ArrayList<E> newArrayList(int capacity) {
+        return newArrayListWithCapacity(capacity);
+    }
+
+    /**
      * Since we are generally statically importing FuncUtil,
      * it is nice to eliminate the Lists.newArrayListWithCapacity pattern
      */
@@ -205,7 +215,7 @@ public final class FuncUtil {
 
     /**
      * Since we are generally statically importing FuncUtil,
-     * it is nice to eliminate the Lists.newArrayList pattern
+     * it is nice to eliminate the Lists.newLinkedList pattern
      */
     public static <E> LinkedList<E> newLinkedList() {
         return Lists.newLinkedList();
@@ -213,7 +223,7 @@ public final class FuncUtil {
 
     /**
      * Since we are generally statically importing FuncUtil,
-     * it is nice to eliminate the Maps.newHashMap() pattern
+     * it is nice to eliminate the Sets.newHashSet() pattern
      */
     public static <E> HashSet<E> newHashSet() {
         return Sets.newHashSet();
