@@ -5,6 +5,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Lists;
+
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
 import org.kframework.builtin.BooleanUtils;
@@ -18,10 +19,14 @@ import org.kframework.kore.KApply;
 import org.kframework.kore.KLabel;
 import org.kframework.kore.KSequence;
 import org.kframework.kore.KVariable;
+import org.kframework.kore.KRewrite;
+import org.kframework.kore.KToken;
+import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.Sort;
 import org.kframework.kore.ToKast;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
+import org.kframework.kore.AbstractKORETransformer;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.StringUtil;
 import org.kframework.utils.errorsystem.KEMException;
@@ -36,6 +41,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import static org.kframework.kore.KORE.*;
 import static org.kframework.backend.func.FuncUtil.*;
@@ -54,6 +61,8 @@ public class DefinitionToFunc {
     private final FileUtil files;
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
+
+    private final XMLBuilder xml = new XMLBuilder();
 
     private PreprocessedKORE preproc;
 
@@ -85,34 +94,43 @@ public class DefinitionToFunc {
         this.files = files;
         this.globalOptions = globalOptions;
         this.kompileOptions = kompileOptions;
+        xml.beginXML("body");
     }
 
     /**
      * Convert a {@link CompiledDefinition} to an OCaml string
      */
     public String convert(CompiledDefinition def) {
+
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         SyntaxBuilder sb = langDefToFunc(preproc);
 
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
-//        for(String s : sb.pretty()) {
-//            outprintfln("DBG: %s", s);
-//        }
+//        String outXML = sb.pretty().stream().collect(joining());
+//        outprintfln("%s",
+//                    new XMLBuilder()
+//                    .beginXML("body")
+//                    .append(outXML)
+//                    .endXML("body")
+//                    .renderSExpr(files));
 
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        xml.endXML("body");
+        outprintfln("%s", xml.renderSExpr(files));
+
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         outprintfln("%s", sb.trackPrint());
-        outprintfln("Number of parens: %d", sb.getNumParens());
-        outprintfln("Number of lines:  %d", sb.getNumLines());
+        outprintfln(";; Number of parens: %d", sb.getNumParens());
+        outprintfln(";; Number of lines:  %d", sb.getNumLines());
 
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         return sb.toString();
     }
@@ -143,7 +161,7 @@ public class DefinitionToFunc {
                                  depth));
         sb.endLetDefinitions();
         sb.endLetDeclaration();
-        outprintfln("DBG: runtime # of parens: %d", sb.getNumParens());
+        outprintfln(";; DBG: runtime # of parens: %d", sb.getNumParens());
         return sb;
     }
 
@@ -411,7 +429,7 @@ public class DefinitionToFunc {
         sb.beginMatchExpression(newsb("c"));
 
         sb.beginMatchEquation();
-         // BUG SPOT? Can patterns have arbitrary parens in them?
+        // BUG SPOT? Can patterns have arbitrary parens in them?
         sb.addMatchEquationPattern(newsb()
                                    .addApplication("KApply",
                                                    newsb("(lbl, kl)")));
@@ -574,7 +592,6 @@ public class DefinitionToFunc {
         Set<String> indices = ppk.indexedRules.get(r);
         SetMultimap<KVariable, String> vars = HashMultimap.create();
         FuncVisitor visitor = oldConvert(ppk, false, vars, false);
-        outprintfln("DBG: vars: %s", vars);
 
         sb.beginMatchEquation();
         sb.beginMatchEquationPattern();
@@ -785,8 +802,7 @@ public class DefinitionToFunc {
                                                         functionName,
                                                         ruleNum));
 
-//        new AbstractKORETransformer<SBPair>() {
-        new VisitKORE() {
+        new AbstractKORETransformer<Void>() {
             private SyntaxBuilder sb1;
             private SyntaxBuilder sb2;
             private String functionStr;
@@ -796,6 +812,8 @@ public class DefinitionToFunc {
             public Void apply(KApply k) {
                 List<K> kitems = k.klist().items();
                 String klabel = k.klabel().name();
+
+                boolean choiceOrMatch = true;
 
                 switch(klabel) {
                 case "#match":
@@ -816,40 +834,123 @@ public class DefinitionToFunc {
                     sb2 = mapChoiceSB2;
                     arity = 2;
                     break;
-                default: return super.apply(k);
+                default:
+                    choiceOrMatch = false;
+                    break;
                 }
 
-                outprintfln("DBG: apply executed.");
+                xml.beginXML("apply", choiceOrMatch ? xmlAttr("type", functionStr)
+                                                    : emptyXMLAttrs());
 
-                checkApplyArity(k, arity, functionStr);
+                if(choiceOrMatch) {
+                    // prettyStackTrace();
 
-                K kLabel1 = kitems.get(0);
-                K kLabel2 = kitems.get(1);
+                    checkApplyArity(k, arity, functionStr);
 
-                SyntaxBuilder luMatchValue  = oldConvert(ppk, true, vars, false).apply(kLabel2);
-                SyntaxBuilder luLevelUp     = sb1;
-                SyntaxBuilder luPattern     = oldConvert(ppk, false, vars, false).apply(kLabel1);
-                SyntaxBuilder luWildcardEqn = sb3;
-                SyntaxBuilder luLevelDown   = sb2;
+                    K kLabel1 = kitems.get(0);
+                    K kLabel2 = kitems.get(1);
 
-                res.endMatchEquationPattern();
-                res.beginMatchEquationValue();
-                res.beginMatchExpression(luMatchValue);
-                res.append(luLevelUp);
-                res.beginMatchEquation();
-                res.beginMatchEquationPattern();
-                res.append(luPattern);
+                    xml.beginXML("effect", xmlAttr("name", "vars"));
+                    xml.addXML("beg", vars.toString());
 
-                suffStack.add(luWildcardEqn);
-                suffStack.add(luLevelDown);
-                return super.apply(k);
+                    SyntaxBuilder luMatchValue
+                        = oldConvert(ppk, true,  vars, false).apply(kLabel2);
+                    SyntaxBuilder luLevelUp     = sb1;
+                    SyntaxBuilder luPattern
+                        = oldConvert(ppk, false, vars, false).apply(kLabel1);
+                    SyntaxBuilder luWildcardEqn = sb3;
+                    SyntaxBuilder luLevelDown   = sb2;
+
+                    xml.addXML("end", vars.toString());
+                    xml.endXML("effect");
+
+                    xml.addXML("effect", xmlAttr("name", "res"));
+                    res.endMatchEquationPattern();
+                    res.beginMatchEquationValue();
+                    res.beginMatchExpression(luMatchValue);
+                    res.append(luLevelUp);
+                    res.beginMatchEquation();
+                    res.beginMatchEquationPattern();
+                    res.append(luPattern);
+
+                    xml.addXML("effect", xmlAttr("name", "suffStack"));
+                    suffStack.add(luWildcardEqn);
+                    suffStack.add(luLevelDown);
+                }
+
+                k.klist().items().stream().forEach(this::apply);
+                xml.endXML("apply");
+
+                return null;
             }
+
+            @Override
+            public Void apply(KRewrite k) {
+                throw kemCriticalErrorF("Unexpected rewrite in requires clause:\n%s\n" +
+                                        " in rule #%d, accounting for function \"%s\"",
+                                        k, ruleNum, functionName);
+            }
+
+            @Override
+            public Void apply(KSequence k) {
+                xml.beginXML("seq");
+                k.items().stream().forEach(this::apply);
+                xml.endXML("seq");
+                return null;
+            }
+
+            @Override
+            public Void apply(KToken k) {
+                xml.addXML("ktoken", xmlAttr("val", k));
+                return null;
+            }
+
+            @Override
+            public Void apply(KVariable k) {
+                xml.addXML("kvar", xmlAttr("val", k));
+                return null;
+            }
+
+
+            @Override
+            public Void apply(InjectedKLabel k) {
+                xml.addXML("inject", xmlAttr("val", k));
+                return null;
+            }
+
         }.apply(requires);
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
 
         return newSBPair(res, suffSB);
+    }
+
+    private static void prettyStackTrace() {
+        Pattern funcPat = Pattern.compile("^org[.]kframework.*$");
+        outprintfln(";; DBG: ----------------------------");
+        outprintfln(";; DBG: apply executed:");
+        StackTraceElement[] traceArray = Thread.currentThread().getStackTrace();
+        List<StackTraceElement> trace = newArrayListWithCapacity(traceArray.length);
+
+        for(StackTraceElement ste : traceArray) { trace.add(ste); }
+
+        trace = trace
+            .stream()
+            .filter(x -> funcPat.matcher(x.toString()).matches())
+            .collect(toList());
+
+        int skip = 1;
+        for(StackTraceElement ste : trace) {
+            if(skip > 0) {
+                skip--;
+            } else {
+                outprintfln(";; DBG: trace: %20s %6s %30s",
+                            ste.getMethodName(),
+                            "(" + Integer.toString(ste.getLineNumber()) + ")",
+                            "(" + ste.getFileName() + ")");
+            }
+        }
     }
 
     private static SBPair newSBPair(SyntaxBuilder a, SyntaxBuilder b) {

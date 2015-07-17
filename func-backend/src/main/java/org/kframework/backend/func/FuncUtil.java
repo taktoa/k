@@ -22,13 +22,18 @@ import java.util.LinkedList;
 import java.util.HashSet;
 import java.util.HashMap;
 
+import org.apache.commons.lang3.StringEscapeUtils;
+import org.apache.commons.io.FileUtils;
+
 import org.kframework.kore.K;
 import org.kframework.definition.Sentence;
 import org.kframework.parser.ProductionReference;
 import org.kframework.attributes.Source;
 import org.kframework.attributes.Location;
 
+import org.kframework.utils.file.FileUtil;
 import org.kframework.utils.errorsystem.KEMException;
+
 import static org.kframework.utils.errorsystem.KEMException.*;
 
 /**
@@ -40,6 +45,98 @@ import static org.kframework.utils.errorsystem.KEMException.*;
 public final class FuncUtil {
     private FuncUtil() {}
 
+
+    // ------------------------------------------------------------------------
+    // ------------------------------- XML debug ------------------------------
+    // ------------------------------------------------------------------------
+
+
+    public static XMLBuilder.XMLAttr[] emptyXMLAttrs() {
+        return new XMLBuilder.XMLAttr[] {};
+    }
+
+    public static XMLBuilder.XMLAttr xmlAttr(Object name, Object value) {
+        return new XMLBuilder.XMLAttr(escapeXML(name.toString()),
+                                      escapeXML(value.toString()));
+    }
+
+    public static XMLBuilder.XMLAttr[] xmlAttrs(Object... objs) {
+        if(objs.length % 2 != 0) {
+            throw new AssertionError("xmlAttrs needs an even number of args");
+        }
+
+        XMLBuilder.XMLAttr[] res = new XMLBuilder.XMLAttr[objs.length / 2];
+        for(int i = 0; i + 1 < objs.length; i += 2) {
+            res[i / 2] = xmlAttr(objs[i], objs[i + 1]);
+        }
+
+        return res;
+    }
+
+    public static String escapeXML(String str) {
+        return StringEscapeUtils.escapeXml(str);
+    }
+
+    public static String xmlToSExpr(FileUtil files, String xml) {
+        String inName  = "input.xml";
+        String outName = "output.lisp";
+
+        File input  = files.resolveTemp(inName);
+        File output = files.resolveTemp(outName);
+
+        String modules =
+            "(use-modules (sxml simple))" +
+            "(use-modules (ice-9 pretty-print))";
+
+        String interior =
+            String.format("(xml->sxml (open-file \"%s\" \"r\"))",
+                          input.getAbsolutePath());
+
+        String lisp =
+            String.format("%s (pretty-print %s)", modules, interior);
+
+        String[] cmd = new String[] { "guile", "-c", lisp };
+
+
+        String result = "";
+
+        synchronized(files) {
+            try {
+                files.saveToTemp(inName, xml);
+
+                Process p =
+                    files
+                    .getProcessBuilder()
+                    .directory(files.resolveTemp("."))
+                    .redirectError(ProcessBuilder.Redirect.INHERIT)
+                    .redirectOutput(output)
+                    .command(cmd)
+                    .start();
+
+                int exit = p.waitFor();
+
+                result = files.load(output);
+
+                FileUtils.forceDelete(input);
+                FileUtils.forceDelete(output);
+
+                if(exit != 0) {
+                    String fmt = "Guile returned exit code: %d";
+                    throw new Exception(String.format(fmt, exit));
+                }
+            } catch(Exception e) {
+                throw xmlToSExprException(e);
+            }
+        }
+
+        return result;
+    }
+
+    private static KEMException xmlToSExprException(Exception e) {
+        return kemCriticalErrorF("%s\n%s\n%s",
+                                 "Error converting xml to s-expression.",
+                                 "Do you have guile installed?", e);
+    }
 
     // ------------------------------------------------------------------------
     // --------------------------- Numeric functions --------------------------

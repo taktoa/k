@@ -791,223 +791,156 @@ public class SyntaxBuilder implements Cloneable {
             }
             return out.toString();
         }
+    }
 
-// SyntaxEnum.BEGIN_PARENTHESIS
-// SyntaxEnum.END_PARENTHESIS
-// SyntaxEnum.BEGIN_COMMENT
-// SyntaxEnum.END_COMMENT
-// SyntaxEnum.BEGIN_NAME
-// SyntaxEnum.END_NAME
-// SyntaxEnum.BEGIN_INTRODUCE
-// SyntaxEnum.END_INTRODUCE
-// SyntaxEnum.BEGIN_INTEGER
-// SyntaxEnum.END_INTEGER
-// SyntaxEnum.BEGIN_FLOAT
-// SyntaxEnum.END_FLOAT
-// SyntaxEnum.BEGIN_BOOLEAN
-// SyntaxEnum.END_BOOLEAN
-// SyntaxEnum.BEGIN_STRING
-// SyntaxEnum.END_STRING
-// SyntaxEnum.BEGIN_TYPE
-// SyntaxEnum.END_TYPE
-// SyntaxEnum.BEGIN_CONDITIONAL
-// SyntaxEnum.END_CONDITIONAL
-// SyntaxEnum.CONDITIONAL_IF
-// SyntaxEnum.CONDITIONAL_THEN
-// SyntaxEnum.CONDITIONAL_ELSE
-// SyntaxEnum.BEGIN_MATCH_EXPRESSION
-// SyntaxEnum.END_MATCH_EXPRESSION
-// SyntaxEnum.BEGIN_MATCH_INPUT
-// SyntaxEnum.END_MATCH_INPUT
-// SyntaxEnum.BEGIN_MATCH_EQUATIONS
-// SyntaxEnum.END_MATCH_EQUATIONS
-// SyntaxEnum.BEGIN_MATCH_EQUATION
-// SyntaxEnum.END_MATCH_EQUATION
-// SyntaxEnum.BEGIN_MATCH_EQUATION_VAL
-// SyntaxEnum.END_MATCH_EQUATION_VAL
-// SyntaxEnum.BEGIN_MATCH_EQUATION_PAT
-// SyntaxEnum.END_MATCH_EQUATION_PAT
-// SyntaxEnum.BEGIN_LET_EXPRESSION
-// SyntaxEnum.END_LET_EXPRESSION
-// SyntaxEnum.BEGIN_LET_DECLARATION
-// SyntaxEnum.END_LET_DECLARATION
-// SyntaxEnum.BEGIN_LET_DEFINITIONS
-// SyntaxEnum.END_LET_DEFINITIONS
-// SyntaxEnum.BEGIN_LET_EQUATION
-// SyntaxEnum.END_LET_EQUATION
-// SyntaxEnum.BEGIN_LET_EQUATION_NAME
-// SyntaxEnum.END_LET_EQUATION_NAME
-// SyntaxEnum.BEGIN_LET_EQUATION_VAL
-// SyntaxEnum.END_LET_EQUATION_VAL
-// SyntaxEnum.BEGIN_LET_SCOPE
-// SyntaxEnum.END_LET_SCOPE
-// SyntaxEnum.BEGIN_LETREC_EXPRESSION
-// SyntaxEnum.END_LETREC_EXPRESSION
-// SyntaxEnum.BEGIN_LETREC_DECLARATION
-// SyntaxEnum.END_LETREC_DECLARATION
-// SyntaxEnum.BEGIN_LETREC_DEFINITIONS
-// SyntaxEnum.END_LETREC_DEFINITIONS
-// SyntaxEnum.BEGIN_LETREC_EQUATION
-// SyntaxEnum.END_LETREC_EQUATION
-// SyntaxEnum.BEGIN_LETREC_EQUATION_NAME
-// SyntaxEnum.END_LETREC_EQUATION_NAME
-// SyntaxEnum.BEGIN_LETREC_EQUATION_VAL
-// SyntaxEnum.END_LETREC_EQUATION_VAL
-// SyntaxEnum.BEGIN_LETREC_SCOPE
-// SyntaxEnum.END_LETREC_SCOPE
-// SyntaxEnum.BEGIN_LAMBDA
-// SyntaxEnum.END_LAMBDA
-// SyntaxEnum.BEGIN_LAMBDA_VAR
-// SyntaxEnum.END_LAMBDA_VAR
-// SyntaxEnum.BEGIN_LAMBDA_VARS
-// SyntaxEnum.END_LAMBDA_VARS
-// SyntaxEnum.BEGIN_LAMBDA_BODY
-// SyntaxEnum.END_LAMBDA_BODY
-// SyntaxEnum.BEGIN_APPLICATION
-// SyntaxEnum.END_APPLICATION
-// SyntaxEnum.BEGIN_FUNCTION
-// SyntaxEnum.END_FUNCTION
-// SyntaxEnum.BEGIN_ARGUMENT
-// SyntaxEnum.END_ARGUMENT
-// SyntaxEnum.BEGIN_TYPE_DEFINITION
-// SyntaxEnum.END_TYPE_DEFINITION
-// SyntaxEnum.BEGIN_TYPE_DEFINITION_VAR
-// SyntaxEnum.END_TYPE_DEFINITION_VAR
-// SyntaxEnum.BEGIN_TYPE_DEFINITION_VARS
-// SyntaxEnum.END_TYPE_DEFINITION_VARS
-// SyntaxEnum.BEGIN_TYPE_DEFINITION_NAME
-// SyntaxEnum.END_TYPE_DEFINITION_NAME
-// SyntaxEnum.BEGIN_TYPE_DEFINITION_CONS
-// SyntaxEnum.END_TYPE_DEFINITION_CONS
-// SyntaxEnum.BEGIN_CONSTRUCTOR
-// SyntaxEnum.END_CONSTRUCTOR
-// SyntaxEnum.BEGIN_CONSTRUCTOR_NAME
-// SyntaxEnum.END_CONSTRUCTOR_NAME
-// SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENT
-// SyntaxEnum.END_CONSTRUCTOR_ARGUMENT
-// SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENTS
-// SyntaxEnum.END_CONSTRUCTOR_ARGUMENTS
+    private enum XMLTagType {
+        START, STOP, SING;
     }
 
 
     private enum SyntaxEnum implements Syntax {
-        SPACE                       ("<space />",                " "),
-        NEWLINE                     ("<newline />",              "\n"),
+        SPACE                       (xSing(),  "space",                 " "),
+        NEWLINE                     (xSing(),  "newline",               "\n"),
 
-        BEGIN_PARENTHESIS           ("<paren>",                  "("),
-        END_PARENTHESIS             ("</paren>",                 ")"),
+        BEGIN_PARENTHESIS           (xStart(), "paren",                 "("),
+        END_PARENTHESIS             (xStop(),  "paren",                 ")"),
 
-        BEGIN_COMMENT               ("<comment>",                "(*"),
-        END_COMMENT                 ("</comment>",               "*)"),
+        BEGIN_COMMENT               (xStart(), "comment",               "(*"),
+        END_COMMENT                 (xStop(),  "comment",               "*)"),
 
-        BEGIN_NAME                  ("<name>",                   ""),
-        END_NAME                    ("</name>",                  ""),
+        BEGIN_NAME                  (xStart(), "name",                  ""),
+        END_NAME                    (xStop(),  "name",                  ""),
 
-        BEGIN_INTRODUCE             ("<introduce>",              " (* introduce "),
-        END_INTRODUCE               ("</introduce>",             "*) "),
+        BEGIN_INTRODUCE             (xStart(), "introduce",             " (* introduce "),
+        END_INTRODUCE               (xStop(),  "introduce",             " *) "),
 
-        BEGIN_INTEGER               ("<integer>",                ""),
-        END_INTEGER                 ("</integer>",               ""),
-        BEGIN_FLOAT                 ("<float>",                  ""),
-        END_FLOAT                   ("</float>",                 ""),
-        BEGIN_BOOLEAN               ("<boolean>",                ""),
-        END_BOOLEAN                 ("</boolean>",               ""),
-        BEGIN_STRING                ("<string>",                 ""),
-        END_STRING                  ("</string>",                ""),
-        BEGIN_TYPE                  ("<type>",                   ""),
-        END_TYPE                    ("</type>",                  ""),
+        BEGIN_INTEGER               (xStart(), "integer",               ""),
+        END_INTEGER                 (xStop(),  "integer",               ""),
+        BEGIN_FLOAT                 (xStart(), "float",                 ""),
+        END_FLOAT                   (xStop(),  "float",                 ""),
+        BEGIN_BOOLEAN               (xStart(), "boolean",               ""),
+        END_BOOLEAN                 (xStop(),  "boolean",               ""),
+        BEGIN_STRING                (xStart(), "string",                ""),
+        END_STRING                  (xStop(),  "string",                ""),
+        BEGIN_TYPE                  (xStart(), "type",                  ""),
+        END_TYPE                    (xStop(),  "type",                  ""),
 
-        BEGIN_CONDITIONAL           ("<conditional>",            "("),
-        END_CONDITIONAL             ("</conditional>",           ")"),
-        CONDITIONAL_IF              ("<conditional-if />",       "if "),
-        CONDITIONAL_THEN            ("<conditional-then />",     " then "),
-        CONDITIONAL_ELSE            ("<conditional-else />",     " else "),
+        BEGIN_CONDITIONAL           (xStart(), "conditional",           "("),
+        END_CONDITIONAL             (xStop(),  "conditional",           ")"),
+        CONDITIONAL_IF              (xSing(),  "conditional-if",        "if "),
+        CONDITIONAL_THEN            (xSing(),  "conditional-then",      " then "),
+        CONDITIONAL_ELSE            (xSing(),  "conditional-else",      " else "),
 
-        BEGIN_MATCH_EXPRESSION      ("<match-expression>",       "("),
-        END_MATCH_EXPRESSION        ("</match-expression>",      ")"),
-        BEGIN_MATCH_INPUT           ("<match-input>",            "match "),
-        END_MATCH_INPUT             ("</match-input>",           " with "),
-        BEGIN_MATCH_EQUATIONS       ("<match-equations>",        ""),
-        END_MATCH_EQUATIONS         ("</match-equations>",       ""),
-        BEGIN_MATCH_EQUATION        ("<match-equation>",         "\n| "),
-        END_MATCH_EQUATION          ("</match-equation>",        ""),
-        BEGIN_MATCH_EQUATION_VAL    ("<match-equation-val>",     "("),
-        END_MATCH_EQUATION_VAL      ("</match-equation-val>",    ")"),
-        BEGIN_MATCH_EQUATION_PAT    ("<match-equation-pat>",     ""),
-        END_MATCH_EQUATION_PAT      ("</match-equation-pat>",    " -> "),
+        BEGIN_MATCH_EXPRESSION      (xStart(), "match-expression",      "("),
+        END_MATCH_EXPRESSION        (xStop(),  "match-expression",      ")"),
+        BEGIN_MATCH_INPUT           (xStart(), "match-input",           "match "),
+        END_MATCH_INPUT             (xStop(),  "match-input",           " with "),
+        BEGIN_MATCH_EQUATIONS       (xStart(), "match-equations",       ""),
+        END_MATCH_EQUATIONS         (xStop(),  "match-equations",       ""),
+        BEGIN_MATCH_EQUATION        (xStart(), "match-equation",        "\n| "),
+        END_MATCH_EQUATION          (xStop(),  "match-equation",        ""),
+        BEGIN_MATCH_EQUATION_VAL    (xStart(), "match-equation-val",    "("),
+        END_MATCH_EQUATION_VAL      (xStop(),  "match-equation-val",    ")"),
+        BEGIN_MATCH_EQUATION_PAT    (xStart(), "match-equation-pat",    ""),
+        END_MATCH_EQUATION_PAT      (xStop(),  "match-equation-pat",    " -> "),
 
-        BEGIN_LET_EXPRESSION        ("<let-expression>",         "(let "),
-        END_LET_EXPRESSION          ("</let-expression>",        ")"),
-        BEGIN_LET_DECLARATION       ("<let-declaration>",        "let "),
-        END_LET_DECLARATION         ("</let-declaration>",       "\n"),
-        BEGIN_LET_DEFINITIONS       ("<let-definitions>",        ""),
-        END_LET_DEFINITIONS         ("</let-definitions>",       "_ = 1"),
-        BEGIN_LET_EQUATION          ("<let-equation>",           ""),
-        END_LET_EQUATION            ("</let-equation>",          " and "),
-        BEGIN_LET_EQUATION_NAME     ("<let-equation-name>",      ""),
-        END_LET_EQUATION_NAME       ("</let-equation-name>",     " = "),
-        BEGIN_LET_EQUATION_VAL      ("<let-equation-val>",       "("),
-        END_LET_EQUATION_VAL        ("</let-equation-val>",      ")"),
-        BEGIN_LET_SCOPE             ("<let-scope>",              " in ("),
-        END_LET_SCOPE               ("</let-scope>",             ")"),
+        BEGIN_LET_EXPRESSION        (xStart(), "let-expression",        "(let "),
+        END_LET_EXPRESSION          (xStop(),  "let-expression",        ")"),
+        BEGIN_LET_DECLARATION       (xStart(), "let-declaration",       "let "),
+        END_LET_DECLARATION         (xStop(),  "let-declaration",       "\n"),
+        BEGIN_LET_DEFINITIONS       (xStart(), "let-definitions",       ""),
+        END_LET_DEFINITIONS         (xStop(),  "let-definitions",       "_ = 1"),
+        BEGIN_LET_EQUATION          (xStart(), "let-equation",          ""),
+        END_LET_EQUATION            (xStop(),  "let-equation",          " and "),
+        BEGIN_LET_EQUATION_NAME     (xStart(), "let-equation-name",     ""),
+        END_LET_EQUATION_NAME       (xStop(),  "let-equation-name",     " = "),
+        BEGIN_LET_EQUATION_VAL      (xStart(), "let-equation-val",      "("),
+        END_LET_EQUATION_VAL        (xStop(),  "let-equation-val",      ")"),
+        BEGIN_LET_SCOPE             (xStart(), "let-scope",             " in ("),
+        END_LET_SCOPE               (xStop(),  "let-scope",             ")"),
 
-        BEGIN_LETREC_EXPRESSION     ("<letrec-expression>",      "(let rec "),
-        END_LETREC_EXPRESSION       ("</letrec-expression>",     ")"),
-        BEGIN_LETREC_DECLARATION    ("<letrec-declaration>",     "let rec "),
-        END_LETREC_DECLARATION      ("</letrec-declaration>",    "\n"),
-        BEGIN_LETREC_DEFINITIONS    ("<letrec-definitions>",     ""),
-        END_LETREC_DEFINITIONS      ("</letrec-definitions>",    "throwaway = 1"),
-        BEGIN_LETREC_EQUATION       ("<letrec-equation>",        ""),
-        END_LETREC_EQUATION         ("</letrec-equation>",       " and "),
-        BEGIN_LETREC_EQUATION_NAME  ("<letrec-equation-name>",   ""),
-        END_LETREC_EQUATION_NAME    ("</letrec-equation-name>",  " = "),
-        BEGIN_LETREC_EQUATION_VAL   ("<letrec-equation-val>",    "("),
-        END_LETREC_EQUATION_VAL     ("</letrec-equation-val>",   ")"),
-        BEGIN_LETREC_SCOPE          ("<letrec-scope>",           " in ("),
-        END_LETREC_SCOPE            ("</letrec-scope>",          ")"),
+        BEGIN_LETREC_EXPRESSION     (xStart(), "letrec-expression",     "(let rec "),
+        END_LETREC_EXPRESSION       (xStop(),  "letrec-expression",     ")"),
+        BEGIN_LETREC_DECLARATION    (xStart(), "letrec-declaration",    "let rec "),
+        END_LETREC_DECLARATION      (xStop(),  "letrec-declaration",    "\n"),
+        BEGIN_LETREC_DEFINITIONS    (xStart(), "letrec-definitions",    ""),
+        END_LETREC_DEFINITIONS      (xStop(),  "letrec-definitions",    "throwaway = 1"),
+        BEGIN_LETREC_EQUATION       (xStart(), "letrec-equation",       ""),
+        END_LETREC_EQUATION         (xStop(),  "letrec-equation",       " and "),
+        BEGIN_LETREC_EQUATION_NAME  (xStart(), "letrec-equation-name",  ""),
+        END_LETREC_EQUATION_NAME    (xStop(),  "letrec-equation-name",  " = "),
+        BEGIN_LETREC_EQUATION_VAL   (xStart(), "letrec-equation-val",   "("),
+        END_LETREC_EQUATION_VAL     (xStop(),  "letrec-equation-val",   ")"),
+        BEGIN_LETREC_SCOPE          (xStart(), "letrec-scope",          " in ("),
+        END_LETREC_SCOPE            (xStop(),  "letrec-scope",          ")"),
 
-        BEGIN_LAMBDA                ("<lambda>",                 "(fun"),
-        END_LAMBDA                  ("</lambda>",                ")"),
-        BEGIN_LAMBDA_VAR            ("<lambda-var>",             " "),
-        END_LAMBDA_VAR              ("</lambda-var>",            ""),
-        BEGIN_LAMBDA_VARS           ("<lambda-vars>",            ""),
-        END_LAMBDA_VARS             ("</lambda-vars>",           " -> "),
-        BEGIN_LAMBDA_BODY           ("<lambda-body>",            "("),
-        END_LAMBDA_BODY             ("</lambda-body>",           ")"),
+        BEGIN_LAMBDA                (xStart(), "lambda",                "(fun"),
+        END_LAMBDA                  (xStop(),  "lambda",                ")"),
+        BEGIN_LAMBDA_VAR            (xStart(), "lambda-var",            " "),
+        END_LAMBDA_VAR              (xStop(),  "lambda-var",            ""),
+        BEGIN_LAMBDA_VARS           (xStart(), "lambda-vars",           ""),
+        END_LAMBDA_VARS             (xStop(),  "lambda-vars",           " -> "),
+        BEGIN_LAMBDA_BODY           (xStart(), "lambda-body",           "("),
+        END_LAMBDA_BODY             (xStop(),  "lambda-body",           ")"),
 
-        BEGIN_APPLICATION           ("<application>",            "("),
-        END_APPLICATION             ("</application>",           ")"),
-        BEGIN_FUNCTION              ("<function>",               ""),
-        END_FUNCTION                ("</function>",              ""),
-        BEGIN_ARGUMENT              ("<argument>",               " ("),
-        END_ARGUMENT                ("</argument>",              ")"),
+        BEGIN_APPLICATION           (xStart(), "application",           "("),
+        END_APPLICATION             (xStop(),  "application",           ")"),
+        BEGIN_FUNCTION              (xStart(), "function",              ""),
+        END_FUNCTION                (xStop(),  "function",              ""),
+        BEGIN_ARGUMENT              (xStart(), "argument",              " ("),
+        END_ARGUMENT                (xStop(),  "argument",              ")"),
 
-        BEGIN_TYPE_DEFINITION       ("<type-definition>",        "type"),
-        END_TYPE_DEFINITION         ("</type-definition>",       ""),
-        BEGIN_TYPE_DEFINITION_VAR   ("<type-definition-var>",    " "),
-        END_TYPE_DEFINITION_VAR     ("</type-definition-var>",   ""),
-        BEGIN_TYPE_DEFINITION_VARS  ("<type-definition-vars>",   ""),
-        END_TYPE_DEFINITION_VARS    ("</type-definition-vars>",  " "),
-        BEGIN_TYPE_DEFINITION_NAME  ("<type-definition-name>",   ""),
-        END_TYPE_DEFINITION_NAME    ("</type-definition-name>",  " = \n"),
-        BEGIN_TYPE_DEFINITION_CONS  ("<type-definition-cons>",   ""),
-        END_TYPE_DEFINITION_CONS    ("</type-definition-cons>",  ""),
+        BEGIN_TYPE_DEFINITION       (xStart(), "type-definition",       "type"),
+        END_TYPE_DEFINITION         (xStop(),  "type-definition",       ""),
+        BEGIN_TYPE_DEFINITION_VAR   (xStart(), "type-definition-var",   " "),
+        END_TYPE_DEFINITION_VAR     (xStop(),  "type-definition-var",   ""),
+        BEGIN_TYPE_DEFINITION_VARS  (xStart(), "type-definition-vars",  ""),
+        END_TYPE_DEFINITION_VARS    (xStop(),  "type-definition-vars",  " "),
+        BEGIN_TYPE_DEFINITION_NAME  (xStart(), "type-definition-name",  ""),
+        END_TYPE_DEFINITION_NAME    (xStop(),  "type-definition-name",  " = \n"),
+        BEGIN_TYPE_DEFINITION_CONS  (xStart(), "type-definition-cons",  ""),
+        END_TYPE_DEFINITION_CONS    (xStop(),  "type-definition-cons",  ""),
 
-        BEGIN_CONSTRUCTOR           ("<constructor>",            "| "),
-        END_CONSTRUCTOR             ("</constructor>",           "\n"),
-        BEGIN_CONSTRUCTOR_NAME      ("<constructor-name>",       ""),
-        END_CONSTRUCTOR_NAME        ("</constructor-name>",      ""),
-        BEGIN_CONSTRUCTOR_ARGUMENT  ("<constructor-argument>",   ""),
-        END_CONSTRUCTOR_ARGUMENT    ("</constructor-argument>",  ""),
-        BEGIN_CONSTRUCTOR_ARGUMENTS ("<constructor-arguments>",  " of ("),
-        END_CONSTRUCTOR_ARGUMENTS   ("</constructor-arguments>", ")");
+        BEGIN_CONSTRUCTOR           (xStart(), "constructor",           "| "),
+        END_CONSTRUCTOR             (xStop(),  "constructor",           "\n"),
+        BEGIN_CONSTRUCTOR_NAME      (xStart(), "constructor-name",      ""),
+        END_CONSTRUCTOR_NAME        (xStop(),  "constructor-name",      ""),
+        BEGIN_CONSTRUCTOR_ARGUMENT  (xStart(), "constructor-argument",  ""),
+        END_CONSTRUCTOR_ARGUMENT    (xStop(),  "constructor-argument",  ""),
+        BEGIN_CONSTRUCTOR_ARGUMENTS (xStart(), "constructor-arguments", " of ("),
+        END_CONSTRUCTOR_ARGUMENTS   (xStop(),  "constructor-arguments", ")");
 
+        private final XMLTagType type;
         private final String name;
         private String str;
 
-        private SyntaxEnum(String name, String str) {
+        private SyntaxEnum(XMLTagType type, String name, String str) {
+            this.type = type;
             this.name = name;
             this.str  = str;
+        }
+
+        // Just for abbreviating the enum definitions
+        private static XMLTagType xStart() { return XMLTagType.START; }
+        private static XMLTagType xStop()  { return XMLTagType.STOP; }
+        private static XMLTagType xSing()  { return XMLTagType.SING; }
+
+        public XMLBuilder appendXML(XMLBuilder xml) {
+            switch(type) {
+            case START:
+                xml.beginXMLTag(name);
+                break;
+            case STOP:
+                xml.endXMLTag(name);
+                break;
+            case SING:
+                xml.addXML(name);
+                break;
+            default:
+                assert false;
+                break;
+            }
+            return xml;
         }
 
         @Override
@@ -1018,7 +951,7 @@ public class SyntaxBuilder implements Cloneable {
 
         @Override
         public String toString() {
-            return name;
+            return appendXML(new XMLBuilder()).toString();
         }
     }
 
