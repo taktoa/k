@@ -563,15 +563,6 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_LETREC_EQUATION_VAL);
     }
 
-    public SyntaxBuilder addLetrecEquationSeparator() {
-        // addNewline();
-        // addSpace();
-        // addKeyword("and");
-        // addSpace();
-        // return this;
-        return this; // likely bug spot
-    }
-
     public SyntaxBuilder beginLetrecDefinitions() {
         return append(SyntaxEnum.BEGIN_LETREC_DEFINITIONS);
     }
@@ -825,6 +816,9 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_TYPE                  (xStart(), "type",                  ""),
         END_TYPE                    (xStop(),  "type",                  ""),
 
+        BEGIN_REFERENCE_VARIABLE    (xStart(), "ref",                   ""),
+        END_REFERENCE_VARIABLE      (xStop(),  "ref",                   ""),
+
         BEGIN_CONDITIONAL           (xStart(), "conditional",           "("),
         END_CONDITIONAL             (xStop(),  "conditional",           ")"),
         CONDITIONAL_IF              (xSing(),  "conditional-if",        "if "),
@@ -928,10 +922,10 @@ public class SyntaxBuilder implements Cloneable {
         public XMLBuilder appendXML(XMLBuilder xml) {
             switch(type) {
             case START:
-                xml.beginXMLTag(name);
+                xml.beginXML(name);
                 break;
             case STOP:
-                xml.endXMLTag(name);
+                xml.endXML(name);
                 break;
             case SING:
                 xml.addXML(name);

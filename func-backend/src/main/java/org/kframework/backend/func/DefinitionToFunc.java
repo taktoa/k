@@ -118,7 +118,12 @@ public class DefinitionToFunc {
 //                    .renderSExpr(files));
 
         xml.endXML("body");
-        outprintfln("%s", xml.renderSExpr(files));
+
+        try {
+            outprintfln("%s", xml.renderSExpr(files));
+        } catch(KEMException e) {
+            outprintfln("%s", xml.toString().replaceAll("><", ">\n<"));
+        }
 
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
@@ -478,7 +483,6 @@ public class DefinitionToFunc {
         sb.beginLetrecDeclaration();
         sb.beginLetrecDefinitions();
         sb.append(addFreshFunction(ppk));
-        sb.addLetrecEquationSeparator();
         sb.append(addEval(funcAndAny, ppk));
         sb.endLetrecDefinitions();
         sb.endLetrecDeclaration();
@@ -839,9 +843,6 @@ public class DefinitionToFunc {
                     break;
                 }
 
-                xml.beginXML("apply", choiceOrMatch ? xmlAttr("type", functionStr)
-                                                    : emptyXMLAttrs());
-
                 if(choiceOrMatch) {
                     // prettyStackTrace();
 
@@ -849,9 +850,6 @@ public class DefinitionToFunc {
 
                     K kLabel1 = kitems.get(0);
                     K kLabel2 = kitems.get(1);
-
-                    xml.beginXML("effect", xmlAttr("name", "vars"));
-                    xml.addXML("beg", vars.toString());
 
                     SyntaxBuilder luMatchValue
                         = oldConvert(ppk, true,  vars, false).apply(kLabel2);
@@ -861,10 +859,16 @@ public class DefinitionToFunc {
                     SyntaxBuilder luWildcardEqn = sb3;
                     SyntaxBuilder luLevelDown   = sb2;
 
-                    xml.addXML("end", vars.toString());
-                    xml.endXML("effect");
+                    xml.endXML("match-pattern");
+                    xml.beginXML("match-value");
+                    xml.beginXML("match-expression");
+                    // level-up
+                    xml.addXML("level-up");
+                    // level-up
+                    xml.beginXML("match-equation");
+                    xml.beginXML("match-pattern");
+                    outprintf("DBG: pattern: %s", luPattern);
 
-                    xml.addXML("effect", xmlAttr("name", "res"));
                     res.endMatchEquationPattern();
                     res.beginMatchEquationValue();
                     res.beginMatchExpression(luMatchValue);
@@ -873,48 +877,42 @@ public class DefinitionToFunc {
                     res.beginMatchEquationPattern();
                     res.append(luPattern);
 
-                    xml.addXML("effect", xmlAttr("name", "suffStack"));
                     suffStack.add(luWildcardEqn);
                     suffStack.add(luLevelDown);
                 }
 
                 k.klist().items().stream().forEach(this::apply);
-                xml.endXML("apply");
 
                 return null;
             }
 
             @Override
             public Void apply(KRewrite k) {
-                throw kemCriticalErrorF("Unexpected rewrite in requires clause:\n%s\n" +
-                                        " in rule #%d, accounting for function \"%s\"",
-                                        k, ruleNum, functionName);
+                String errFmt =
+                    "Unexpected rewrite in requires clause:\n%s\n" +
+                    " in rule #%d, accounting for function \"%s\"";
+                throw kemCriticalErrorF(errFmt, k, ruleNum, functionName);
             }
 
             @Override
             public Void apply(KSequence k) {
-                xml.beginXML("seq");
                 k.items().stream().forEach(this::apply);
-                xml.endXML("seq");
                 return null;
             }
 
             @Override
             public Void apply(KToken k) {
-                xml.addXML("ktoken", xmlAttr("val", k));
                 return null;
             }
 
             @Override
             public Void apply(KVariable k) {
-                xml.addXML("kvar", xmlAttr("val", k));
                 return null;
             }
 
 
             @Override
             public Void apply(InjectedKLabel k) {
-                xml.addXML("inject", xmlAttr("val", k));
                 return null;
             }
 
@@ -931,7 +929,7 @@ public class DefinitionToFunc {
         outprintfln(";; DBG: ----------------------------");
         outprintfln(";; DBG: apply executed:");
         StackTraceElement[] traceArray = Thread.currentThread().getStackTrace();
-        List<StackTraceElement> trace = newArrayListWithCapacity(traceArray.length);
+        List<StackTraceElement> trace = newArrayList(traceArray.length);
 
         for(StackTraceElement ste : traceArray) { trace.add(ste); }
 
