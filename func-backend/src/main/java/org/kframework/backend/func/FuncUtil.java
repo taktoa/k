@@ -51,6 +51,10 @@ public final class FuncUtil {
     // ------------------------------------------------------------------------
 
 
+    public static XMLBuilder newxml() {
+        return new XMLBuilder();
+    }
+
     public static XMLBuilder.XMLAttr[] emptyXMLAttrs() {
         return new XMLBuilder.XMLAttr[] {};
     }
@@ -79,23 +83,17 @@ public final class FuncUtil {
 
     public static String xmlToSExpr(FileUtil files, String xml) {
         String inName  = "input.xml";
-        String outName = "output.lisp";
+        String outName = "output.scm";
 
+        File scriptDir = files.resolveKBase("include/func");
         File input  = files.resolveTemp(inName);
         File output = files.resolveTemp(outName);
 
-        String modules =
-            "(use-modules (sxml simple))" +
-            "(use-modules (ice-9 pretty-print))";
-
-        String interior =
-            String.format("(xml->sxml (open-file \"%s\" \"r\"))",
-                          input.getAbsolutePath());
-
-        String lisp =
-            String.format("%s (pretty-print %s)", modules, interior);
-
-        String[] cmd = new String[] { "guile", "-c", lisp };
+        String[] cmd = new String[] { "guile",
+                                      "--fresh-auto-compile",
+                                      "-s",
+                                      "normalize.scm",
+                                      input.getAbsolutePath() };
 
 
         String result = "";
@@ -107,7 +105,7 @@ public final class FuncUtil {
                 Process p =
                     files
                     .getProcessBuilder()
-                    .directory(files.resolveTemp("."))
+                    .directory(scriptDir)
                     .redirectError(ProcessBuilder.Redirect.INHERIT)
                     .redirectOutput(output)
                     .command(cmd)
@@ -121,6 +119,7 @@ public final class FuncUtil {
                 FileUtils.forceDelete(output);
 
                 if(exit != 0) {
+                    outprintf("%s", result);
                     String fmt = "Guile returned exit code: %d";
                     throw new Exception(String.format(fmt, exit));
                 }
@@ -135,7 +134,7 @@ public final class FuncUtil {
     private static KEMException xmlToSExprException(Exception e) {
         return kemCriticalErrorF("%s\n%s\n%s",
                                  "Error converting xml to s-expression.",
-                                 "Do you have guile installed?", e);
+                                 "Do you have GNU Guile installed?", e);
     }
 
     // ------------------------------------------------------------------------

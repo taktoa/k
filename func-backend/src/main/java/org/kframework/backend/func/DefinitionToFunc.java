@@ -105,37 +105,45 @@ public class DefinitionToFunc {
         preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
         SyntaxBuilder sb = langDefToFunc(preproc);
 
+        outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("");
 
-//        String outXML = sb.pretty().stream().collect(joining());
-//        outprintfln("%s",
-//                    new XMLBuilder()
-//                    .beginXML("body")
-//                    .append(outXML)
-//                    .endXML("body")
-//                    .renderSExpr(files));
+        outprintfln(";; %s", sb.trackPrint().replaceAll("\n", "\n;; "));
 
-        xml.endXML("body");
+        XMLBuilder outXML =
+            new XMLBuilder()
+            .beginXML("body")
+            .append(sb.pretty().stream().collect(joining()))
+            .endXML("body");
 
         try {
-            outprintfln("%s", xml.renderSExpr(files));
+            outprintfln("%s", outXML.renderSExpr(files));
         } catch(KEMException e) {
-            outprintfln("%s", xml.toString().replaceAll("><", ">\n<"));
+//            outprintfln(";; %s", outXML.toString());
+//            outprintfln("");
+//            outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//            outprintfln("");
+            outprintfln(";; %s", outXML.toString()
+                                       .replaceAll("><", ">\n<")
+                                       .replaceAll("\n", "\n;; "));
         }
 
+        outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-
-        outprintfln("%s", sb.trackPrint());
-        outprintfln(";; Number of parens: %d", sb.getNumParens());
-        outprintfln(";; Number of lines:  %d", sb.getNumLines());
-
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln("");
+//
+//        outprintfln("%s", sb.trackPrint());
+//        outprintfln(";; Number of parens: %d", sb.getNumParens());
+//        outprintfln(";; Number of lines:  %d", sb.getNumLines());
+//
+//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         return sb.toString();
     }
@@ -364,6 +372,7 @@ public class DefinitionToFunc {
 
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
+                                 .beginRender()
                                  .addValue(functionName)
                                  .addSpace()
                                  .addValue("(c: k list)")
@@ -372,7 +381,8 @@ public class DefinitionToFunc {
                                  .addSpace()
                                  .addKeyword(":")
                                  .addSpace()
-                                 .addValue("k"));
+                                 .addValue("k")
+                                 .endRender());
         sb.beginLetrecEquationValue();
         sb.beginLetExpression();
         sb.beginLetDefinitions();
@@ -396,6 +406,7 @@ public class DefinitionToFunc {
 
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
+                                 .beginRender()
                                  .addValue("freshFunction")
                                  .addSpace()
                                  .addValue("(sort: string)")
@@ -404,7 +415,8 @@ public class DefinitionToFunc {
                                  .addSpace()
                                  .addKeyword(":")
                                  .addSpace()
-                                 .addValue("k"));
+                                 .addValue("k")
+                                 .endRender());
         sb.beginLetrecEquationValue();
 
         sb.beginMatchExpression(newsb("sort"));
@@ -507,11 +519,12 @@ public class DefinitionToFunc {
         sb.addLetrecEquationName(newsb("lookups_step (c: k) (guards: Guard.t) : k"));
         sb.beginLetrecEquationValue();
         sb.beginMatchExpression(newsb("c"));
+
         int i = 0;
         for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(cap.contains("lookup") && !cap.contains("function")) {
-                sb.append(oldConvert(ppk, r, false, i++, "lookups_step"));
+                sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "lookups_step")));
             }
         }
 
@@ -523,6 +536,14 @@ public class DefinitionToFunc {
         sb.endLetrecDefinitions();
         sb.endLetrecDeclaration();
 
+        // DBG
+//        outprintfln(";; --------------- addSteps 1 ---------------");
+//        outprintfln(";; %s", sb.trackPrint().replaceAll("\n", "\n;; "));
+//        outprintfln(";; ---------------");
+//        outprintfln(";; ");
+//        outprintfln(";; %s", sb.pretty().stream().collect(joining("\n;; ")));
+//        outprintfln(";; ");
+//        outprintfln(";; ------------------------------------------");
 
         sb.beginLetDeclaration();
         sb.beginLetDefinitions();
@@ -533,7 +554,7 @@ public class DefinitionToFunc {
         for(Rule r : ppk.indexedRules.keySet()) {
             Set<String> cap = ppk.indexedRules.get(r);
             if(!cap.contains("lookup") && !cap.contains("function")) {
-                sb.append(oldConvert(ppk, r, false, i++, "step"));
+                sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "step")));
             }
         }
         sb.addMatchEquation(newsb("_"),
@@ -544,6 +565,36 @@ public class DefinitionToFunc {
         sb.endLetDefinitions();
         sb.endLetDeclaration();
 
+        return sb;
+    }
+
+
+    private SyntaxBuilder debugMismatch(SyntaxBuilder sb) {
+        Pattern xmlBegPat = Pattern.compile("<[^<>/]*>");
+        Pattern xmlEndPat = Pattern.compile("</[^<>/]*>");
+        Map<String, Integer> sbMap = sb.getTrack();
+        List<String> sbKeys = sbMap.keySet()
+                                   .stream()
+                                   .filter(x -> xmlEndPat.matcher(x).matches())
+                                   .map(x -> x.substring(2, x.length() - 1))
+                                   .collect(toList());
+        Map<String, Integer> mismatched = newHashMap();
+        for(String k : sbKeys) {
+            int begin = sbMap.get("<"  + k + ">").intValue();
+            int end   = sbMap.get("</" + k + ">").intValue();
+            if(begin != end) { mismatched.put(k, begin - end); }
+        }
+        if(! mismatched.isEmpty()) {
+            outprintfln(";; ---------------- ERROR ----------------");
+            outprintfln(";; The following were mismatched:");
+            for(String k : mismatched.keySet()) {
+                outprintfln(";; %30s --> %s", k, mismatched.get(k));
+            }
+            outprintfln(";; ----------------");
+            outprintfln(";; XML:\n;; %s",
+                        sb.pretty().stream().collect(joining("\n;; ")));
+            outprintfln(";; ---------------- ERROR ----------------");
+        }
         return sb;
     }
 
@@ -597,22 +648,41 @@ public class DefinitionToFunc {
         SetMultimap<KVariable, String> vars = HashMultimap.create();
         FuncVisitor visitor = oldConvert(ppk, false, vars, false);
 
+        xml.beginXML("comment", xmlAttr("id", "1"));
+        xml.addXMLContents(prettyStackTrace());
+        xml.endXML("comment");
+
+        xml.addXML("comment", xmlAttr("text", "---------- SEP ---------"));
+        xml.beginXML("match-equation");
+        xml.beginXML("match-pattern");
+
         sb.beginMatchEquation();
         sb.beginMatchEquationPattern();
+        sb.append(handleLeft(isFunction, left, visitor)); // probably no level change
+                                                          // depends on if visitor.apply
+                                                          // can cause level changes
 
-        sb.append(handleLeft(isFunction, left, visitor));
-
-        sb.append(handleLookup(indices, ruleNum));
+        sb.append(handleLookup(indices, ruleNum)); // no level change
 
         SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
+
+        xml.endXML("match-pattern");
+        xml.beginXML("match-value");
+        xml.addXML("comment", xmlAttr("text", "old convert"));
 
         sb.append(side.getFst());
         sb.endMatchEquationPattern();
         sb.beginMatchEquationValue();
-        sb.append(oldConvert(ppk, true, vars, false).apply(right));
+        sb.append(oldConvert(ppk, true, vars, false).apply(right)); // maybe no level change
+
+        xml.endXML("match-value");
+        xml.endXML("match-equation");
+        xml.append(suffXML);
+
         sb.endMatchEquationValue();
         sb.endMatchEquation();
         sb.append(side.getSnd());
+        xml.addXML("comment", xmlAttr("text", "---------- SEP ---------"));
 
         return sb;
     }
@@ -637,6 +707,7 @@ public class DefinitionToFunc {
     private SyntaxBuilder handleLookup(Set<String> indices, int ruleNum) {
         if(indices.contains("lookup")) {
             return newsb()
+                .beginRender()
                 .addSpace()
                 .addKeyword("when")
                 .addSpace()
@@ -648,8 +719,8 @@ public class DefinitionToFunc {
                 .addApplication("GuardElt.Guard", newsbf("%d", ruleNum))
                 .endArgument()
                 .addArgument(newsb("guards"))
-                .endApplication();
-
+                .endApplication()
+                .endRender();
         } else {
             return newsb();
         }
@@ -669,16 +740,22 @@ public class DefinitionToFunc {
              SyntaxBuilder fstSB =
                  convLookups
                  .getFst()
+                 .beginRender()
                  .addSpace()
                  .addKeyword("when")
                  .addSpace()
+                 .beginRender()
                  .append(oldConvert(ppk, true, vars, true).apply(requires))
+                 .endRender()
                  .addSpace()
                  .addKeyword("&&")
                  .addSpace()
                  .beginParenthesis()
+                 .beginRender()
                  .append(result)
-                 .endParenthesis();
+                 .endRender()
+                 .endParenthesis()
+                 .endRender();
              SyntaxBuilder sndSB = convLookups.getSnd();
              return newSBPair(fstSB, sndSB);
          } else {
@@ -730,7 +807,6 @@ public class DefinitionToFunc {
                                                  String chPat,
                                                  String... chArgs) {
         return newsb()
-
             .beginMatchEquation()
             .addMatchEquationPattern(newsbv(chPat))
             .beginMatchEquationValue()
@@ -789,6 +865,48 @@ public class DefinitionToFunc {
             .endMatchEquation();
     }
 
+    private XMLBuilder suffXML;
+
+    private static final XMLBuilder choiceXML1 = newxml();
+    private static final XMLBuilder choiceXML2 = newxml();
+
+    static {
+        choiceXML1.beginXML("match-equation");
+        choiceXML1.addXML("match-pattern");
+        choiceXML1.beginXML("let-expression");
+        choiceXML1.beginXML("let-definitions");
+        choiceXML1.beginXML("let-equation");
+        choiceXML1.addXML("let-name");
+        choiceXML1.beginXML("let-value");
+        choiceXML1.beginXML("app");
+        choiceXML1.addXML("func");
+        choiceXML1.beginXML("arg");
+        choiceXML1.beginXML("lambda");
+        choiceXML1.beginXML("if");
+        choiceXML1.addXML("cond");
+        choiceXML1.beginXML("if-true");
+        choiceXML1.beginXML("match-expression");
+
+
+        choiceXML2.addXML("match-equation");
+        choiceXML2.endXML("match-expression");
+        choiceXML2.endXML("if-true");
+        choiceXML2.addXML("if-false");
+        choiceXML2.endXML("if");
+        choiceXML2.endXML("lambda");
+        choiceXML2.endXML("arg");
+        choiceXML2.addXML("arg");
+        choiceXML2.addXML("arg");
+        choiceXML2.endXML("app");
+        choiceXML2.endXML("let-value");
+        choiceXML2.endXML("let-equation");
+        choiceXML2.endXML("let-definitions");
+        choiceXML2.addXML("let-scope");
+        choiceXML2.endXML("let-expression");
+        choiceXML2.endXML("match-value");
+        choiceXML2.endXML("match-equation");
+    }
+
     // TODO(remy): this needs refactoring very badly
     private SBPair oldConvertLookups(PreprocessedKORE ppk,
                                      K requires,
@@ -796,6 +914,7 @@ public class DefinitionToFunc {
                                      String functionName,
                                      int ruleNum) {
         Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
+        Deque<XMLBuilder> xmlStack = new ArrayDeque<>();
 
         SyntaxBuilder res = new SyntaxBuilder();
         SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
@@ -809,6 +928,8 @@ public class DefinitionToFunc {
         new AbstractKORETransformer<Void>() {
             private SyntaxBuilder sb1;
             private SyntaxBuilder sb2;
+            private XMLBuilder xml1;
+            private XMLBuilder xml2;
             private String functionStr;
             private int arity;
 
@@ -822,20 +943,30 @@ public class DefinitionToFunc {
                 switch(klabel) {
                 case "#match":
                     functionStr = "lookup";
-                    sb1 = newsb();
-                    sb2 = newsb();
+                    sb1 = newsb().addComment("lookup sb1");
+                    sb2 = newsb()
+                        .addComment("lookup sb2")
+                        .endMatchExpression()
+                        .endMatchEquationValue()
+                        .endMatchEquation();
+                    xml1 = newxml();
+                    xml2 = newxml();
                     arity = 2;
                     break;
                 case "#setChoice":
                     functionStr = "set choice";
                     sb1 = setChoiceSB1;
                     sb2 = setChoiceSB2;
+                    xml1 = choiceXML1;
+                    xml2 = choiceXML2;
                     arity = 2;
                     break;
                 case "#mapChoice":
                     functionStr = "map choice";
                     sb1 = mapChoiceSB1;
                     sb2 = mapChoiceSB2;
+                    xml1 = choiceXML1;
+                    xml2 = choiceXML2;
                     arity = 2;
                     break;
                 default:
@@ -862,12 +993,9 @@ public class DefinitionToFunc {
                     xml.endXML("match-pattern");
                     xml.beginXML("match-value");
                     xml.beginXML("match-expression");
-                    // level-up
-                    xml.addXML("level-up");
-                    // level-up
+                    xml.append(xml1);
                     xml.beginXML("match-equation");
                     xml.beginXML("match-pattern");
-                    outprintf("DBG: pattern: %s", luPattern);
 
                     res.endMatchEquationPattern();
                     res.beginMatchEquationValue();
@@ -879,6 +1007,8 @@ public class DefinitionToFunc {
 
                     suffStack.add(luWildcardEqn);
                     suffStack.add(luLevelDown);
+                    xmlStack.add(newxml().addXML("match-equation"));
+                    xmlStack.add(xml2);
                 }
 
                 k.klist().items().stream().forEach(this::apply);
@@ -920,14 +1050,18 @@ public class DefinitionToFunc {
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
+        suffXML = new XMLBuilder();
+        while(!xmlStack.isEmpty()) { suffXML.append(xmlStack.pollLast()); }
 
         return newSBPair(res, suffSB);
     }
 
-    private static void prettyStackTrace() {
+    private static String prettyStackTrace() {
         Pattern funcPat = Pattern.compile("^org[.]kframework.*$");
-        outprintfln(";; DBG: ----------------------------");
-        outprintfln(";; DBG: apply executed:");
+
+        SyntaxBuilder sb = newsb();
+        sb.append(";; DBG: ----------------------------\n");
+        sb.append(";; DBG: apply executed:\n");
         StackTraceElement[] traceArray = Thread.currentThread().getStackTrace();
         List<StackTraceElement> trace = newArrayList(traceArray.length);
 
@@ -943,12 +1077,13 @@ public class DefinitionToFunc {
             if(skip > 0) {
                 skip--;
             } else {
-                outprintfln(";; DBG: trace: %20s %6s %30s",
-                            ste.getMethodName(),
-                            "(" + Integer.toString(ste.getLineNumber()) + ")",
-                            "(" + ste.getFileName() + ")");
+                sb.appendf(";; DBG: trace: %20s %6s %30s\n",
+                           ste.getMethodName(),
+                           "(" + Integer.toString(ste.getLineNumber()) + ")",
+                           "(" + ste.getFileName() + ")");
             }
         }
+        return sb.toString();
     }
 
     private static SBPair newSBPair(SyntaxBuilder a, SyntaxBuilder b) {
@@ -982,12 +1117,13 @@ public class DefinitionToFunc {
             while (iter.hasNext()) {
                 //handle nonlinear variables in pattern
                 String next = iter.next();
-                // BUG SPOT? Parenthesizes last and next
+                sb.beginRender();
                 sb.addApplication("eq", newsb(last), newsb(next));
-                last = next;
                 sb.addSpace();
                 sb.addKeyword("&&");
                 sb.addSpace();
+                sb.endRender();
+                last = next;
             }
         }
         sb.addValue("true");

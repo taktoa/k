@@ -164,13 +164,30 @@ public class SyntaxBuilder implements Cloneable {
 
 
 
+
+    public SyntaxBuilder addRender(SyntaxBuilder sb) {
+        return beginRender().append(sb).endRender();
+    }
+
+    public SyntaxBuilder beginRender() {
+        return append(SyntaxEnum.BEGIN_RENDER);
+    }
+
+    public SyntaxBuilder endRender() {
+        return append(SyntaxEnum.END_RENDER);
+    }
+
     public SyntaxBuilder addKeyword(Object keyword) {
-        append(new SyntaxKeyword(keyword.toString()));
+        append(SyntaxEnum.BEGIN_KEYWORD);
+        append(keyword.toString());
+        append(SyntaxEnum.END_KEYWORD);
         return this;
     }
 
     public SyntaxBuilder addValue(Object value) {
-        append(new SyntaxValue(value.toString()));
+        append(SyntaxEnum.BEGIN_VALUE);
+        append(value.toString());
+        append(SyntaxEnum.END_VALUE);
         return this;
     }
 
@@ -665,11 +682,11 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginMatchEquationPattern() {
-        return append(SyntaxEnum.BEGIN_MATCH_EQUATION_PAT);
+        return append(SyntaxEnum.BEGIN_MATCH_EQUATION_PAT).beginRender();
     }
 
     public SyntaxBuilder endMatchEquationPattern() {
-        return append(SyntaxEnum.END_MATCH_EQUATION_PAT);
+        return endRender().append(SyntaxEnum.END_MATCH_EQUATION_PAT);
     }
 
     public SyntaxBuilder beginMatchEquationValue() {
@@ -785,13 +802,24 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     private enum XMLTagType {
-        START, STOP, SING;
+        START,  // tag start,     e.g.: <example>
+        STOP,   // tag stop,      e.g.: </example>
+        SING;   // tag singleton, e.g.: <example />
     }
 
 
     private enum SyntaxEnum implements Syntax {
         SPACE                       (xSing(),  "space",                 " "),
         NEWLINE                     (xSing(),  "newline",               "\n"),
+
+        BEGIN_RENDER                (xStart(), "rend",                  ""),
+        END_RENDER                  (xStop(),  "rend",                  ""),
+
+        BEGIN_KEYWORD               (xStart(), "keyword",               ""),
+        END_KEYWORD                 (xStop(),  "keyword",               ""),
+
+        BEGIN_VALUE                 (xStart(), "value",                 ""),
+        END_VALUE                   (xStop(),  "value",                 ""),
 
         BEGIN_PARENTHESIS           (xStart(), "paren",                 "("),
         END_PARENTHESIS             (xStop(),  "paren",                 ")"),
@@ -868,14 +896,14 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LETREC_SCOPE          (xStart(), "letrec-scope",          " in ("),
         END_LETREC_SCOPE            (xStop(),  "letrec-scope",          ")"),
 
-        BEGIN_LAMBDA                (xStart(), "lambda",                "(fun"),
-        END_LAMBDA                  (xStop(),  "lambda",                ")"),
-        BEGIN_LAMBDA_VAR            (xStart(), "lambda-var",            " "),
-        END_LAMBDA_VAR              (xStop(),  "lambda-var",            ""),
-        BEGIN_LAMBDA_VARS           (xStart(), "lambda-vars",           ""),
-        END_LAMBDA_VARS             (xStop(),  "lambda-vars",           " -> "),
-        BEGIN_LAMBDA_BODY           (xStart(), "lambda-body",           "("),
-        END_LAMBDA_BODY             (xStop(),  "lambda-body",           ")"),
+        BEGIN_LAMBDA                (xStart(), "lam",                   "(fun"),
+        END_LAMBDA                  (xStop(),  "lam",                   ")"),
+        BEGIN_LAMBDA_VAR            (xStart(), "lam-var",               " "),
+        END_LAMBDA_VAR              (xStop(),  "lam-var",               ""),
+        BEGIN_LAMBDA_VARS           (xStart(), "lam-vars",              ""),
+        END_LAMBDA_VARS             (xStop(),  "lam-vars",              " -> "),
+        BEGIN_LAMBDA_BODY           (xStart(), "lam-body",              "("),
+        END_LAMBDA_BODY             (xStop(),  "lam-body",              ")"),
 
         BEGIN_APPLICATION           (xStart(), "application",           "("),
         END_APPLICATION             (xStop(),  "application",           ")"),
@@ -949,7 +977,6 @@ public class SyntaxBuilder implements Cloneable {
         }
     }
 
-
     private interface Syntax {
         Pattern isNewline = Pattern.compile("\n");
         String render();
@@ -1020,71 +1047,7 @@ public class SyntaxBuilder implements Cloneable {
 
         @Override
         public String toString() {
-            return String.format("String(%s)", getEscapedString());
-        }
-    }
-
-    private class SyntaxKeyword implements Syntax, Cloneable {
-        private String str;
-
-        public SyntaxKeyword(String str) {
-            setRenderString(str);
-        }
-
-        @Override
-        public String render() { return str; }
-
-        @Override
-        public void setRenderString(String str) { this.str = str; }
-
-        @Override
-        public SyntaxKeyword clone() {
-            return new SyntaxKeyword(render());
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if(o instanceof SyntaxKeyword) {
-                return render().equals(((SyntaxKeyword) o).render());
-            }
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("Keyword(%s)", getEscapedString());
-        }
-    }
-
-    private class SyntaxValue implements Syntax, Cloneable {
-        private String str;
-
-        public SyntaxValue(String str) {
-            setRenderString(str);
-        }
-
-        @Override
-        public String render() { return str; }
-
-        @Override
-        public void setRenderString(String str) { this.str = str; }
-
-        @Override
-        public SyntaxValue clone() {
-            return new SyntaxValue(render());
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if(o instanceof SyntaxValue) {
-                return render().equals(((SyntaxValue) o).render());
-            }
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("Value(%s)", getEscapedString());
+            return String.format("%s", getEscapedString());
         }
     }
 }

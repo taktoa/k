@@ -27,7 +27,6 @@ import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
 import static org.kframework.backend.func.FuncUtil.*;
 
-
 /**
  * Main visitor for converting KORE for the functional backend
  *
@@ -195,7 +194,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         } else if(isNativeOr(hook)) {
             res = applyBoolDyad(k, stack ? "(%s) || (%s)" : "[Bool (%s) || (%s)]");
         } else if(isNativeNot(hook)) {
-            res = applyBoolMonad(k, stack ? "(not (%s))" : "[Bool (not (%s))]");
+            res = applyBoolMonad(k, stack ? "(not (%s))"  : "[Bool (not (%s))]");
         } else if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
             res = newsb()
                 .append(applyKLabel(k))
@@ -216,8 +215,11 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
             inBooleanExp = false;
 
-            String fmt = stack ? "(isTrue (%s(%s) Guard.empty))" : "(%s(%s) Guard.empty)";
-            res = newsb().appendf(fmt, encodeStringToFunction(k.klabel().name()), apply(k.klist().items(), true));
+            String fmt = stack ? "(isTrue (%s(%s) Guard.empty))"
+                               : "(%s(%s) Guard.empty)";
+            res = newsb().appendf(fmt,
+                                  encodeStringToFunction(k.klabel().name()),
+                                  apply(k.klist().items(), true));
         }
 
         inBooleanExp = stack;
