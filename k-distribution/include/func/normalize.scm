@@ -103,18 +103,6 @@
                           (letrec-equation-name "testValue")
                           (letrec-equation-val "5"))))))
 
-(define apply-cleanup
-  (λ* (#:rest args)
-      (when (null? args)
-        (errorfmt "apply-cleanup: not enough arguments"))
-      `(cleanup ',(car args)
-                ,@(map (λ (x) (if (list? x) (apply-cleanup-list x) x))
-                       (cdr args)))))
-
-(define apply-cleanup-list
-  (λ* (xs) (apply apply-cleanup xs)))
-
-
 (define cleanup-syntax
   (λ* (stx)
       (let ((apply-cleanup
