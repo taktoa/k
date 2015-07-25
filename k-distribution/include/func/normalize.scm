@@ -11,7 +11,7 @@
 
 
 (define debug-enabled      #t)
-(define unit-tests-enabled #f)
+(define unit-tests-enabled #t)
 
 (define-syntax-rule (defsyntax (name syntax-var) body)
   (define-syntax name (λ (syntax-var) body)))
@@ -70,74 +70,58 @@
         (if (null? l) (reverse dest)
             (loop (cdr l) (cons (car l) (cons elem dest)))))))
 
+(define* (cleanup func #:rest args)
+  (letrec
+      ([fargs   (filter-null (map cleanup-syntax args))]
+       [fst     (thunk (car fargs))]
+       [err     (λ* (fn) (errorfmt "~s: (~s . ~s)"
+                                   fn func fargs))]
+
+       [to-str  (thunk (apply string-append fargs))]
+       [to-num  (thunk (cond [(string? (fst)) (string->number (fst))]
+                             [(number? (fst)) (fst)                 ]
+                             [#t              (err 'to-num)         ]))]
+       [to-sym  (thunk (cond [(string? (fst)) (string->symbol (fst))]
+                             [(symbol? (fst)) (fst)                 ]
+                             [#t              (err 'to-sym)         ]))]
+       [to-func (λ* (fn) (thunk `(,fn ,@fargs)))]
+       [to-list (to-func 'many)]
+       [ident   (to-func func)]
+       [to-null (thunk '())])
+    (unless (symbol? func) (err 'normalize))
+    (match func
+      ['space                 " "      ]
+      ['newline               (to-null)]
+      ['comment               (to-null)]
+      ['introduce             (to-null)]
+      ['keyword               (to-str) ]
+      ['value                 (to-str) ]
+      ['string                (to-str) ]
+      ['integer               (to-num) ]
+      ['float                 (to-num) ]
+      ['name                  (to-str) ]
+      ['ref                   (to-str) ]
+      ['match-equations       (to-list)]
+      ['let-definitions       (to-list)]
+      ['let-scope             (to-list)]
+      ['letrec-definitions    (to-list)]
+      ['letrec-scope          (to-list)]
+      ['lam-var               (to-str) ]
+      ['lam-vars              (to-list)]
+      ['lam-body              (to-list)]
+      ['function              (to-str) ]
+      ['type-definition-vars  (to-list)]
+      ['type-definition-cons  (to-list)]
+      ['constructor-arguments (to-list)]
+      [_                      (ident)  ])))
+
 (define* (cleanup-syntax stx)
-  (try-all
-   ((letrec
-        ([add-c-err  (λ* (str) (errorfmt "add-c: ~s" str))]
-         [add-c      (λ* (#:rest args)
-                         (when (null? args) (add-c-err "not enough args"))
-                         `(cleanup ',(car args)
-                                   ,@(map (λ* (x) (if (list? x)
-                                                      (add-c-list x)
-                                                      x))
-                                          (cdr args))))]
-         [add-c-list (λ* (xs) (apply add-c xs))]
-
-         [cleanup    (λ* (func #:rest args)
-                         (letrec
-                             ([fargs   (filter-null args)]
-                              [fst     (thunk (car fargs))]
-                              [err     (λ* (fn) (errorfmt "~s: (~s . ~s)"
-                                                          fn func fargs))]
-                              [pnum    string->number]
-                              [psym    string->symbol]
-                              [to-str  (thunk (apply string-append fargs))]
-                              [to-num  (thunk
-                                        (cond
-                                         ((string? (fst)) (pnum (fst)))
-                                         ((number? (fst)) (fst))
-                                         (#t              (err 'to-num))))]
-                              [to-sym  (thunk
-                                        (cond
-                                         ((string? (fst)) `',(psym (fst)))
-                                         ((symbol? (fst)) (fst))
-                                         (#t              (err 'to-sym))))]
-                              [to-func (λ* (fn) (thunk `(,fn ,@fargs)))]
-                              [to-list (to-func 'many)]
-                              [ident   (to-func func)]
-                              [to-null (thunk '())])
-                           (match func
-                             ['space                 " "]
-                             ['newline               (to-null)]
-                             ['comment               (to-null)]
-                             ['introduce             (to-null)]
-                             ['keyword               (to-str)]
-                             ['value                 (to-str)]
-                             ['string                (to-str)]
-                             ['integer               (to-num)]
-                             ['float                 (to-num)]
-                             ['name                  (to-str)]
-                             ['ref                   (to-str)]
-                             ['match-equations       (to-list)]
-                             ['let-definitions       (to-list)]
-                             ['let-scope             (to-list)]
-                             ['letrec-definitions    (to-list)]
-                             ['letrec-scope          (to-list)]
-                             ['lam-var               (to-str)]
-                             ['lam-vars              (to-list)]
-                             ['lam-body              (to-list)]
-                             ['function              (to-str)]
-                             ['type-definition-vars  (to-list)]
-                             ['type-definition-cons  (to-list)]
-                             ['constructor-arguments (to-list)]
-                             [_                      (ident)])))])
-      (local-eval (if (list? stx) (add-c-list stx) stx) (the-environment))))
-
-   (k a)
-   ((printfln ";; Error in cleanup-syntax: key = ~s, args = ~s" k a))))
+  (if (list? stx) (apply cleanup stx) stx))
 
 (define* (run-cleanup stx)
-  (cons (car stx) (map cleanup-syntax (cdr stx))))
+  (try-all
+   ((cleanup-syntax stx))
+   (k a) ((printfln ";; Error in cleanup-syntax: key = ~s, args = ~s" k a))))
 
 
 (define* (render-syntax stx)
@@ -240,8 +224,6 @@
                           [(and (list? n) (member (arglen) n))
                            (apply to-func fn)]
                           [#t (err `(to-func-n ,n ,fn))]))])
-       (when (string? func)
-         (apply string-append `(,func ,@(map normalize-syntax args))))
        (unless (symbol? func) (err 'normalize))
        (match func
          ['body                  (to-func                     )]
