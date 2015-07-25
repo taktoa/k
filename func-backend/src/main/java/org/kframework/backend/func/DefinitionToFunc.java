@@ -54,15 +54,15 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  * @author Remy Goldschmidt
  */
 public class DefinitionToFunc {
-    /** Flag that determines whether or not we annotate output OCaml with rules */
+    /**
+     * Flag that determines whether or not we annotate output OCaml with rules
+     */
     public static final boolean annotateOutput = false;
 
     private final KExceptionManager kem;
     private final FileUtil files;
     private final GlobalOptions globalOptions;
     private final KompileOptions kompileOptions;
-
-    private final XMLBuilder xml = new XMLBuilder();
 
     private PreprocessedKORE preproc;
 
@@ -94,8 +94,21 @@ public class DefinitionToFunc {
         this.files = files;
         this.globalOptions = globalOptions;
         this.kompileOptions = kompileOptions;
-        xml.beginXML("body");
     }
+
+//    /**
+//     * Constructor for DefinitionToFunc
+//     */
+//    public DefinitionToFunc(KExceptionManager kem,
+//                            FileUtil files,
+//                            GlobalOptions globalOptions,
+//                            KompileOptions kompileOptions) {
+//        this.kem = kem;
+//        this.files = files;
+//        this.globalOptions = globalOptions;
+//        this.kompileOptions = kompileOptions;
+//
+//    }
 
     /**
      * Convert a {@link CompiledDefinition} to an OCaml string
@@ -112,6 +125,8 @@ public class DefinitionToFunc {
         outprintfln("");
 
         outprintfln(";; %s", sb.trackPrint().replaceAll("\n", "\n;; "));
+        outprintfln(";; Number of parens: %d", sb.getNumParens());
+        outprintfln(";; Number of lines:  %d", sb.getNumLines());
 
         XMLBuilder outXML =
             new XMLBuilder()
@@ -122,10 +137,6 @@ public class DefinitionToFunc {
         try {
             outprintfln("%s", outXML.renderSExpr(files));
         } catch(KEMException e) {
-//            outprintfln(";; %s", outXML.toString());
-//            outprintfln("");
-//            outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//            outprintfln("");
             outprintfln(";; %s", outXML.toString()
                                        .replaceAll("><", ">\n<")
                                        .replaceAll("\n", "\n;; "));
@@ -136,14 +147,11 @@ public class DefinitionToFunc {
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln("");
-//
-//        outprintfln("%s", sb.trackPrint());
-//        outprintfln(";; Number of parens: %d", sb.getNumParens());
-//        outprintfln(";; Number of lines:  %d", sb.getNumLines());
-//
-//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-//        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+
+
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
 
         return sb.toString();
     }
@@ -528,22 +536,12 @@ public class DefinitionToFunc {
             }
         }
 
-        // BUG SPOT? Can raise be parenthesized?
         sb.addMatchEquation(wildcardSB, raiseStuck(newsb("c")));
         sb.endMatchExpression();
         sb.endLetrecEquationValue();
         sb.endLetrecEquation();
         sb.endLetrecDefinitions();
         sb.endLetrecDeclaration();
-
-        // DBG
-//        outprintfln(";; --------------- addSteps 1 ---------------");
-//        outprintfln(";; %s", sb.trackPrint().replaceAll("\n", "\n;; "));
-//        outprintfln(";; ---------------");
-//        outprintfln(";; ");
-//        outprintfln(";; %s", sb.pretty().stream().collect(joining("\n;; ")));
-//        outprintfln(";; ");
-//        outprintfln(";; ------------------------------------------");
 
         sb.beginLetDeclaration();
         sb.beginLetDefinitions();
@@ -567,7 +565,6 @@ public class DefinitionToFunc {
 
         return sb;
     }
-
 
     private SyntaxBuilder debugMismatch(SyntaxBuilder sb) {
         Pattern xmlBegPat = Pattern.compile("<[^<>/]*>");
@@ -648,14 +645,6 @@ public class DefinitionToFunc {
         SetMultimap<KVariable, String> vars = HashMultimap.create();
         FuncVisitor visitor = oldConvert(ppk, false, vars, false);
 
-        xml.beginXML("comment", xmlAttr("id", "1"));
-        xml.addXMLContents(prettyStackTrace());
-        xml.endXML("comment");
-
-        xml.addXML("comment", xmlAttr("text", "---------- SEP ---------"));
-        xml.beginXML("match-equation");
-        xml.beginXML("match-pattern");
-
         sb.beginMatchEquation();
         sb.beginMatchEquationPattern();
         sb.append(handleLeft(isFunction, left, visitor)); // probably no level change
@@ -666,28 +655,21 @@ public class DefinitionToFunc {
 
         SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
 
-        xml.endXML("match-pattern");
-        xml.beginXML("match-value");
-        xml.addXML("comment", xmlAttr("text", "old convert"));
-
         sb.append(side.getFst());
         sb.endMatchEquationPattern();
         sb.beginMatchEquationValue();
         sb.append(oldConvert(ppk, true, vars, false).apply(right)); // maybe no level change
 
-        xml.endXML("match-value");
-        xml.endXML("match-equation");
-        xml.append(suffXML);
-
         sb.endMatchEquationValue();
         sb.endMatchEquation();
         sb.append(side.getSnd());
-        xml.addXML("comment", xmlAttr("text", "---------- SEP ---------"));
 
         return sb;
     }
 
-    private SyntaxBuilder handleLeft(boolean isFunction, K left, FuncVisitor visitor) {
+    private SyntaxBuilder handleLeft(boolean isFunction,
+                                     K left,
+                                     FuncVisitor visitor) {
         if(isFunction) {
             return handleFunction(left, visitor);
         } else {
@@ -865,48 +847,6 @@ public class DefinitionToFunc {
             .endMatchEquation();
     }
 
-    private XMLBuilder suffXML;
-
-    private static final XMLBuilder choiceXML1 = newxml();
-    private static final XMLBuilder choiceXML2 = newxml();
-
-    static {
-        choiceXML1.beginXML("match-equation");
-        choiceXML1.addXML("match-pattern");
-        choiceXML1.beginXML("let-expression");
-        choiceXML1.beginXML("let-definitions");
-        choiceXML1.beginXML("let-equation");
-        choiceXML1.addXML("let-name");
-        choiceXML1.beginXML("let-value");
-        choiceXML1.beginXML("app");
-        choiceXML1.addXML("func");
-        choiceXML1.beginXML("arg");
-        choiceXML1.beginXML("lambda");
-        choiceXML1.beginXML("if");
-        choiceXML1.addXML("cond");
-        choiceXML1.beginXML("if-true");
-        choiceXML1.beginXML("match-expression");
-
-
-        choiceXML2.addXML("match-equation");
-        choiceXML2.endXML("match-expression");
-        choiceXML2.endXML("if-true");
-        choiceXML2.addXML("if-false");
-        choiceXML2.endXML("if");
-        choiceXML2.endXML("lambda");
-        choiceXML2.endXML("arg");
-        choiceXML2.addXML("arg");
-        choiceXML2.addXML("arg");
-        choiceXML2.endXML("app");
-        choiceXML2.endXML("let-value");
-        choiceXML2.endXML("let-equation");
-        choiceXML2.endXML("let-definitions");
-        choiceXML2.addXML("let-scope");
-        choiceXML2.endXML("let-expression");
-        choiceXML2.endXML("match-value");
-        choiceXML2.endXML("match-equation");
-    }
-
     // TODO(remy): this needs refactoring very badly
     private SBPair oldConvertLookups(PreprocessedKORE ppk,
                                      K requires,
@@ -914,7 +854,6 @@ public class DefinitionToFunc {
                                      String functionName,
                                      int ruleNum) {
         Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
-        Deque<XMLBuilder> xmlStack = new ArrayDeque<>();
 
         SyntaxBuilder res = new SyntaxBuilder();
         SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
@@ -928,8 +867,6 @@ public class DefinitionToFunc {
         new AbstractKORETransformer<Void>() {
             private SyntaxBuilder sb1;
             private SyntaxBuilder sb2;
-            private XMLBuilder xml1;
-            private XMLBuilder xml2;
             private String functionStr;
             private int arity;
 
@@ -949,24 +886,18 @@ public class DefinitionToFunc {
                         .endMatchExpression()
                         .endMatchEquationValue()
                         .endMatchEquation();
-                    xml1 = newxml();
-                    xml2 = newxml();
                     arity = 2;
                     break;
                 case "#setChoice":
                     functionStr = "set choice";
                     sb1 = setChoiceSB1;
                     sb2 = setChoiceSB2;
-                    xml1 = choiceXML1;
-                    xml2 = choiceXML2;
                     arity = 2;
                     break;
                 case "#mapChoice":
                     functionStr = "map choice";
                     sb1 = mapChoiceSB1;
                     sb2 = mapChoiceSB2;
-                    xml1 = choiceXML1;
-                    xml2 = choiceXML2;
                     arity = 2;
                     break;
                 default:
@@ -990,13 +921,6 @@ public class DefinitionToFunc {
                     SyntaxBuilder luWildcardEqn = sb3;
                     SyntaxBuilder luLevelDown   = sb2;
 
-                    xml.endXML("match-pattern");
-                    xml.beginXML("match-value");
-                    xml.beginXML("match-expression");
-                    xml.append(xml1);
-                    xml.beginXML("match-equation");
-                    xml.beginXML("match-pattern");
-
                     res.endMatchEquationPattern();
                     res.beginMatchEquationValue();
                     res.beginMatchExpression(luMatchValue);
@@ -1007,8 +931,6 @@ public class DefinitionToFunc {
 
                     suffStack.add(luWildcardEqn);
                     suffStack.add(luLevelDown);
-                    xmlStack.add(newxml().addXML("match-equation"));
-                    xmlStack.add(xml2);
                 }
 
                 k.klist().items().stream().forEach(this::apply);
@@ -1050,8 +972,6 @@ public class DefinitionToFunc {
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
-        suffXML = new XMLBuilder();
-        while(!xmlStack.isEmpty()) { suffXML.append(xmlStack.pollLast()); }
 
         return newSBPair(res, suffSB);
     }
