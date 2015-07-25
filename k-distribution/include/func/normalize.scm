@@ -10,6 +10,9 @@
 (use-modules (statprof))
 
 
+(define debug-enabled      #t)
+(define unit-tests-enabled #f)
+
 (define-syntax-rule (defsyntax (name syntax-var) body)
   (define-syntax name (λ (syntax-var) body)))
 (define-syntax-rule (try (body ...) key-sym (args ...) (handler ...))
@@ -66,78 +69,6 @@
       (let loop ((l (cdr src-l)) (dest (cons (car src-l) '())))
         (if (null? l) (reverse dest)
             (loop (cdr l) (cons (car l) (cons elem dest)))))))
-
-(define test-input-1 '(body
-                       (application (function "hello")
-                                    (argument "a")
-                                    (comment "comment")
-                                    (introduce "x")
-                                    (argument "b")
-                                    (argument "c"))
-                       (application (function "goodbye")
-                                    (argument "x")
-                                    (argument "y"))))
-
-(define test-input-2 '(body
-                       (type-definition
-                        (type-definition-name (name "sort"))
-                        (type-definition-vars)
-                        (type-definition-cons
-                         (constructor
-                          (constructor-name "SortId"))
-                         (constructor
-                          (constructor-name "SortStmt"))))))
-
-(define test-input-3 '(body
-                       (let-declaration
-                        (let-definitions
-                         (let-equation
-                          (let-equation-name "testValue")
-                          (let-equation-val
-                           (application
-                            (lam
-                             (lam-vars
-                              (lam-var "x")
-                              (lam-var "y"))
-                             (lam-body
-                              (application
-                               (function "add")
-                               (argument "x")
-                               (argument "y"))))
-                            (argument (integer "5"))
-                            (argument (integer "7")))))))))
-
-
-(define test-input-4 '(body
-                       (let-declaration
-                        (let-definitions
-                         (let-equation
-                          (let-equation-name "testValue")
-                          (let-equation-val
-                           (match-expression
-                            (match-input "True")
-                            (match-equations
-                             (match-equation
-                              (match-equation-pat
-                               (rend "True"
-                                     (space)
-                                     "when"
-                                     (space)
-                                     (rend
-                                      (application
-                                       (function "test")
-                                       (argument "x")))))
-                              (match-equation-val "0"))
-                             (match-equation
-                              (match-equation-pat "True")
-                              (match-equation-val "1"))))))))))
-
-(define test-input-5 '(body
-                       (letrec-declaration
-                        (letrec-definitions
-                         (letrec-equation
-                          (letrec-equation-name "testValue")
-                          (letrec-equation-val "5"))))))
 
 (define* (cleanup-syntax stx)
   (try-all
@@ -206,7 +137,7 @@
    ((printfln ";; Error in cleanup-syntax: key = ~s, args = ~s" k a))))
 
 (define* (run-cleanup stx)
-  (cons (car stx) (par-map cleanup-syntax (cdr stx))))
+  (cons (car stx) (map cleanup-syntax (cdr stx))))
 
 
 (define* (render-syntax stx)
@@ -293,7 +224,7 @@
           [arglen    (thunk (length args))]
           [err       (λ* [fn] (errorfmt "~s: (~s . ~s)" fn func args))]
           [render    (λ* (x) (render-syntax (normalize-syntax x)))]
-          [to-rend   (thunk (apply string-append (map render args)))]
+          [to-rend   (thunk (apply string-append (par-map render args)))]
           [to-fst    (thunk
                       (if (one? args)
                           (normalize-syntax (car args))
@@ -353,130 +284,41 @@
 
 (define* (run-normalize stx)
   (try-all
-   ((cons (car stx) (par-map normalize-syntax (cdr stx))))
+   ((cons (car stx) (map normalize-syntax (cdr stx))))
    (k a) ((printfln ";; Error in run-normalize: key = ~s, args = ~s" k a))))
 
 
 
 (define* (renormalize func #:rest args)
   (letrec
-      ([to-list   (thunk (cdr (to-func)))]
+      ([norml     (λ* (list) (map renormalize-syntax list))]
+       [norm      (thunk (norml args))]
+       [to-list   (thunk (cdr (to-func)))]
+       [to-eqn    (thunk (if (= (length args) 2)
+                             `[,(car args) => ,@(norml (cdr args))]
+                             (throw 'renormalize-error func args)))]
        [to-func   (λ* [#:optional fn]
-                      (if (not fn)
-                          (to-func func)
-                          (cons fn (map renormalize-syntax args))))])
-    (if (not (symbol? func)) (map renormalize-syntax (cons func args))
+                      (cons (if (not fn) func fn) (norm)))])
+    (if (not (symbol? func)) (norml (cons func args))
         (match func
           ['many        (to-list        )]
           ['conditional (to-func     'if)]
-          ['match-eqn   (to-func    'eqn)]
-          ['let-eqn     (to-func    'eqn)]
-          ['letr-eqn    (to-func    'eqn)]
-          ['let-in      (to-func    'let)]
-          ['letr-in     (to-func 'letrec)]
-          ['def         (to-func    'let)]
-          ['defr        (to-func 'letrec)]
+          ['match-eqn   (to-eqn         )]
+          ['let-eqn     (to-eqn         )]
+          ['letr-eqn    (to-eqn         )]
+          ['let-in      (to-func   'olet)]
+          ['letr-in     (to-func  'oletr)]
+          ['def         (to-func   'olet)]
+          ['defr        (to-func  'oletr)]
           [_            (to-func        )]))))
 
 (define* (renormalize-syntax stx)
   (if (list? stx) (apply renormalize stx) stx))
 
 (define* (run-renormalize stx)
-  (cons (car stx) (par-map renormalize-syntax (cdr stx))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-;; (define* (normalize-syntax stx)
-;;   (let*
-;;       ((inside-error          (λ* (tag xs)
-;;                                   (errorfmt "inside: ~s | ~s" tag xs)))
-;;        (inside                (λ* (tag) (λ* (x) x)))
-;;        (to-func               (λ* (func)
-;;                                   (λ* (#:rest args)
-;;                                       `(,func ,@(map (λ* (x) `',x)
-;;                                                      (filter-null args))))))
-;;        (to-func-n-error       (thunk
-;;                                (errorfmt
-;;                                 "to-func-n: wrong number of arguments")))
-;;        (to-func-n             (λ* (func n)
-;;                                   (λ* (#:rest args)
-;;                                       (let ((result (thunk
-;;                                                      (apply (to-func func)
-;;                                                             args)))
-;;                                             (error  to-func-n-error))
-;;                                         (cond
-;;                                          ((= (length args) n) (result))
-;;                                          (#t                  (error)))))))
-
-
-;;        (body                  (λ* (#:rest xs) `'(,@xs)))
-;;        (many                  (to-func   'many))
-;;        (paren                 (inside    'paren))
-;;        (name                  (inside    'name))
-;;        (integer               (inside    'integer))
-;;        (float                 (inside    'float))
-;;        (string                (inside    'string))
-;;        (conditional           (to-func-n 'conditional 3))
-;;        (match-expression      (to-func-n 'match 2))
-;;        (match-input           (inside    'match-input))
-;;        (match-equation        (to-func-n 'match-eqn 2))
-;;        (match-equation-val    (inside    'match-equation-val))
-;;        (match-equation-pat    (inside    'match-equation-pat))
-;;        (let-expression        (to-func-n 'let-in 2))
-;;        (let-declaration       (λ* (d #:optional s) (if (null? s)
-;;                                                        `(def ',d ',s)
-;;                                                        `(def ',d))))
-;;        (let-equation          (to-func-n 'let-eqn 2))
-;;        (let-equation-name     (inside    'let-equation-name))
-;;        (let-equation-val      (inside    'let-equation-val))
-;;        (letrec-expression     (to-func-n 'letrec-in 2))
-;;        (letrec-declaration    (λ* (d #:optional s) (if (null? s)
-;;                                                        `(defrec ',d ',s)
-;;                                                        `(defrec ',d))))
-;;        (letrec-equation       (to-func-n 'letrec-eqn 2))
-;;        (letrec-equation-name  (inside    'letrec-equation-name))
-;;        (letrec-equation-val   (inside    'letrec-equation-val))
-;;        (lam                   (to-func-n 'lam 2))
-;;        (application           (to-func   'app))
-;;        (argument              (inside    'argument))
-;;        (type-definition       (to-func-n 'type 3))
-;;        (type-definition-name  (inside    'type-definition-name))
-;;        (type-definition-var   (inside    'type-definition-vars))
-;;        (constructor           (to-func-n 'con 2))
-;;        (constructor-name      (inside    'constructor-name))
-;;        (constructor-argument  (inside    'constructor-argument)))
-;;     (local-eval stx (the-environment))))
-
-;; (define* (prerender-syntax stx)
-;;   (letrec
-;;       ((add-p-err  (λ* (str) (errorfmt "add-p: ~s" str)))
-;;        (add-p      (λ* (#:rest args)
-;;                        (when (null? args) (add-p-err "not enough args"))
-;;                        `(process ',(car args)
-;;                                  ,@(map (λ* (x)
-;;                                             (if (list? x) (add-p-list x) x))
-;;                                         (cdr args)))))
-;;        (add-p-list (λ* (xs) (apply add-p xs)))
-
-;;        (render     (λ (x) (render-syntax (normalize-syntax x))))
-;;        (process    (λ* (func #:rest args)
-;;                        (let* ((to-rend (thunk (apply string-append
-;;                                                      (par-map render args))))
-;;                               (ident   (thunk `(,func ,@args))))
-;;                          (match func
-;;                            ('rend (to-rend))
-;;                            (_     (ident)))))))
-;;     (local-eval (add-p-list stx) (the-environment))))
+  (try-all
+   ((renormalize-syntax stx))
+   (k a) ((printfln ";; Error in run-renormalize: key = ~s, args = ~s" k a))))
 
 (define* (read-xml path)
   (let* ((port (open-file path "r"))
@@ -485,26 +327,10 @@
     xml))
 
 (define* (process-data input-data)
-  (let* ([cleaned (run-cleanup input-data)]
-         [normal  (run-normalize cleaned)])
-;;         [final   (run-renormalize normal)])
-    (pretty-print normal)))
-
-;;  (let* ((clean-data (begin
-;;                       (printfln ";; BEGIN PROFILING CLEAN-SYNTAX")
-;;                       (profile (thunk (cleanup-syntax input-data))
-;;                                #:sample-ms    100
-;;                                #:display?     #t
-;;                                #:count-calls? #t)))
-;;
-;;         (norm-data  (begin
-;;                       (printfln ";; BEGIN PROFILING NORMALIZE-SYNTAX")
-;;                       (profile (thunk (normalize-syntax clean-data))
-;;                                #:sample-ms    100
-;;                                #:display?     #t
-;;                                #:count-calls? #t))))
-;;    (display "\n\n\n\n\n")
-
+  (let* ([cleaned (run-cleanup     input-data)]
+         [normal  (run-normalize      cleaned)]
+         [final   (run-renormalize     normal)])
+    final))
 
 (define* (main)
   (try-all
@@ -518,7 +344,8 @@
          (unless (access? input-path R_OK)
            (printfln "File not found. Quitting.")
            (throw 'exit 2))
-         (process-data (car (read-xml input-path)))
+         (pretty-print
+          (process-data (car (read-xml input-path))))
          (throw 'exit 0)))
 
       (λ* (key code)
@@ -527,8 +354,136 @@
    (k a)
    ((printfln ";; Error in main: key = ~s, args = ~s" k a))))
 
-;; (define* (test-func x)
-;;   (pretty-print (cleanup-syntax x))
-;;   (pretty-print (prerender-syntax (cleanup-syntax x))))
 
-(main)
+;; Unit test input data and the relevant expected output from `process-data'
+
+
+(define unit-test-1-input
+  '(body
+    (application (function "hello")
+                 (argument "a")
+                 (comment "comment")
+                 (introduce "x")
+                 (argument "b")
+                 (argument "c"))
+    (application (function "goodbye")
+                 (argument "x")
+                 (argument "y"))))
+
+(define unit-test-1-expected
+  '(body (app "hello" "a" "b" "c") (app "goodbye" "x" "y")))
+
+(define* (unit-test-1)
+  (equal? (process-data unit-test-1-input) unit-test-1-expected))
+
+(define unit-test-2-input
+  '(body
+    (type-definition
+     (type-definition-name (name "sort"))
+     (type-definition-vars)
+     (type-definition-cons
+      (constructor
+       (constructor-name "SortId"))
+      (constructor
+       (constructor-name "SortStmt"))))))
+
+(define unit-test-2-expected
+  '(body (type "sort" () ((con "SortId") (con "SortStmt")))))
+
+(define* (unit-test-2)
+  (equal? (process-data unit-test-2-input) unit-test-2-expected))
+
+(define unit-test-3-input
+  '(body
+    (let-declaration
+     (let-definitions
+      (let-equation
+       (let-equation-name "testValue")
+       (let-equation-val
+        (application
+         (lam
+          (lam-vars
+           (lam-var "x")
+           (lam-var "y"))
+          (lam-body
+           (application
+            (function "add")
+            (argument "x")
+            (argument "y"))))
+         (argument (integer "5"))
+         (argument (integer "7")))))))))
+
+(define unit-test-3-expected
+  '(body (olet (("testValue" => (app (lam ("x" "y")
+                                          ((app "add" "x" "y")))
+                                     5 7))))))
+
+(define* (unit-test-3)
+  (equal? (process-data unit-test-3-input) unit-test-3-expected))
+
+(define unit-test-4-input
+  '(body
+    (let-declaration
+     (let-definitions
+      (let-equation
+       (let-equation-name "testValue")
+       (let-equation-val
+        (match-expression
+         (match-input "True")
+         (match-equations
+          (match-equation
+           (match-equation-pat
+            (rend "True"
+                  (space)
+                  "when"
+                  (space)
+                  (rend
+                   (application
+                    (function "test")
+                    (argument "x")))))
+           (match-equation-val (integer "0")))
+          (match-equation
+           (match-equation-pat "True")
+           (match-equation-val (integer "1")))))))))))
+
+(define unit-test-4-expected
+  '(body (olet (("testValue" =>
+                 (match "True"
+                   (("True when (test x)" => 0)
+                    ("True" => 1))))))))
+
+(define* (unit-test-4)
+  (equal? (process-data unit-test-4-input) unit-test-4-expected))
+
+(define unit-test-5-input
+  '(body
+    (letrec-declaration
+     (letrec-definitions
+      (letrec-equation
+       (letrec-equation-name "testValue")
+       (letrec-equation-val "5"))))))
+
+(define unit-test-5-expected
+  '(body (oletr (("testValue" => "5")))))
+
+(define* (unit-test-5)
+  (equal? (process-data unit-test-5-input) unit-test-5-expected))
+
+
+(define* (unit-tests)
+  (try-all
+   ((unless (unit-test-1) (throw 'unit-test 1))
+    (unless (unit-test-2) (throw 'unit-test 2))
+    (unless (unit-test-3) (throw 'unit-test 3))
+    (unless (unit-test-4) (throw 'unit-test 4))
+    (unless (unit-test-5) (throw 'unit-test 5))
+    #t)
+   (k a) ((match k
+            ['unit-test (printfln "Error in unit-test-~d" (car a))]
+            [_          (apply throw (cons k a))                  ]))))
+
+
+
+(when unit-tests-enabled (unit-tests))
+
+(unless debug-enabled (main))
