@@ -23,8 +23,6 @@ import org.apache.commons.io.FileUtils;
 
 import static org.kframework.backend.func.FuncUtil.*;
 
-import static org.kframework.backend.func.FuncUtil.*;
-
 /**
  * Converts KORE for the functional backend at kompile time
  *

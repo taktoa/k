@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -876,82 +875,9 @@ public class DefinitionToFunc {
 
                 return super.apply(k);
             }
-
-            private void isMatch() {
-                functionStr = "lookup";
-                arity = 2;
-            }
-
-            private void isSetChoice() {
-                sb1.beginMatchEquation();
-                sb1.addMatchEquationPattern("[Set s]");
-                sb1.beginMatchEquationValue();
-                sb1.beginLetExpression();
-                sb1.beginLetEquation();
-                sb1.addLetEquationName("choice");
-                sb1.beginLetEquationValue();
-                sb1.beginApplication();
-
-                sb1.addFunction("KSet.fold");
-                //sb1.beginArgument();
-                // sb1.beginApplication();
-                sb1.beginLambda("e", "result");
-                sb1.addConditionalIf();
-                sb1.addValue("result = [Bottom]");
-                sb1.addConditionalThen();
-                sb1.beginMatchExpression("e");
-                // endMatchExpression
-
-                sb2.addMatchEquation("_", "[Bottom]");
-                sb2.endMatchExpression();
-                sb2.addConditionalElse();
-                sb2.append("result");
-                sb2.endParenthesis();
-
-                sb2.addArgument("s");
-                sb2.addArgument("[Bottom]");
-
-                sb2.endApplication();
-                sb2.endLetEquationValue();
-                sb2.endLetEquation();
-                sb2.endLetDefinitions();
-                sb2.beginLetScope();
-                sb2.addConditionalIf();
-                sb2.addValue("choice = [Bottom]");
-                sb2.addConditionalThen();
-                sb2.beginApplication();
-                sb2.addFunction(functionName);
-                sb2.addArgument("c");
-                sb2.beginArgument();
-                sb2.beginApplication();
-                sb2.addFunction("Guard.add");
-                sb2.beginArgument();
-                sb2.addApplication("GuardElt.Guard", Integer.toString(ruleNum));
-                sb2.endArgument();
-                sb2.addArgument("guards");
-                sb2.endApplication();
-                sb2.endArgument();
-                sb2.endApplication();
-                sb2.addConditionalElse();
-                sb2.addValue("choice");
-
-                functionStr = "set choice";
-                arity = 2;
-            }
-
-            private void isMapChoice() {
-                sb1.appendf("\n| [Map m] -> let choice = (KMap.fold (fun k v result -> if result = [Bottom] then (match k with ");
-                sb2.appendf("\n| _ -> [Bottom]) else result) m [Bottom]) in " +
-                            "if choice = [Bottom] " +
-                            "then (%s c (Guard.add (GuardElt.Guard %s) guards)) " +
-                            "else choice", functionName, Integer.toString(ruleNum));
-                functionStr = "map choice";
-                arity = 2;
-            }
         }.apply(requires);
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
-
         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
 
         return newSBPair(res, suffSB);

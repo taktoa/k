@@ -441,21 +441,21 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addLetScope(SyntaxBuilder scope) {
         beginLetScope();
-        addValue(scope);
+        append(scope);
         endLetScope();
         return this;
     }
 
     public SyntaxBuilder addLetEquationName(SyntaxBuilder name) {
         beginLetEquationName();
-        addValue(name);
+        append(name);
         endLetEquationName();
         return this;
     }
 
     public SyntaxBuilder addLetEquationValue(SyntaxBuilder value) {
         beginLetEquationValue();
-        addValue(value);
+        append(value);
         endLetEquationValue();
         return this;
     }
@@ -549,14 +549,14 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addLetrecEquationName(SyntaxBuilder name) {
         beginLetrecEquationName();
-        addValue(name);
+        append(name);
         endLetrecEquationName();
         return this;
     }
 
     public SyntaxBuilder addLetrecEquationValue(SyntaxBuilder value) {
         beginLetrecEquationValue();
-        addValue(value);
+        append(value);
         endLetrecEquationValue();
         return this;
     }
@@ -644,21 +644,21 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addMatchEquation(SyntaxBuilder equation) {
         beginMatchEquation();
-        addValue(equation);
+        append(equation);
         endMatchEquation();
         return this;
     }
 
     public SyntaxBuilder addMatchEquationPattern(SyntaxBuilder pattern) {
         beginMatchEquationPattern();
-        addValue(pattern);
+        append(pattern);
         endMatchEquationPattern();
         return this;
     }
 
     public SyntaxBuilder addMatchEquationValue(SyntaxBuilder value) {
         beginMatchEquationValue();
-        addValue(value);
+        append(value);
         endMatchEquationValue();
         return this;
     }

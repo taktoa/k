@@ -27,6 +27,7 @@ import com.google.common.collect.Lists;
 import org.kframework.definition.Production;
 import org.kframework.utils.algorithms.SCCTarjan;
 
+import java.io.Serializable;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +70,7 @@ import static scala.compat.java8.JFunction.*;
  *
  * @author Remy Goldschmidt
  */
-public final class PreprocessedKORE {
+public final class PreprocessedKORE implements Serializable {
     /** Set of KLabels that are functions */
     public Set<KLabel> functionSet;
     /** Set of KLabels that are subject to [anywhere] rules */

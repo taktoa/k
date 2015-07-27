@@ -25,7 +25,6 @@ import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
-
 import static org.kframework.backend.func.FuncUtil.*;
 
 /**
