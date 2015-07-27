@@ -72,14 +72,12 @@ public class DefinitionToFunc {
 
     private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
     private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
-    private static final SyntaxBuilder equalityTestSB;
 
     static {
         wildcardSB = newsbv("_");
         bottomSB = newsbv("[Bottom]");
         choiceSB = newsbv("choice");
         resultSB = newsbv("result");
-        equalityTestSB = newsb().addEqualityTest(choiceSB, bottomSB);
         setChoiceSB1 = choiceSB1("e", "KSet.fold", "[Set s]",
                                  "e", "result");
         mapChoiceSB1 = choiceSB1("k", "KMap.fold", "[Map m]",
@@ -113,6 +111,8 @@ public class DefinitionToFunc {
         outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
 
         XMLBuilder outXML = ocamlDef.getXML();
+
+        outprintfln("%s", outXML.renderSExpr());
 
         try {
             outprintfln("%s", outXML.renderSExpr());
@@ -590,18 +590,16 @@ public class DefinitionToFunc {
 
         sb.beginMatchEquation();
         sb.beginMatchEquationPattern();
-        sb.append(handleLeft(isFunction, left, visitor)); // probably no level change
-                                                          // depends on if visitor.apply
-                                                          // can cause level changes
+        sb.append(handleLeft(isFunction, left, visitor));
 
-        sb.append(handleLookup(indices, ruleNum)); // no level change
+        sb.append(handleLookup(indices, ruleNum));
 
         SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
 
         sb.append(side.getFst());
         sb.endMatchEquationPattern();
         sb.beginMatchEquationValue();
-        sb.append(oldConvert(ppk, true, vars, false).apply(right)); // maybe no level change
+        sb.append(oldConvert(ppk, true, vars, false).apply(right));
 
         sb.endMatchEquationValue();
         sb.endMatchEquation();
@@ -746,7 +744,7 @@ public class DefinitionToFunc {
             .beginLambda(chArgs)
             .beginConditional()
             .addConditionalIf()
-            .append(equalityTestSB)
+            .append(newsb().addApplication("eq", resultSB, bottomSB))
             .addConditionalThen()
             .beginMatchExpression(newsbv(chChoiceVar));
     }
@@ -764,7 +762,7 @@ public class DefinitionToFunc {
                                    newsb().addApplication(guardCon, rnsb),
                                    newsbv("guards"));
         SyntaxBuilder condSB =
-            newsb().addConditional(equalityTestSB,
+            newsb().addConditional(newsb().addApplication("eq", choiceSB, bottomSB),
                                    newsb().addApplication(functionName,
                                                           newsbv("c"),
                                                           guardSB),

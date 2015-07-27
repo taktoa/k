@@ -101,7 +101,7 @@ public final class FuncUtil {
         String result = "";
 
         try {
-            files.saveToTemp(inName, xml);
+            files.save(input, xml);
 
             Process p =
                 files
@@ -114,13 +114,14 @@ public final class FuncUtil {
 
             int exit = p.waitFor();
 
+            FileUtils.forceDelete(input);
+
             result = files.load(output);
 
-            FileUtils.forceDelete(input);
             FileUtils.forceDelete(output);
 
             if(exit != 0) {
-                outprintf("%s", result);
+                files.save(output, result);
                 String fmt = "Guile returned exit code: %d";
                 throw new Exception(String.format(fmt, exit));
             }

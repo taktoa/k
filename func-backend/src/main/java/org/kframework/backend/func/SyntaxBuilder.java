@@ -363,6 +363,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addEqualityTest(SyntaxBuilder a,
                                          SyntaxBuilder b) {
+        beginRender();
         addSpace();
         beginParenthesis();
         beginParenthesis();
@@ -376,6 +377,7 @@ public class SyntaxBuilder implements Cloneable {
         endParenthesis();
         endParenthesis();
         addSpace();
+        endRender();
         return this;
     }
 
