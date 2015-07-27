@@ -805,9 +805,12 @@ public class DefinitionToFunc {
         SyntaxBuilder sb3 =
             newsb().addMatchEquation(wildcardSB, newsbf(formatSB3,
                                                         functionName,
-                                                        ruleNum));
+                                                        ruleNum))
+                   .endMatchExpression()
+                   .endMatchEquationValue()
+                   .endMatchEquation();
 
-        new AbstractKORETransformer<Void>() {
+        new VisitKORE() {
             private SyntaxBuilder sb1;
             private SyntaxBuilder sb2;
             private String functionStr;
@@ -823,12 +826,8 @@ public class DefinitionToFunc {
                 switch(klabel) {
                 case "#match":
                     functionStr = "lookup";
-                    sb1 = newsb().addComment("lookup sb1");
-                    sb2 = newsb()
-                        .addComment("lookup sb2")
-                        .endMatchExpression()
-                        .endMatchEquationValue()
-                        .endMatchEquation();
+                    sb1 = newsb();
+                    sb2 = newsb();
                     arity = 2;
                     break;
                 case "#setChoice":
@@ -876,41 +875,8 @@ public class DefinitionToFunc {
                     suffStack.add(luLevelDown);
                 }
 
-                k.klist().items().stream().forEach(this::apply);
-
-                return null;
+                return super.apply(k);
             }
-
-            @Override
-            public Void apply(KRewrite k) {
-                String errFmt =
-                    "Unexpected rewrite in requires clause:\n%s\n" +
-                    " in rule #%d, accounting for function \"%s\"";
-                throw kemCriticalErrorF(errFmt, k, ruleNum, functionName);
-            }
-
-            @Override
-            public Void apply(KSequence k) {
-                k.items().stream().forEach(this::apply);
-                return null;
-            }
-
-            @Override
-            public Void apply(KToken k) {
-                return null;
-            }
-
-            @Override
-            public Void apply(KVariable k) {
-                return null;
-            }
-
-
-            @Override
-            public Void apply(InjectedKLabel k) {
-                return null;
-            }
-
         }.apply(requires);
 
         SyntaxBuilder suffSB = new SyntaxBuilder();
