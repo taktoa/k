@@ -94,6 +94,9 @@
       ['newline               (to-null)]
       ['comment               (to-null)]
       ['introduce             (to-null)]
+      ['conditional-if        (to-null)]
+      ['conditional-then      (to-null)]
+      ['conditional-else      (to-null)]
       ['keyword               (to-str) ]
       ['value                 (to-str) ]
       ['string                (to-str) ]
@@ -122,28 +125,6 @@
   (try-all
    ((cleanup-syntax stx))
    (k a) ((printfln "Error in cleanup-syntax: key = ~s, args = ~s" k a))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 (define* (render func #:rest args)
   (letrec*
@@ -218,107 +199,6 @@
    ((render-syntax stx))
    (k a) ((printfln "Error in run-render: key = ~s, args = ~s" k a))))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-;;(define* (render-syntax stx)
-;;  (try-all
-;;   ((letrec
-;;        ((joining     (λ* (list between)
-;;                          (apply string-append
-;;                                 (list-intersperse list between))))
-;;         (render      (λ* (x) (render-syntax x)))
-;;         (type-vars   (λ* (vs) (joining (map render vs) ", ")))
-;;         (type-cons   (λ* (cs) (joining (map render cs) " | ")))
-;;         (con-args    (λ* (as) (joining (map render as) " * ")))
-;;         (app-args    (λ* (as) (joining (map render as) " ")))
-;;
-;;         (type        (λ* (n vs cs)
-;;                          (fmtstr "type ~a ~a = ~a;;\n"
-;;                                  (if (null? vs)
-;;                                      ""
-;;                                      (string-append
-;;                                       "(" (type-vars vs) ")"))
-;;                                  n (type-cons cs))))
-;;         (con         (λ* (cn as)
-;;                          (if (null? as)
-;;                              cn
-;;                              (fmtstr "~s of (~s)" cn (con-args as)))))
-;;         (conditional (λ* (c t f)
-;;                          (fmtstr "(if ~s then ~s else ~s)" c t f)))
-;;         (match       (λ* (v es) (fmtstr "(match ~a with ~a)"
-;;                                         v (joining (map render es)
-;;                                                    " | "))))
-;;         (match-eqn   (λ* (p v)  (fmtstr "~a -> ~a" p v)))
-;;         (let-in      (λ* (es s) (fmtstr "(let ~a in ~a)"
-;;                                         (joining (map render es) "; ") s)))
-;;         (def         (λ* (es #:optional (s '()))
-;;                          (if (null? s)
-;;                              (fmtstr "let ~a;;"
-;;                                      (joining (map render es) "; "))
-;;                              (fmtstr "let ~a in ~a;;"
-;;                                      (joining (map render es) "; ") s))))
-;;         (let-eqn     (λ* (n v) (fmtstr "~a = (~a)" n v)))
-;;         (letr-in   (λ* (es s) (fmtstr "(let rec ~a in ~a)"
-;;                                       (joining (map render es) "; ") s)))
-;;         (defr        (λ* (es #:optional (s '()))
-;;                          (if (null? s)
-;;                              (fmtstr "let rec ~a;;"
-;;                                      (joining (map render es) "; "))
-;;                              (fmtstr "let rec ~a in ~a;;"
-;;                                      (joining (map render es) "; ") s))))
-;;         (letr-eqn    (λ* (n v) (fmtstr "~a = (~a)" n v)))
-;;         (lam         (λ* (vs bd) (fmtstr "(fun ~a -> ~a)"
-;;                                          (joining (map symbol->string vs) " ")
-;;                                          (map render bd))))
-;;         (app         (λ* (f #:rest as)
-;;                          (if (symbol? f)
-;;                              (fmtstr "(~a ~a)"
-;;                                      (symbol->string f)
-;;                                      (app-args as))
-;;                              (fmtstr "(~a ~a)"
-;;                                      (render f)
-;;                                      (app-args as))))))
-;;      (local-eval stx (the-environment))))
-;;   (k a)
-;;   ((printfln "Error in render-syntax: key = ~s, args = ~s" k a))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (define* (normalize func #:rest args)
   (letrec
       ([norml     (thunk (map normalize-syntax args))]
@@ -350,7 +230,7 @@
       ['integer               (to-fst                      )]
       ['float                 (to-fst                      )]
       ['string                (to-fst                      )]
-      ['cond                  (to-func-n   3          'cond)]
+      ['conditional           (to-func-n   3          'cond)]
       ['match-expression      (to-func-n   2         'match)]
       ['match-input           (to-fst                      )]
       ['match-equation        (to-func-n   2     'match-eqn)]
@@ -443,8 +323,7 @@
          (unless (access? input-path R_OK)
            (printfln "File not found. Quitting.")
            (throw 'exit 2))
-         (pretty-print
-          (process-data (car (read-xml input-path))))
+         (pretty-print (process-data (car (read-xml input-path))))
          (throw 'exit 0)))
 
       (λ* (key code)
@@ -590,7 +469,6 @@
            unit-test-5-input
            unit-test-5-expected))
 
-
 (define* (unit-tests)
   (try-all
    ((let ([run-unit-test (λ* [test-name test-runner]
@@ -612,14 +490,3 @@
 (when unit-tests-enabled (unit-tests))
 
 (unless debug-enabled (main))
-
-(define minitest-input
-  '(body
-    (rend "True"
-          (space)
-          "when"
-          (space)
-          (rend
-           (application
-            (function "test")
-            (argument "x"))))))
