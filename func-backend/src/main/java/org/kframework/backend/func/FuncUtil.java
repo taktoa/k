@@ -81,7 +81,9 @@ public final class FuncUtil {
         return StringEscapeUtils.escapeXml(str);
     }
 
-    public static String xmlToSExpr(FileUtil files, String xml) {
+    public static String xmlToSExpr(String xml) {
+        FileUtil files = FileUtil.testFileUtil();
+
         String inName  = "input.xml";
         String outName = "output.scm";
 
@@ -98,34 +100,32 @@ public final class FuncUtil {
 
         String result = "";
 
-        synchronized(files) {
-            try {
-                files.saveToTemp(inName, xml);
+        try {
+            files.saveToTemp(inName, xml);
 
-                Process p =
-                    files
-                    .getProcessBuilder()
-                    .directory(scriptDir)
-                    .redirectError(ProcessBuilder.Redirect.INHERIT)
-                    .redirectOutput(output)
-                    .command(cmd)
-                    .start();
+            Process p =
+                files
+                .getProcessBuilder()
+                .directory(scriptDir)
+                .redirectError(ProcessBuilder.Redirect.INHERIT)
+                .redirectOutput(output)
+                .command(cmd)
+                .start();
 
-                int exit = p.waitFor();
+            int exit = p.waitFor();
 
-                result = files.load(output);
+            result = files.load(output);
 
-                FileUtils.forceDelete(input);
-                FileUtils.forceDelete(output);
+            FileUtils.forceDelete(input);
+            FileUtils.forceDelete(output);
 
-                if(exit != 0) {
-                    outprintf("%s", result);
-                    String fmt = "Guile returned exit code: %d";
-                    throw new Exception(String.format(fmt, exit));
-                }
-            } catch(Exception e) {
-                throw xmlToSExprException(e);
+            if(exit != 0) {
+                outprintf("%s", result);
+                String fmt = "Guile returned exit code: %d";
+                throw new Exception(String.format(fmt, exit));
             }
+        } catch(Exception e) {
+            throw xmlToSExprException(e);
         }
 
         return result;

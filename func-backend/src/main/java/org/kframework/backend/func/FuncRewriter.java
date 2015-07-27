@@ -8,7 +8,6 @@ import com.google.common.base.Stopwatch;
 import java.io.IOException;
 import java.io.File;
 import java.util.List;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.BiFunction;
@@ -37,7 +36,7 @@ import static org.kframework.backend.func.FuncUtil.*;
 public class FuncRewriter implements Function<Module, Rewriter> {
     private final KExceptionManager kem;
     private final CompiledDefinition def;
-    private final DefinitionToFunc converter;
+    private final KToFunc converter;
     private final ProcessBuilder processBuilder;
     private final Stopwatch timer = Stopwatch.createUnstarted();
     private static final String ocamlPackages = "zarith,str";
@@ -89,8 +88,8 @@ public class FuncRewriter implements Function<Module, Rewriter> {
 
         this.processBuilder = files.getProcessBuilder();
 
-        this.converter = new DefinitionToFunc(kem, files,
-                                              globalOptions, kompileOptions);
+        this.converter = new KToFunc(def, kem, files,
+                                     globalOptions, kompileOptions);
 
         this.compileDirectory = files.resolveTemp(compileDirectoryName);
         this.compileErrFile   = files.resolveTemp(compileErrFileName);
@@ -103,8 +102,6 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         this.kompileDefFile   = files.resolveKompiled(kompileDefFileName);
 
         this.pgmSourceFile    = files.resolveTemp(pgmSourceFileName);
-
-        converter.convert(def);
     }
 
     @Override
@@ -201,6 +198,8 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         pbList.add(kompileDirectory.getAbsolutePath());
         pbList.add(kompileDefFile.getAbsolutePath());
         pbList.add(pgmSourceFileName);
+
+        outprintfln("OCaml krun command line: %s", pbList);
 
         return pbList.toArray(new String[pbList.size()]);
     }

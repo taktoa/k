@@ -49,8 +49,8 @@ public class XMLBuilder {
         return xmlOut("</%s>", tagName);
     }
 
-    public String renderSExpr(FileUtil files) {
-        return xmlToSExpr(files, sb.toString());
+    public String renderSExpr() {
+        return xmlToSExpr(sb.toString());
     }
 
     private XMLBuilder xmlOut(String format, Object... objs) {

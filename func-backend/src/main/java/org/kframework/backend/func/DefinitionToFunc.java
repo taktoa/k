@@ -59,13 +59,16 @@ public class DefinitionToFunc {
      */
     public static final boolean annotateOutput = false;
 
-    private final KExceptionManager kem;
-    private final FileUtil files;
-    private final GlobalOptions globalOptions;
-    private final KompileOptions kompileOptions;
+    /**
+     * Flag that determines whether or not we output debug info
+     */
+    public static final boolean debugEnabled = true;
+
 
     private PreprocessedKORE preproc;
 
+    private final KExceptionManager kem;
+    private final SyntaxBuilder ocamlDef;
 
     private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
     private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
@@ -87,59 +90,36 @@ public class DefinitionToFunc {
      * Constructor for DefinitionToFunc
      */
     public DefinitionToFunc(KExceptionManager kem,
-                            FileUtil files,
-                            GlobalOptions globalOptions,
-                            KompileOptions kompileOptions) {
+                            PreprocessedKORE preproc) {
         this.kem = kem;
-        this.files = files;
-        this.globalOptions = globalOptions;
-        this.kompileOptions = kompileOptions;
+        this.ocamlDef = langDefToFunc(preproc);
+        debugOutput();
     }
 
-//    /**
-//     * Constructor for DefinitionToFunc
-//     */
-//    public DefinitionToFunc(KExceptionManager kem,
-//                            FileUtil files,
-//                            GlobalOptions globalOptions,
-//                            KompileOptions kompileOptions) {
-//        this.kem = kem;
-//        this.files = files;
-//        this.globalOptions = globalOptions;
-//        this.kompileOptions = kompileOptions;
-//
-//    }
+    public String genOCaml() {
+        return ocamlDef.toString();
+    }
 
-    /**
-     * Convert a {@link CompiledDefinition} to an OCaml string
-     */
-    public String convert(CompiledDefinition def) {
-
-        preproc = new PreprocessedKORE(def, kem, files, globalOptions, kompileOptions);
-        SyntaxBuilder sb = langDefToFunc(preproc);
-
+    private void debugOutput() {
         outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln("");
 
-        outprintfln(";; %s", sb.trackPrint().replaceAll("\n", "\n;; "));
-        outprintfln(";; Number of parens: %d", sb.getNumParens());
-        outprintfln(";; Number of lines:  %d", sb.getNumLines());
+        outprintfln(";; %s", ocamlDef.trackPrint()
+                                     .replaceAll("\n", "\n;; "));
+        outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
+        outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
 
-        XMLBuilder outXML =
-            new XMLBuilder()
-            .beginXML("body")
-            .append(sb.pretty().stream().collect(joining()))
-            .endXML("body");
+        XMLBuilder outXML = ocamlDef.getXML();
 
         try {
-            outprintfln("%s", outXML.renderSExpr(files));
+            outprintfln("%s", outXML.renderSExpr());
         } catch(KEMException e) {
             outprintfln(";; %s", outXML.toString()
-                                       .replaceAll("><", ">\n<")
-                                       .replaceAll("\n", "\n;; "));
+                        .replaceAll("><", ">\n<")
+                        .replaceAll("\n", "\n;; "));
         }
 
         outprintfln("");
@@ -147,43 +127,6 @@ public class DefinitionToFunc {
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln("");
-
-
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-
-        return sb.toString();
-    }
-
-    /**
-     * Convert KORE to an OCaml string that runs against the
-     * code generated from the {@link CompiledDefinition}, up
-     * to a certain evaluation depth.
-     */
-    public String convert(K k, int depth) {
-        return runtimeCodeToFunc(k, depth).toString();
-    }
-
-    private SyntaxBuilder runtimeCodeToFunc(K k, int depth) {
-        SyntaxBuilder sb = new SyntaxBuilder();
-        FuncVisitor convVisitor = oldConvert(preproc,
-                                             true,
-                                             HashMultimap.create(),
-                                             false);
-        sb.addImport("Def");
-        sb.addImport("K");
-        sb.beginLetDeclaration();
-        sb.beginLetDefinitions();
-        String runFmt = "print_string(print_k(try(run(%s) (%s)) with Stuck c' -> c'))";
-        sb.addLetEquation(newsb("_"),
-                          newsbf(runFmt,
-                                 convVisitor.apply(preproc.runtimeProcess(k)),
-                                 depth));
-        sb.endLetDefinitions();
-        sb.endLetDeclaration();
-        outprintfln(";; DBG: runtime # of parens: %d", sb.getNumParens());
-        return sb;
     }
 
     private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {

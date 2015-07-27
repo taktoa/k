@@ -3,6 +3,7 @@ package org.kframework.backend.func;
 
 import org.kframework.definition.Module;
 import org.kframework.definition.ModuleTransformer;
+import org.kframework.definition.Sentence;
 import org.kframework.definition.Definition;
 import org.kframework.kore.compile.ConvertDataStructureToLookup;
 import org.kframework.kore.compile.DeconstructIntegerLiterals;
@@ -26,12 +27,14 @@ import com.google.common.collect.Lists;
 import org.kframework.definition.Production;
 import org.kframework.utils.algorithms.SCCTarjan;
 
+import java.io.Serializable;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
 import com.google.common.collect.HashMultimap;
@@ -67,7 +70,7 @@ import static scala.compat.java8.JFunction.*;
  *
  * @author Remy Goldschmidt
  */
-public final class PreprocessedKORE {
+public final class PreprocessedKORE implements Serializable {
     /** Set of KLabels that are functions */
     public Set<KLabel> functionSet;
     /** Set of KLabels that are subject to [anywhere] rules */
@@ -131,20 +134,10 @@ public final class PreprocessedKORE {
     /** A map from rules to a cleaned-up subset of their attributes */
     public Map<Rule, Set<String>> indexedRules;
 
-    private ConvertDataStructureToLookup convertLookupsObj;
-    private GenerateSortPredicateRules   generatePredicatesObj;
-    private LiftToKSequence              liftToKSequenceObj;
-    private DeconstructIntegerLiterals   deconstructIntsObj;
-    private ExpandMacros                 expandMacrosObj;
-    private SimplifyConditions           simplifyConditionsObj;
 
     private Set<String> initialized;
 
-    private final CompiledDefinition def;
-    private final KExceptionManager  kem;
-    private final FileUtil           files;
-    private final GlobalOptions      globalOptions;
-    private final KompileOptions     kompileOptions;
+    private final ExpandMacros expandMacrosObj;
 
     private final Module     executionModule;
     private final Definition kompiledDefinition;
@@ -177,18 +170,19 @@ public final class PreprocessedKORE {
                             GlobalOptions globalOptions,
                             KompileOptions kompileOptions) {
 
-        this.def            = def;
-        this.kem            = kem;
-        this.files          = files;
-        this.globalOptions  = globalOptions;
-        this.kompileOptions = kompileOptions;
+        executionModule       = def.executionModule();
+
+        kompiledDefinition    = def.kompiledDefinition;
+
+        expandMacrosObj       = new ExpandMacros(executionModule,
+                                                 kem,
+                                                 files,
+                                                 globalOptions,
+                                                 kompileOptions);
 
         initialized = Sets.newHashSet();
 
-        executionModule = def.executionModule();
-        kompiledDefinition = def.kompiledDefinition;
-
-        mainModule = getMainModulePipeline().apply(executionModule);
+        mainModule = mainModulePipeline(executionModule);
 
         definedSorts      = stream(mainModule.definedSorts()).collect(Collectors.toSet());
         definedKLabels    = stream(mainModule.definedKLabels()).collect(Collectors.toSet());
@@ -205,28 +199,56 @@ public final class PreprocessedKORE {
      * Process incoming K at runtime
      */
     public K runtimeProcess(K k) {
-        return getRuntimePipeline().apply(k);
+        return new LiftToKSequence().convert(expandMacrosObj.expand(k));
     }
-
 
     // Returns a transformation pipeline for the main module
-    private Function<Module, Module> getMainModulePipeline() {
-        initializeMTObjects();
-        return x ->  deconstructIntsMT()
-            .andThen(convertLookupsMT())
-            .andThen(expandMacrosMT())
-            .andThen(generatePredicatesMT())
-            .andThen(liftToKSequenceMT())
-            .andThen(simplifyConditionsMT())
-            .apply(x);
-    }
+    private Module mainModulePipeline(Module input) {
+        BiFunction<UnaryOperator<Sentence>, String, ModuleTransformer> fromST;
+        fromST = (conv, str) -> {
+            return ModuleTransformer.fromSentenceTransformer(conv, str);
+        };
 
-    // Returns a transformation pipeline for K at runtime
-    private Function<K, K> getRuntimePipeline() {
-        initializeMTObjects();
-        return x -> liftToKSequenceObj.convert(expandMacrosObj.expand(x));
-    }
+        ConvertDataStructureToLookup convertLookupsObj;
+        GenerateSortPredicateRules   generatePredicatesObj;
+        LiftToKSequence              liftToKSequenceObj;
+        DeconstructIntegerLiterals   deconstructIntsObj;
+        SimplifyConditions           simplifyConditionsObj;
 
+        convertLookupsObj     = new ConvertDataStructureToLookup(executionModule);
+        generatePredicatesObj = new GenerateSortPredicateRules(kompiledDefinition);
+        liftToKSequenceObj    = new LiftToKSequence();
+        deconstructIntsObj    = new DeconstructIntegerLiterals();
+        simplifyConditionsObj = new SimplifyConditions();
+
+        ModuleTransformer
+            convertLookupsMT, liftToKSequenceMT,
+            simplifyConditionsMT, deconstructIntsMT,
+            expandMacrosMT;
+
+        Function1<Module, Module> generatePredicatesMT;
+
+        convertLookupsMT     = fromST.apply(convertLookupsObj::convert,
+                                            convertLookupsStr);
+        liftToKSequenceMT    = fromST.apply(liftToKSequenceObj::convert,
+                                            liftToKSequenceStr);
+        simplifyConditionsMT = fromST.apply(simplifyConditionsObj::convert,
+                                            simplifyConditionsStr);
+        deconstructIntsMT    = fromST.apply(deconstructIntsObj::convert,
+                                            deconstructIntsStr);
+        expandMacrosMT       = fromST.apply(expandMacrosObj::expand,
+                                            expandMacrosStr);
+
+        generatePredicatesMT = func(generatePredicatesObj::gen);
+
+        return deconstructIntsMT
+            .andThen(convertLookupsMT)
+            .andThen(expandMacrosMT)
+            .andThen(generatePredicatesMT)
+            .andThen(liftToKSequenceMT)
+            .andThen(simplifyConditionsMT)
+            .apply(input);
+    }
 
     // Runs all of the final initialization functions
     private void initializeFinal() {
@@ -240,22 +262,6 @@ public final class PreprocessedKORE {
         initializeAttrLabels();
         initializeAttrSorts();
         initializeIndexedRules();
-    }
-
-    // Initializes all the module transformer objects
-    private void initializeMTObjects() {
-        if(initialized.contains("MTObjects")) { return; }
-        convertLookupsObj     = new ConvertDataStructureToLookup(executionModule);
-        generatePredicatesObj = new GenerateSortPredicateRules(kompiledDefinition);
-        liftToKSequenceObj    = new LiftToKSequence();
-        deconstructIntsObj    = new DeconstructIntegerLiterals();
-        expandMacrosObj       = new ExpandMacros(executionModule,
-                                                 kem,
-                                                 files,
-                                                 globalOptions,
-                                                 kompileOptions);
-        simplifyConditionsObj = new SimplifyConditions();
-        initialized.add("MTObjects");
     }
 
     // Initializes attrLabels
@@ -548,41 +554,6 @@ public final class PreprocessedKORE {
         return k.klabel().name().equals("#match")
             || k.klabel().name().equals("#mapChoice")
             || k.klabel().name().equals("#setChoice");
-    }
-
-    // Returns the module endomorphism that converts lookups to function application
-    private ModuleTransformer convertLookupsMT() {
-        return ModuleTransformer.fromSentenceTransformer(convertLookupsObj::convert,
-                                                         convertLookupsStr);
-    }
-
-    // Returns the module endomorphism that generates predicates corresponding to sorts
-    private Function1<Module, Module> generatePredicatesMT() {
-        return func(generatePredicatesObj::gen);
-    }
-
-    // Returns the module endomorphism that lifts relevant terms to KSequences
-    private ModuleTransformer liftToKSequenceMT() {
-        return ModuleTransformer.fromSentenceTransformer(liftToKSequenceObj::convert,
-                                                         liftToKSequenceStr);
-    }
-
-    // Returns the module endomorphism that simplifies side conditions
-    private ModuleTransformer simplifyConditionsMT() {
-        return ModuleTransformer.fromSentenceTransformer(simplifyConditionsObj::convert,
-                                                         simplifyConditionsStr);
-    }
-
-    // Returns the module endomorphism that deconstructs integers
-    private ModuleTransformer deconstructIntsMT() {
-        return ModuleTransformer.fromSentenceTransformer(deconstructIntsObj::convert,
-                                                         deconstructIntsStr);
-    }
-
-    // Returns the module endomorphism that expands macros
-    private ModuleTransformer expandMacrosMT() {
-        return ModuleTransformer.fromSentenceTransformer(expandMacrosObj::expand,
-                                                         expandMacrosStr);
     }
 
     /**

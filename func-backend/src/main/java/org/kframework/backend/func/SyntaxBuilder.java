@@ -60,6 +60,14 @@ public class SyntaxBuilder implements Cloneable {
         return stx;
     }
 
+    public XMLBuilder getXML() {
+        return newxml().beginXML("body")
+                       .append(this.pretty()
+                                   .stream()
+                                   .collect(joining()))
+                       .endXML("body");
+    }
+
     public int getNumParens() {
         return parens;
     }

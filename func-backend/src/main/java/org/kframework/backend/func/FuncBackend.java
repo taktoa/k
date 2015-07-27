@@ -11,10 +11,15 @@ import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
+import java.io.FileOutputStream;
+import java.io.ObjectOutputStream;
 import java.io.IOException;
 import java.io.File;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.io.FileUtils;
 
 import static org.kframework.backend.func.FuncUtil.*;
 
@@ -24,22 +29,26 @@ import static org.kframework.backend.func.FuncUtil.*;
  * @author Remy Goldschmidt
  */
 public class FuncBackend implements Consumer<CompiledDefinition> {
-    private final DefinitionToFunc converter;
-    private final ProcessBuilder processBuilder;
+    private DefinitionToFunc converter;
 
-    private final Stopwatch timer = Stopwatch.createUnstarted();
+    private final Function<CompiledDefinition, DefinitionToFunc> converterGen;
+    private final ProcessBuilder processBuilder;
 
     private static final String ocamlPackages = "zarith";
 
     private static final String
+        kompileOutputFileName, kompileErrorFileName,
         kompileDirectoryName, defSourceFileName;
 
     private final File
+        kompileOutputFile, kompileErrorFile,
         kompileDirectory, defSourceFile;
 
     static {
-        kompileDirectoryName  = ".";
-        defSourceFileName     = "def.ml";
+        kompileOutputFileName  = "kompile.out";
+        kompileErrorFileName   = "kompile.err";
+        kompileDirectoryName   = ".";
+        defSourceFileName      = "def.ml";
     }
 
     // If you don't use ocamlfind, you will want to change this
@@ -62,38 +71,49 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
                        KompileOptions kompileOptions) {
         this.processBuilder = files.getProcessBuilder();
 
-        this.converter = new DefinitionToFunc(kem, files,
-                                              globalOptions, kompileOptions);
+        this.converterGen = def -> {
+            PreprocessedKORE ppk = new PreprocessedKORE(def, kem, files,
+                                                        globalOptions,
+                                                        kompileOptions);
+            return new DefinitionToFunc(kem, ppk);
+        };
 
+        this.kompileOutputFile = files.resolveTemp(kompileOutputFileName);
+        this.kompileErrorFile  = files.resolveTemp(kompileErrorFileName);
         this.kompileDirectory  = files.resolveKompiled(kompileDirectoryName);
         this.defSourceFile     = files.resolveKompiled(defSourceFileName);
     }
 
     @Override
     public void accept(CompiledDefinition def) {
-        timer.start();
         generateOCamlDef(def);
-        stopAndReportTimer("Time required to generate kompile OCaml: %d s");
-        resetAndStartTimer();
         compileOCamlDef();
-        stopAndReportTimer("Time required to compile kompile OCaml: %d s");
     }
 
     private void generateOCamlDef(CompiledDefinition def) {
-        String ocaml = converter.convert(def);
+        converter = converterGen.apply(def);
+        String ocaml = converter.genOCaml();
         FileUtil.save(defSourceFile, ocaml);
     }
 
     private void compileOCamlDef() {
         try {
+            FileUtil.save(kompileOutputFile, "");
+            FileUtil.save(kompileErrorFile, "");
+
             Process p = startDefCompileProcess();
 
-            try {
-                int exit = p.waitFor();
-                if(exit != 0) { defCompileFailedError(exit); }
-            } catch(InterruptedException e) {
-                defCompileInterruptedError(e);
-            }
+            int exit = p.waitFor();
+
+            outprintfln("%s", FileUtil.load(kompileOutputFile));
+            outprintfln("%s", FileUtil.load(kompileErrorFile));
+
+            FileUtils.forceDelete(kompileOutputFile);
+            FileUtils.forceDelete(kompileErrorFile);
+
+            if(exit != 0) { defCompileFailedError(exit); }
+        } catch(InterruptedException e) {
+            defCompileInterruptedError(e);
         } catch (IOException e) {
             defCompileIOError(e);
         }
@@ -102,6 +122,8 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     private Process startDefCompileProcess() throws IOException {
         return startProcess(processBuilder,
                             kompileDirectory,
+                            kompileErrorFile,
+                            kompileOutputFile,
                             getDefCompileCommandLine());
     }
 
@@ -121,15 +143,5 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private void defCompileIOError(IOException e) {
         throw kemCriticalErrorF(e, "Error starting OCaml compiler process: %s", e.getMessage());
-    }
-
-    private void resetAndStartTimer() {
-        timer.reset();
-        timer.start();
-    }
-
-    private void stopAndReportTimer(String format) {
-        timer.stop();
-        outprintfln(format, timer.elapsed(TimeUnit.SECONDS));
     }
 }
