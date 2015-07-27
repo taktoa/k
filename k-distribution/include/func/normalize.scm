@@ -10,8 +10,8 @@
 (use-modules (statprof))
 
 
-(define debug-enabled      #t)
-(define unit-tests-enabled #t)
+(define debug-enabled      #f)
+(define unit-tests-enabled #f)
 
 (define-syntax-rule (defsyntax (name syntax-var) body)
   (define-syntax name (λ (syntax-var) body)))
@@ -88,7 +88,7 @@
        [to-list (to-func 'many)]
        [ident   (to-func func)]
        [to-null (thunk '())])
-    (unless (symbol? func) (err 'normalize))
+    (unless (symbol? func) (err 'cleanup))
     (match func
       ['space                 " "      ]
       ['newline               (to-null)]
@@ -121,70 +121,189 @@
 (define* (run-cleanup stx)
   (try-all
    ((cleanup-syntax stx))
-   (k a) ((printfln ";; Error in cleanup-syntax: key = ~s, args = ~s" k a))))
+   (k a) ((printfln "Error in cleanup-syntax: key = ~s, args = ~s" k a))))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+(define* (render func #:rest args)
+  (letrec*
+      ([err       (λ* [err-sym] (throw err-sym func args))]
+       [joining   (λ* [list between]
+                      (apply string-append
+                             (list-intersperse list between)))]
+       [!=        (λ* [#:rest xs] (not (apply = xs)))]
+       [largs     (length args)]
+       [rdl       (λ* [list] (map render-syntax list))]
+       [rd        (rdl args)]
+       [to-list   (thunk (cdr (to-func)))]
+       [to-eqn    (thunk (if (= (length args) 2)
+                             `[,(car args) => ,@(rdl (cdr args))]
+                             (err 'render-error)))]
+       [rendf     (λ* [n fmt #:rest rs]
+                      (match n
+                       ['n      (fmtstr fmt (car rs))]
+                       [`,largs (apply fmtstr `(,fmt ,@rs))]
+                       [_       (err 'render-rendf)]))]
+       [rend      (λ* [n fmt] (rendf n fmt rd))]
+       [rdef      (λ* [is-rec]
+                      (apply fmtstr
+                             `(,(if (or (= largs 1) (= largs 2))
+                                    (if (= largs 1) "~a ~a;;" "~a ~a in ~a;;")
+                                    (err 'render-def))
+                               ,(if is-rec "let rec" "let")
+                               ,@args)))]
+       [to-func   (λ* [#:optional fn]
+                      (cons (if (not fn) func fn) rd))]
+       [type-var  (λ* [var-name] (fmtstr "'~a" var-name))]
+       [type-name (thunk (list-ref args 0))]
+       [type-vars (thunk (joining (map type-var (list-ref args 1)) " "))]
+       [type-cons (thunk (joining (list-ref args 2) " | "))]
+       [con-many  (thunk (fmtstr "~a of (~a)"
+                                 (car rd)
+                                 (joining (cdr rd) " * ")))])
+    (if (not (symbol? func))
+        (rdl (cons func args))
+        (match func
+          ['type      (rendf  3 "type ~a ~a = ~a;;\n"
+                                (type-vars)
+                                (type-name)
+                                (type-cons))]
+          ['con       (rendf 'n "~a" (if (= 1 largs) func (con-many)))]
+          ['cond      (rend   3 "(if ~a then ~a else ~a)")]
+          ['match     (rendf  2 "(match ~a with ~a)"
+                                 (car rd)
+                                 (joining (cdr rd) " | "))]
+          ['let-in    (rendf  2 "(let ~a in ~a)"
+                                 (joining (car rd) " ")
+                                 (car (cdr rend)))]
+          ['letr-in   (rendf  2 "(let rec ~a in ~a)"
+                                 (joining (car rd) " ")
+                                 (car (cdr rd)))]
+          ['def       (rdef  #f)]
+          ['defr      (rdef  #t)]
+          ['match-eqn (rend   2 "~a -> ~a")]
+          ['let-eqn   (rend   2 "~a = (~a);")]
+          ['letr-eqn  (rend   2 "~a = (~a);")]
+          ['lam       (rendf  2 "(fun ~a -> ~a)"
+                                 (car args)
+                                 (cdr rd))]
+          ['app       (rend  'n "~a")]
+          [_          (err 'render-unmatched)]))))
 
 (define* (render-syntax stx)
-  (try-all
-   ((letrec
-        ((joining     (λ* (list between)
-                          (apply string-append
-                                 (list-intersperse list between))))
-         (render      (λ* (x) (render-syntax x)))
-         (type-vars   (λ* (vs) (joining (map render vs) ", ")))
-         (type-cons   (λ* (cs) (joining (map render cs) " | ")))
-         (con-args    (λ* (as) (joining (map render as) " * ")))
-         (app-args    (λ* (as) (joining (map render as) " ")))
+  (if (proper-list? stx) (apply render stx) stx))
 
-         (type        (λ* (n vs cs)
-                          (fmtstr "type ~a ~a = ~a;;\n"
-                                  (if (null? vs)
-                                      ""
-                                      (string-append
-                                       "(" (type-vars vs) ")"))
-                                  n (type-cons cs))))
-         (con         (λ* (cn as)
-                          (if (null? as)
-                              cn
-                              (fmtstr "~s of (~s)" cn (con-args as)))))
-         (conditional (λ* (c t f)
-                          (fmtstr "(if ~s then ~s else ~s)" c t f)))
-         (match       (λ* (v es) (fmtstr "(match ~a with ~a)"
-                                         v (joining (map render es)
-                                                    " | "))))
-         (match-eqn   (λ* (p v)  (fmtstr "~a -> ~a" p v)))
-         (let-in      (λ* (es s) (fmtstr "(let ~a in ~a)"
-                                         (joining (map render es) "; ") s)))
-         (def         (λ* (es #:optional (s '()))
-                          (if (null? s)
-                              (fmtstr "let ~a;;"
-                                      (joining (map render es) "; "))
-                              (fmtstr "let ~a in ~a;;"
-                                      (joining (map render es) "; ") s))))
-         (let-eqn     (λ* (n v) (fmtstr "~a = (~a)" n v)))
-         (letr-in   (λ* (es s) (fmtstr "(let rec ~a in ~a)"
-                                       (joining (map render es) "; ") s)))
-         (defr        (λ* (es #:optional (s '()))
-                          (if (null? s)
-                              (fmtstr "let rec ~a;;"
-                                      (joining (map render es) "; "))
-                              (fmtstr "let rec ~a in ~a;;"
-                                      (joining (map render es) "; ") s))))
-         (letr-eqn    (λ* (n v) (fmtstr "~a = (~a)" n v)))
-         (lam         (λ* (vs bd) (fmtstr "(fun ~a -> ~a)"
-                                          (joining (map symbol->string vs) " ")
-                                          (map render bd))))
-         (app         (λ* (f #:rest as)
-                          (if (symbol? f)
-                              (fmtstr "(~a ~a)"
-                                      (symbol->string f)
-                                      (app-args as))
-                              (fmtstr "(~a ~a)"
-                                      (render f)
-                                      (app-args as))))))
-      (local-eval stx (the-environment))))
-   (k a)
-   ((printfln "Error in render-syntax: key = ~s, args = ~s" k a))))
+(define* (run-render stx)
+  (try-all
+   ((render-syntax stx))
+   (k a) ((printfln "Error in run-render: key = ~s, args = ~s" k a))))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;;(define* (render-syntax stx)
+;;  (try-all
+;;   ((letrec
+;;        ((joining     (λ* (list between)
+;;                          (apply string-append
+;;                                 (list-intersperse list between))))
+;;         (render      (λ* (x) (render-syntax x)))
+;;         (type-vars   (λ* (vs) (joining (map render vs) ", ")))
+;;         (type-cons   (λ* (cs) (joining (map render cs) " | ")))
+;;         (con-args    (λ* (as) (joining (map render as) " * ")))
+;;         (app-args    (λ* (as) (joining (map render as) " ")))
+;;
+;;         (type        (λ* (n vs cs)
+;;                          (fmtstr "type ~a ~a = ~a;;\n"
+;;                                  (if (null? vs)
+;;                                      ""
+;;                                      (string-append
+;;                                       "(" (type-vars vs) ")"))
+;;                                  n (type-cons cs))))
+;;         (con         (λ* (cn as)
+;;                          (if (null? as)
+;;                              cn
+;;                              (fmtstr "~s of (~s)" cn (con-args as)))))
+;;         (conditional (λ* (c t f)
+;;                          (fmtstr "(if ~s then ~s else ~s)" c t f)))
+;;         (match       (λ* (v es) (fmtstr "(match ~a with ~a)"
+;;                                         v (joining (map render es)
+;;                                                    " | "))))
+;;         (match-eqn   (λ* (p v)  (fmtstr "~a -> ~a" p v)))
+;;         (let-in      (λ* (es s) (fmtstr "(let ~a in ~a)"
+;;                                         (joining (map render es) "; ") s)))
+;;         (def         (λ* (es #:optional (s '()))
+;;                          (if (null? s)
+;;                              (fmtstr "let ~a;;"
+;;                                      (joining (map render es) "; "))
+;;                              (fmtstr "let ~a in ~a;;"
+;;                                      (joining (map render es) "; ") s))))
+;;         (let-eqn     (λ* (n v) (fmtstr "~a = (~a)" n v)))
+;;         (letr-in   (λ* (es s) (fmtstr "(let rec ~a in ~a)"
+;;                                       (joining (map render es) "; ") s)))
+;;         (defr        (λ* (es #:optional (s '()))
+;;                          (if (null? s)
+;;                              (fmtstr "let rec ~a;;"
+;;                                      (joining (map render es) "; "))
+;;                              (fmtstr "let rec ~a in ~a;;"
+;;                                      (joining (map render es) "; ") s))))
+;;         (letr-eqn    (λ* (n v) (fmtstr "~a = (~a)" n v)))
+;;         (lam         (λ* (vs bd) (fmtstr "(fun ~a -> ~a)"
+;;                                          (joining (map symbol->string vs) " ")
+;;                                          (map render bd))))
+;;         (app         (λ* (f #:rest as)
+;;                          (if (symbol? f)
+;;                              (fmtstr "(~a ~a)"
+;;                                      (symbol->string f)
+;;                                      (app-args as))
+;;                              (fmtstr "(~a ~a)"
+;;                                      (render f)
+;;                                      (app-args as))))))
+;;      (local-eval stx (the-environment))))
+;;   (k a)
+;;   ((printfln "Error in render-syntax: key = ~s, args = ~s" k a))))
 
 
 
@@ -201,73 +320,71 @@
 
 
 (define* (normalize func #:rest args)
-  (catch 'return
-    (thunk
-     (letrec
-         ([return    (λ* (retval) (throw 'return retval))]
-          [arglen    (thunk (length args))]
-          [err       (λ* [fn] (errorfmt "~s: (~s . ~s)" fn func args))]
-          [render    (λ* (x) (render-syntax (normalize-syntax x)))]
-          [to-rend   (thunk (apply string-append (par-map render args)))]
-          [to-fst    (thunk
-                      (if (one? args)
-                          (normalize-syntax (car args))
-                          (err 'to-fst)))]
-          [to-func   (λ* [#:optional fn]
-                         (if (not fn)
-                             (to-func func)
-                             (cons fn (map normalize-syntax args))))]
-          [to-func-n (λ* [n #:rest fn]
-                         (cond
-                          [(and (number? n) (= n (arglen)))
-                           (apply to-func-n `((,n) ,@fn))]
-                          [(and (list? n) (member (arglen) n))
-                           (apply to-func fn)]
-                          [#t (err `(to-func-n ,n ,fn))]))])
-       (unless (symbol? func) (err 'normalize))
-       (match func
-         ['body                  (to-func                     )]
-         ['many                  (to-func                     )]
-         ['rend                  (to-rend                     )]
-         ['paren                 (to-fst                      )]
-         ['name                  (to-fst                      )]
-         ['integer               (to-fst                      )]
-         ['float                 (to-fst                      )]
-         ['string                (to-fst                      )]
-         ['conditional           (to-func-n   3   'conditional)]
-         ['match-expression      (to-func-n   2         'match)]
-         ['match-input           (to-fst                      )]
-         ['match-equation        (to-func-n   2     'match-eqn)]
-         ['match-equation-val    (to-fst                      )]
-         ['match-equation-pat    (to-fst                      )]
-         ['let-expression        (to-func-n   2        'let-in)]
-         ['let-declaration       (to-func-n '(1 2)        'def)]
-         ['let-equation          (to-func-n   2       'let-eqn)]
-         ['let-equation-name     (to-fst                      )]
-         ['let-equation-val      (to-fst                      )]
-         ['letrec-expression     (to-func-n           'letr-in)]
-         ['letrec-declaration    (to-func-n '(1 2)       'defr)]
-         ['letrec-equation       (to-func-n   2      'letr-eqn)]
-         ['letrec-equation-name  (to-fst                      )]
-         ['letrec-equation-val   (to-fst                      )]
-         ['lam                   (to-func-n   2               )]
-         ['application           (to-func                 'app)]
-         ['argument              (to-fst                      )]
-         ['type-definition       (to-func-n   3          'type)]
-         ['type-definition-name  (to-fst                      )]
-         ['type-definition-var   (to-fst                      )]
-         ['constructor           (to-func-n '(1 2)        'con)]
-         ['constructor-name      (to-fst                      )]
-         ['constructor-argument  (to-fst                      )]
-         [_                      (to-func                     )])))
-    (λ (retval) retval)))
+  (letrec
+      ([norml     (thunk (map normalize-syntax args))]
+       [arglen    (thunk (length args))]
+       [err       (λ* [fn] (errorfmt "~s: (~s . ~s)" fn func args))]
+       [to-rend   (thunk (apply string-append (map run-render (norml))))]
+       [to-fst    (thunk
+                   (if (one? args)
+                       (normalize-syntax (car args))
+                       (err 'to-fst)))]
+       [to-func   (λ* [#:optional fn]
+                      (if (not fn)
+                          (to-func func)
+                          (cons fn (norml))))]
+       [to-func-n (λ* [n #:rest fn]
+                      (cond
+                       [(and (number? n) (= n (arglen)))
+                        (apply to-func-n `((,n) ,@fn))]
+                       [(and (list? n) (member (arglen) n))
+                        (apply to-func fn)]
+                       [#t (err `(to-func-n ,n ,fn))]))])
+    (unless (symbol? func) (err 'normalize))
+    (match func
+      ['body                  (to-func                     )]
+      ['many                  (to-func                     )]
+      ['rend                  (to-rend                     )]
+      ['paren                 (to-fst                      )]
+      ['name                  (to-fst                      )]
+      ['integer               (to-fst                      )]
+      ['float                 (to-fst                      )]
+      ['string                (to-fst                      )]
+      ['cond                  (to-func-n   3          'cond)]
+      ['match-expression      (to-func-n   2         'match)]
+      ['match-input           (to-fst                      )]
+      ['match-equation        (to-func-n   2     'match-eqn)]
+      ['match-equation-val    (to-fst                      )]
+      ['match-equation-pat    (to-fst                      )]
+      ['let-expression        (to-func-n   2        'let-in)]
+      ['let-declaration       (to-func-n '(1 2)        'def)]
+      ['let-equation          (to-func-n   2       'let-eqn)]
+      ['let-equation-name     (to-fst                      )]
+      ['let-equation-val      (to-fst                      )]
+      ['letrec-expression     (to-func-n           'letr-in)]
+      ['letrec-declaration    (to-func-n '(1 2)       'defr)]
+      ['letrec-equation       (to-func-n   2      'letr-eqn)]
+      ['letrec-equation-name  (to-fst                      )]
+      ['letrec-equation-val   (to-fst                      )]
+      ['lam                   (to-func-n   2               )]
+      ['application           (to-func                 'app)]
+      ['argument              (to-fst                      )]
+      ['type-definition       (to-func-n   3          'type)]
+      ['type-definition-name  (to-fst                      )]
+      ['type-definition-var   (to-fst                      )]
+      ['constructor           (to-func-n '(1 2)        'con)]
+      ['constructor-name      (to-fst                      )]
+      ['constructor-argument  (to-fst                      )]
+      [_                      (to-func                     )])))
 
 (define* (normalize-syntax stx) (if (list? stx) (apply normalize stx) stx))
 
 (define* (run-normalize stx)
   (try-all
    ((cons (car stx) (map normalize-syntax (cdr stx))))
-   (k a) ((printfln ";; Error in run-normalize: key = ~s, args = ~s" k a))))
+   (k a) ((printfln "Error in run-normalize:  key = ~s" a)
+          (printfln "Error in run-normalize: args = ~s" a)
+          (printfln "Error in run-normalize:  stx = ~s" stx))))
 
 
 
@@ -284,14 +401,14 @@
     (if (not (symbol? func)) (norml (cons func args))
         (match func
           ['many        (to-list        )]
-          ['conditional (to-func     'if)]
+          ['cond        (to-func     'if)]
           ['match-eqn   (to-eqn         )]
           ['let-eqn     (to-eqn         )]
           ['letr-eqn    (to-eqn         )]
-          ['let-in      (to-func   'olet)]
-          ['letr-in     (to-func  'oletr)]
-          ['def         (to-func   'olet)]
-          ['defr        (to-func  'oletr)]
+          ['let-in      (to-func   'letn)]
+          ['letr-in     (to-func   'letr)]
+          ['def         (to-func   'letn)]
+          ['defr        (to-func   'letr)]
           [_            (to-func        )]))))
 
 (define* (renormalize-syntax stx)
@@ -300,7 +417,7 @@
 (define* (run-renormalize stx)
   (try-all
    ((renormalize-syntax stx))
-   (k a) ((printfln ";; Error in run-renormalize: key = ~s, args = ~s" k a))))
+   (k a) ((printfln "Error in run-renormalize: key = ~s, args = ~s" k a))))
 
 (define* (read-xml path)
   (let* ((port (open-file path "r"))
@@ -334,11 +451,23 @@
           (printfln "Exit code: ~s" code)
           (exit code))))
    (k a)
-   ((printfln ";; Error in main: key = ~s, args = ~s" k a))))
+   ((printfln "Error in main: key = ~s, args = ~s" k a))))
 
 
 ;; Unit test input data and the relevant expected output from `process-data'
 
+(define* (gentest function input expected)
+  (let ([output (function input)])
+    (if (equal? output expected)
+        #t
+        (begin
+          (printfln "Input:")
+          (pretty-print input)
+          (printfln "Expected:")
+          (pretty-print expected)
+          (printfln "Output:")
+          (pretty-print output)
+          #f))))
 
 (define unit-test-1-input
   '(body
@@ -356,7 +485,9 @@
   '(body (app "hello" "a" "b" "c") (app "goodbye" "x" "y")))
 
 (define* (unit-test-1)
-  (equal? (process-data unit-test-1-input) unit-test-1-expected))
+  (gentest process-data
+           unit-test-1-input
+           unit-test-1-expected))
 
 (define unit-test-2-input
   '(body
@@ -373,7 +504,9 @@
   '(body (type "sort" () ((con "SortId") (con "SortStmt")))))
 
 (define* (unit-test-2)
-  (equal? (process-data unit-test-2-input) unit-test-2-expected))
+  (gentest process-data
+           unit-test-2-input
+           unit-test-2-expected))
 
 (define unit-test-3-input
   '(body
@@ -396,12 +529,14 @@
          (argument (integer "7")))))))))
 
 (define unit-test-3-expected
-  '(body (olet (("testValue" => (app (lam ("x" "y")
+  '(body (letn (("testValue" => (app (lam ("x" "y")
                                           ((app "add" "x" "y")))
                                      5 7))))))
 
 (define* (unit-test-3)
-  (equal? (process-data unit-test-3-input) unit-test-3-expected))
+  (gentest process-data
+           unit-test-3-input
+           unit-test-3-expected))
 
 (define unit-test-4-input
   '(body
@@ -429,13 +564,15 @@
            (match-equation-val (integer "1")))))))))))
 
 (define unit-test-4-expected
-  '(body (olet (("testValue" =>
+  '(body (letn (("testValue" =>
                  (match "True"
                    (("True when (test x)" => 0)
                     ("True" => 1))))))))
 
 (define* (unit-test-4)
-  (equal? (process-data unit-test-4-input) unit-test-4-expected))
+  (gentest process-data
+           unit-test-4-input
+           unit-test-4-expected))
 
 (define unit-test-5-input
   '(body
@@ -446,22 +583,28 @@
        (letrec-equation-val "5"))))))
 
 (define unit-test-5-expected
-  '(body (oletr (("testValue" => "5")))))
+  '(body (letr (("testValue" => "5")))))
 
 (define* (unit-test-5)
-  (equal? (process-data unit-test-5-input) unit-test-5-expected))
+  (gentest process-data
+           unit-test-5-input
+           unit-test-5-expected))
 
 
 (define* (unit-tests)
   (try-all
-   ((unless (unit-test-1) (throw 'unit-test 1))
-    (unless (unit-test-2) (throw 'unit-test 2))
-    (unless (unit-test-3) (throw 'unit-test 3))
-    (unless (unit-test-4) (throw 'unit-test 4))
-    (unless (unit-test-5) (throw 'unit-test 5))
-    #t)
+   ((let ([run-unit-test (λ* [test-name test-runner]
+                             (printfln "Running test: ~a" test-name)
+                             (unless (test-runner) (throw 'unit-test
+                                                          test-name)))])
+      (run-unit-test "unit test 1" unit-test-1)
+      (run-unit-test "unit test 2" unit-test-2)
+      (run-unit-test "unit test 3" unit-test-3)
+      (run-unit-test "unit test 4" unit-test-4)
+      (run-unit-test "unit test 5" unit-test-5)
+      #t))
    (k a) ((match k
-            ['unit-test (printfln "Error in unit-test-~d" (car a))]
+            ['unit-test (printfln "Error in unit test: ~a" (car a))]
             [_          (apply throw (cons k a))                  ]))))
 
 
@@ -469,3 +612,14 @@
 (when unit-tests-enabled (unit-tests))
 
 (unless debug-enabled (main))
+
+(define minitest-input
+  '(body
+    (rend "True"
+          (space)
+          "when"
+          (space)
+          (rend
+           (application
+            (function "test")
+            (argument "x"))))))
