@@ -16,6 +16,7 @@ import org.kframework.parser.concrete2kore.kernel.Grammar.NonTerminal;
 import org.kframework.parser.concrete2kore.kernel.Grammar.RuleState;
 import org.kframework.parser.concrete2kore.kernel.Rule.WrapLabelRule;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -35,6 +36,7 @@ import static org.kframework.Collections.*;
 public class KSyntax2GrammarStatesFilter {
 
     public static Grammar getGrammar(Module module) {
+        Automaton.setMinimization(Automaton.MINIMIZE_BRZOZOWSKI);
         Grammar grammar = new Grammar();
         Set<String> rejects = new HashSet<>();
         // create a NonTerminal for every declared sort
@@ -133,6 +135,8 @@ public class KSyntax2GrammarStatesFilter {
                         if (prd.att().contains(Constants.REJECT2))
                             pattern = getAutomaton(prd.att().get(Constants.REJECT2).get().toString());
                     }
+                    if (prd.att().contains(Constants.ORIGINAL_PRD))
+                        prd = (Production) prd.att().get(Constants.ORIGINAL_PRD).get();
                     RuleState labelRule = new RuleState("AddLabelRS", nt, new WrapLabelRule(prd, pattern, rejects));
                     previous.next.add(labelRule);
                     previous = labelRule;
@@ -149,7 +153,7 @@ public class KSyntax2GrammarStatesFilter {
         cache.clear();
     }
 
-    private static Map<String, Automaton> cache = new HashMap<>();
+    private static Map<String, Automaton> cache = Collections.synchronizedMap(new HashMap<>());
 
     private static Automaton getAutomaton(String regex) {
         Automaton res = cache.get(regex);

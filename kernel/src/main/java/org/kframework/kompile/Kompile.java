@@ -16,6 +16,7 @@ import org.kframework.definition.Context;
 import org.kframework.definition.Definition;
 import org.kframework.definition.DefinitionTransformer;
 import org.kframework.definition.Module;
+import org.kframework.definition.Rule;
 import org.kframework.definition.Sentence;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
@@ -38,6 +39,7 @@ import org.kframework.parser.concrete2kore.ParseInModule;
 import org.kframework.parser.concrete2kore.ParserUtils;
 import org.kframework.parser.concrete2kore.generator.RuleGrammarGenerator;
 import org.kframework.utils.BinaryLoader;
+import org.kframework.utils.Stopwatch;
 import org.kframework.utils.StringUtil;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
@@ -60,6 +62,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.kframework.Collections.*;
+import static org.kframework.definition.Constructors.Att;
 import static org.kframework.definition.Constructors.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
@@ -81,19 +84,32 @@ public class Kompile {
     private final boolean cacheParses;
     private final BinaryLoader loader;
     private final KompileOptions kompileOptions;
+    private final Stopwatch sw;
 
-    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, boolean cacheParses) {
+    private int parsedBubbles = 0;
+    private int cachedBubbles = 0;
+
+    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, Stopwatch sw, boolean cacheParses) {
         this.files = files;
         this.kem = kem;
         this.kompileOptions = kompileOptions;
-        this.parser = new ParserUtils(files, kem);
+        this.parser = new ParserUtils(files, kem, kompileOptions.global);
         this.cacheParses = cacheParses;
         this.loader = new BinaryLoader(kem);
+        this.sw = sw;
+    }
+
+    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, boolean cacheParses) {
+        this(kompileOptions, files, kem, new Stopwatch(kompileOptions.global), cacheParses);
+    }
+
+    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem) {
+        this(kompileOptions, files, kem, true);
     }
 
     @Inject
-    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem) {
-        this(kompileOptions, files, kem, true);
+    public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, Stopwatch sw) {
+        this(kompileOptions, files, kem, sw, true);
     }
 
     /**
@@ -107,6 +123,7 @@ public class Kompile {
      */
     public CompiledDefinition run(File definitionFile, String mainModuleName, String mainProgramsModuleName, Sort programStartSymbol) {
         Definition parsedDef = parseDefinition(definitionFile, mainModuleName, mainProgramsModuleName, true);
+        sw.printIntermediate("Parse definition [" + parsedBubbles + "/" + (parsedBubbles + cachedBubbles) + " rules]");
 
         DefinitionTransformer resolveStrict = DefinitionTransformer.from(new ResolveStrict()::resolve, "resolving strict and seqstrict attributes");
         DefinitionTransformer resolveContexts = DefinitionTransformer.from(new ResolveContexts()::resolve, "resolving context sentences");
@@ -128,6 +145,7 @@ public class Kompile {
                 .andThen(func(this::addProgramModule));
 
         Definition kompiledDefinition = pipeline.apply(parsedDef);
+        sw.printIntermediate("Apply compile pipeline");
 
         ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(kompiledDefinition.mainModule());
 
@@ -135,7 +153,6 @@ public class Kompile {
     }
 
     public Definition addSemanticsModule(Definition d) {
-        Module kseqModule = d.getModule("KSEQ").get();
         java.util.Set<Sentence> prods = new HashSet<>();
         for (Sort srt : iterable(d.mainModule().definedSorts())) {
             if (!RuleGrammarGenerator.isParserSort(srt)) {
@@ -143,9 +160,15 @@ public class Kompile {
                 prods.add(Production(Sorts.KItem(), Seq(NonTerminal(srt)), Att()));
             }
         }
-        Module withKSeq = Module("SEMANTICS", Set(d.mainModule(), kseqModule), immutable(prods), Att());
+        Module withKSeq = Module("SEMANTICS", Set(d.mainModule()), immutable(prods), Att());
         java.util.Set<Module> allModules = mutable(d.modules());
         allModules.add(withKSeq);
+
+        Module languageParsingModule = Module("LANGUAGE-PARSING",
+                Set(d.mainModule(),
+                        d.mainSyntaxModule(),
+                        d.getModule("K-TERM").get()), Set(), Att());
+        allModules.add(languageParsingModule);
         return Definition(withKSeq, d.mainSyntaxModule(), immutable(allModules));
     }
 
@@ -169,6 +192,13 @@ public class Kompile {
                 new ConcretizeCells(configInfo, labelInfo, sortInfo, kem)::concretize,
                 "concretizing configuration"
         ).apply(input);
+    }
+
+    private Sentence concretizeSentence(Sentence s, Definition input) {
+        ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(input.mainModule());
+        LabelInfo labelInfo = new LabelInfoFromModule(input.mainModule());
+        SortInfo sortInfo = SortInfo.fromModule(input.mainModule());
+        return new ConcretizeCells(configInfo, labelInfo, sortInfo, kem).concretize(s);
     }
 
     public Definition parseDefinition(File definitionFile, String mainModuleName, String mainProgramsModule, boolean dropQuote) {
@@ -210,14 +240,15 @@ public class Kompile {
             }
         }
 
-        gen = new RuleGrammarGenerator(definitionWithConfigBubble);
+        gen = new RuleGrammarGenerator(definitionWithConfigBubble, kompileOptions.strict());
         Definition defWithConfig = DefinitionTransformer.from(m -> resolveConfig(m, definitionWithConfigBubble), "parsing configurations").apply(definitionWithConfigBubble);
 
-        gen = new RuleGrammarGenerator(defWithConfig);
+        gen = new RuleGrammarGenerator(defWithConfig, kompileOptions.strict());
         Definition parsedDef = DefinitionTransformer.from(this::resolveBubbles, "parsing rules").apply(defWithConfig);
 
-        loader.saveOrDie(files.resolveKompiled("cache.bin"), caches);
-
+        if(cacheParses) {
+            loader.saveOrDie(files.resolveKompiled("cache.bin"), caches);
+        }
         if (!errors.isEmpty()) {
             kem.addAllKException(errors.stream().map(e -> e.getKException()).collect(Collectors.toList()));
             throw KEMException.compilerError("Had " + errors.size() + " parsing errors.");
@@ -238,7 +269,7 @@ public class Kompile {
         Module configParserModule = gen.getConfigGrammar(module);
 
         ParseCache cache = loadCache(configParserModule);
-        ParseInModule parser = cache.getParser();
+        ParseInModule parser = gen.getCombinedGrammar(cache.getModule());
 
         Set<Sentence> configDeclProductions = stream(module.localSentences())
                 .parallel()
@@ -259,7 +290,7 @@ public class Kompile {
                     }
                 })
                 .flatMap(
-                        configDecl -> stream(GenerateSentencesFromConfigDecl.gen(configDecl.body(), configDecl.ensures(), configDecl.att(), configParserModule)))
+                        configDecl -> stream(GenerateSentencesFromConfigDecl.gen(configDecl.body(), configDecl.ensures(), configDecl.att(), parser.getExtensionModule())))
                 .collect(Collections.toSet());
 
         return Module(module.name(), (Set<Module>) module.imports().$bar(Set(def.getModule("MAP").get())), (Set<Sentence>) module.localSentences().$bar(configDeclProductions), module.att());
@@ -274,7 +305,7 @@ public class Kompile {
         Module ruleParserModule = gen.getRuleGrammar(module);
 
         ParseCache cache = loadCache(ruleParserModule);
-        ParseInModule parser = cache.getParser();
+        ParseInModule parser = gen.getCombinedGrammar(cache.getModule());
 
         Set<Sentence> ruleSet = stream(module.localSentences())
                 .parallel()
@@ -282,22 +313,7 @@ public class Kompile {
                 .map(b -> (Bubble) b)
                 .filter(b -> b.sentenceType().equals("rule"))
                 .flatMap(b -> performParse(cache.getCache(), parser, b))
-                .map(contents -> {
-                    KApply ruleContents = (KApply) contents;
-                    List<org.kframework.kore.K> items = ruleContents.klist().items();
-                    switch (ruleContents.klabel().name()) {
-                    case "#ruleNoConditions":
-                        return Rule(items.get(0), BooleanUtils.TRUE, BooleanUtils.TRUE, ruleContents.att());
-                    case "#ruleRequires":
-                        return Rule(items.get(0), items.get(1), BooleanUtils.TRUE, ruleContents.att());
-                    case "#ruleEnsures":
-                        return Rule(items.get(0), BooleanUtils.TRUE, items.get(1), ruleContents.att());
-                    case "#ruleRequiresEnsures":
-                        return Rule(items.get(0), items.get(1), items.get(2), ruleContents.att());
-                    default:
-                        throw new AssertionError("Wrong KLabel for rule content");
-                    }
-                })
+                .map(this::upRule)
                 .collect(Collections.toSet());
 
         Set<Sentence> contextSet = stream(module.localSentences())
@@ -311,6 +327,39 @@ public class Kompile {
 
         return Module(module.name(), module.imports(),
                 stream((Set<Sentence>) module.localSentences().$bar(ruleSet).$bar(contextSet)).filter(b -> !(b instanceof Bubble)).collect(Collections.toSet()), module.att());
+    }
+
+    public Rule compileRule(CompiledDefinition compiledDef, String contents, Source source) {
+        errors = java.util.Collections.synchronizedSet(Sets.newHashSet());
+        gen = new RuleGrammarGenerator(compiledDef.kompiledDefinition, kompileOptions.strict());
+        java.util.Set<K> res = performParse(new HashMap<>(), gen.getCombinedGrammar(gen.getRuleGrammar(compiledDef.executionModule())),
+                new Bubble("rule", contents, Att().add("contentStartLine", 1).add("contentStartColumn", 1).add("Source", source.source())))
+                .collect(Collectors.toSet());
+        if (!errors.isEmpty()) {
+            throw errors.iterator().next();
+        }
+        Rule parsed = upRule(res.iterator().next());
+        return (Rule) func(new ResolveAnonVar()::resolve)
+                .andThen(func(new ResolveSemanticCasts()::resolve))
+                .andThen(func(s -> concretizeSentence(s, compiledDef.kompiledDefinition)))
+                .apply(parsed);
+    }
+
+    private Rule upRule(K contents) {
+        KApply ruleContents = (KApply) contents;
+        List<org.kframework.kore.K> items = ruleContents.klist().items();
+        switch (ruleContents.klabel().name()) {
+        case "#ruleNoConditions":
+            return Rule(items.get(0), BooleanUtils.TRUE, BooleanUtils.TRUE, ruleContents.att());
+        case "#ruleRequires":
+            return Rule(items.get(0), items.get(1), BooleanUtils.TRUE, ruleContents.att());
+        case "#ruleEnsures":
+            return Rule(items.get(0), BooleanUtils.TRUE, items.get(1), ruleContents.att());
+        case "#ruleRequiresEnsures":
+            return Rule(items.get(0), items.get(1), items.get(2), ruleContents.att());
+        default:
+            throw new AssertionError("Wrong KLabel for rule content");
+        }
     }
 
     private Context upContext(K contents) {
@@ -350,10 +399,12 @@ public class Kompile {
         Tuple2<Either<java.util.Set<ParseFailedException>, Term>, java.util.Set<ParseFailedException>> result;
         if (cache.containsKey(b.contents())) {
             ParsedSentence parse = cache.get(b.contents());
+            cachedBubbles++;
             kem.addAllKException(parse.getWarnings().stream().map(e -> e.getKException()).collect(Collectors.toList()));
             return Stream.of(parse.getParse());
         } else {
             result = parser.parseString(b.contents(), START_SYMBOL, Source.apply(source), startLine, startColumn);
+            parsedBubbles++;
             kem.addAllKException(result._2().stream().map(e -> e.getKException()).collect(Collectors.toList()));
             if (result._1().isRight()) {
                 KApply k = (KApply)TreeNodesToKORE.down(TreeNodesToKORE.apply(result._1().right().get()));

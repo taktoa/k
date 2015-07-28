@@ -51,7 +51,7 @@ public class AddBracketsTest {
                         Lists.newArrayList(Kompile.BUILTIN_DIRECTORY),
                         true);
 
-        return new RuleGrammarGenerator(baseK);
+        return new RuleGrammarGenerator(baseK, true);
     }
 
     private Module parseModule(String def) {
@@ -96,7 +96,7 @@ public class AddBracketsTest {
 
     private void unparserTest(String def, String pgm) {
         Module test = parseModule(def);
-        ParseInModule parser = new ParseInModule(gen.getProgramsGrammar(test), true);
+        ParseInModule parser = gen.getCombinedGrammar(gen.getProgramsGrammar(test));
         K parsed = parseTerm(pgm, parser);
         String unparsed = unparseTerm(parsed, test);
         assertEquals(pgm, unparsed);

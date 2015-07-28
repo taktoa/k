@@ -15,16 +15,9 @@ import org.kframework.definition.Rule;
 import org.kframework.definition.Sentence;
 import org.kframework.kil.Attribute;
 import org.kframework.kompile.KompileOptions;
-import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
-import org.kframework.kore.KApply;
-import org.kframework.kore.KLabel;
-import org.kframework.kore.KRewrite;
-import org.kframework.kore.KSequence;
-import org.kframework.kore.KToken;
-import org.kframework.kore.KVariable;
+import org.kframework.kore.compile.KtoKORE;
 import org.kframework.kore.compile.RewriteToTop;
-import org.kframework.kore.compile.TransformKORE;
 import org.kframework.krun.KRunOptions;
 import org.kframework.krun.ioserver.filesystem.portable.PortableFileSystem;
 import org.kframework.main.GlobalOptions;
@@ -43,7 +36,12 @@ import static org.kframework.definition.Constructors.*;
 import static org.kframework.kore.KORE.*;
 
 /**
- * Created by dwightguth on 5/26/15.
+ * Uses the Java backend to expand all the macros in a particular module. A macro is a rule (without a side condition)
+ * which is tagged with the "macro" attribute. This class creates a Java Backend rewriter and uses it to reach
+ * a fixed point on such rules.
+ *
+ * Note that this class is somewhat expensive to construct, and so copies of it should be kept around as long
+ * as possible and reused where they can be.
  */
 public class ExpandMacros {
 
@@ -102,49 +100,10 @@ public class ExpandMacros {
         TermContext tc = TermContext.of(rewriter.rewritingContext);
         //Term t = new KOREtoBackendKIL(tc).convert(term).evaluate(tc);
         Term t = new MacroExpander(tc, kem).processTerm(new KOREtoBackendKIL(tc).convert(term));
-        return new TransformKORE() {
-            @Override
-            public K apply(KApply k) {
-                k = (KApply)super.apply(k);
-                return KApply(apply(k.klabel()), k.klist(), k.att());
-            }
-
-            private KLabel apply(KLabel klabel) {
-                if (klabel instanceof KVariable)
-                    return apply((KVariable)klabel);
-                return KLabel(klabel.name());
-            }
-
-            @Override
-            public K apply(KRewrite k) {
-                k = (KRewrite) super.apply(k);
-                return KRewrite(k.left(), k.right(), k.att());
-            }
-
-            @Override
-            public K apply(KToken k) {
-                return KToken(k.s(), Sort(k.sort().name()), k.att());
-            }
-
-            @Override
-            public KVariable apply(KVariable k) {
-                return KVariable(k.name(), k.att());
-            }
-
-            @Override
-            public K apply(KSequence k) {
-                k = (KSequence) super.apply(k);
-                return KSequence(k.items(), k.att());
-            }
-
-            @Override
-            public K apply(InjectedKLabel k) {
-                return InjectedKLabel(apply(k.klabel()), k.att());
-            }
-        }.apply(t);
+        return new KtoKORE().apply(t);
     }
 
-    public synchronized Sentence expand(Sentence s) {
+    public Sentence expand(Sentence s) {
         if (s instanceof Rule) {
             return expand((Rule) s);
         } else if (s instanceof Context) {
@@ -153,4 +112,5 @@ public class ExpandMacros {
             return s;
         }
     }
+
 }

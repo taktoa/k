@@ -29,6 +29,10 @@ public class GenerateSortPredicateSyntax {
                 res.add(prod);
         }
 
+        if (!res.isEmpty()) {
+            res.add(SyntaxSort(Sorts.K()));
+        }
+
         return Module(mod.name(), mod.imports(), (scala.collection.immutable.Set<Sentence>) mod.localSentences().$bar(immutable(res)), mod.att());
     }
 }

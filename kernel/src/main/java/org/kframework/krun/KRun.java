@@ -7,13 +7,17 @@ import org.kframework.attributes.Source;
 import org.kframework.backend.unparser.OutputModes;
 import org.kframework.builtin.Sorts;
 import org.kframework.definition.Module;
+import org.kframework.definition.Rule;
 import org.kframework.kil.Attributes;
 import org.kframework.kompile.CompiledDefinition;
+import org.kframework.kompile.Kompile;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
 import org.kframework.kore.KToken;
+import org.kframework.kore.KVariable;
 import org.kframework.kore.Sort;
 import org.kframework.kore.ToKast;
+import org.kframework.krun.modes.ExecutionMode;
 import org.kframework.parser.ProductionReference;
 import org.kframework.transformation.Transformation;
 import org.kframework.unparser.AddBrackets;
@@ -23,20 +27,21 @@ import org.kframework.utils.errorsystem.KException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.errorsystem.ParseFailedException;
 import org.kframework.utils.file.FileUtil;
+import org.kframework.utils.koreparser.KoreParser;
+import scala.Tuple2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-import static org.kframework.Collections.*;
-import static org.kframework.definition.Constructors.Att;
-import static org.kframework.definition.Constructors.*;
 import static org.kframework.kore.KORE.*;
 
 /**
@@ -52,7 +57,7 @@ public class KRun implements Transformation<Void, Void> {
         this.files = files;
     }
 
-    public int run(CompiledDefinition compiledDef, KRunOptions options, Function<Module, Rewriter> rewriterGenerator) {
+    public int run(CompiledDefinition compiledDef, KRunOptions options, Function<Module, Rewriter> rewriterGenerator, ExecutionMode executionMode) {
         String pgmFileName = options.configurationCreation.pgm();
         K program;
         if (options.configurationCreation.term()) {
@@ -62,12 +67,52 @@ public class KRun implements Transformation<Void, Void> {
             program = parseConfigVars(options, compiledDef);
         }
 
+
         Rewriter rewriter = rewriterGenerator.apply(compiledDef.executionModule());
 
-        K result = rewriter.execute(program, Optional.ofNullable(options.depth));
+        Object result = executionMode.execute(program, rewriter, compiledDef);
 
-        prettyPrint(compiledDef, options.output, s -> outputFile(s, options), (K) result);
+        if (result instanceof K) {
+            prettyPrint(compiledDef, options.output, s -> outputFile(s, options), (K) result);
+
+            if (options.exitCodePattern != null) {
+                Rule exitCodePattern = pattern(files, kem, options.exitCodePattern, options, compiledDef, Source.apply("<command line: --exit-code>"));
+                List<Map<KVariable, K>> res = rewriter.match((K) result, exitCodePattern);
+                return getExitCode(kem, res);
+            }
+        } else if (result instanceof Tuple2) {
+            Tuple2<?, ?> tuple = (Tuple2<?, ?>) result;
+            if (tuple._1() instanceof K && tuple._2() instanceof Integer) {
+                prettyPrint(compiledDef, options.output, s -> outputFile(s, options), (K) tuple._1());
+                return (Integer) tuple._2();
+            }
+        }
+
         return 0;
+    }
+
+    public static int getExitCode(KExceptionManager kem, List<Map<KVariable, K>> res) {
+        if (res.size() != 1) {
+            kem.registerCriticalWarning("Found " + res.size() + " solutions to exit code pattern. Returning 112.");
+            return 112;
+        }
+        Map<? extends KVariable, ? extends K> solution = res.get(0);
+        Set<Integer> vars = new HashSet<>();
+        for (K t : solution.values()) {
+            // TODO(andreistefanescu): fix Token.sort() to return a kore.Sort that obeys kore.Sort's equality contract.
+            if (t instanceof KToken && Sorts.Int().equals(((KToken) t).sort())) {
+                try {
+                    vars.add(Integer.valueOf(((KToken) t).s()));
+                } catch (NumberFormatException e) {
+                    throw KEMException.criticalError("Exit code found was not in the range of an integer. Found: " + ((KToken) t).s(), e);
+                }
+            }
+        }
+        if (vars.size() != 1) {
+            kem.registerCriticalWarning("Found " + vars.size() + " integer variables in exit code pattern. Returning 111.");
+            return 111;
+        }
+        return vars.iterator().next();
     }
 
     //TODO(dwightguth): use Writer
@@ -79,6 +124,13 @@ public class KRun implements Transformation<Void, Void> {
         }
     }
 
+    public static Rule pattern(FileUtil files, KExceptionManager kem, String pattern, KRunOptions options, CompiledDefinition compiledDef, Source source) {
+        if (pattern != null && (options.experimental.prove != null || options.experimental.ltlmc())) {
+            throw KEMException.criticalError("Pattern matching is not supported by model checking or proving");
+        }
+        return new Kompile(compiledDef.kompileOptions, files, kem).compileRule(compiledDef, pattern, source);
+    }
+
     public static void prettyPrint(CompiledDefinition compiledDef, OutputModes output, Consumer<String> print, K result) {
         switch (output) {
         case KAST:
@@ -88,7 +140,7 @@ public class KRun implements Transformation<Void, Void> {
             print.accept("");
             break;
         case PRETTY:
-            Module unparsingModule = compiledDef.getParserModule(Module("UNPARSING", Set(compiledDef.executionModule(), compiledDef.syntaxModule(), compiledDef.getParsedDefinition().getModule("K-SORT-LATTICE").get()), Set(), Att()));
+            Module unparsingModule = compiledDef.getExtensionModule(compiledDef.languageParsingModule());
             print.accept(unparseTerm(result, unparsingModule) + "\n");
             break;
         default:
@@ -101,7 +153,7 @@ public class KRun implements Transformation<Void, Void> {
     private K parseConfigVars(KRunOptions options, CompiledDefinition compiledDef) {
         HashMap<KToken, K> output = new HashMap<>();
         for (Map.Entry<String, Pair<String, String>> entry
-                : options.configurationCreation.configVars(compiledDef.executionModule().name()).entrySet()) {
+                : options.configurationCreation.configVars(compiledDef.languageParsingModule().name()).entrySet()) {
             String name = entry.getKey();
             String value = entry.getValue().getLeft();
             String parser = entry.getValue().getRight();
@@ -142,7 +194,7 @@ public class KRun implements Transformation<Void, Void> {
         }
 
         String kast = output.stdout != null ? output.stdout : "";
-        return compiledDef.getParser(compiledDef.getParsedDefinition().getModule("KSEQ-SYMBOLIC").get(), Sorts.K(), kem).apply(kast, source);
+        return KoreParser.parse(kast, source);
     }
 
     @Override

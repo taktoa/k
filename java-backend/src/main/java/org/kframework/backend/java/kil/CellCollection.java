@@ -5,9 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multiset;
-import org.kframework.backend.java.symbolic.Matcher;
 import org.kframework.backend.java.symbolic.Transformer;
-import org.kframework.backend.java.symbolic.Unifier;
 import org.kframework.backend.java.symbolic.Visitor;
 import org.kframework.backend.java.util.Utils;
 import org.kframework.kil.ASTNode;
@@ -162,6 +160,17 @@ public class CellCollection extends Collection {
         return cells;
     }
 
+    private Multiset<Cell> values;
+
+    public Multiset<Cell> values() {
+        Multiset<Cell> v = values;
+        if (v == null) {
+            v = ImmutableMultiset.copyOf(cells.values());
+            values = v;
+        }
+        return v;
+    }
+
     public Multiset<Term> baseTerms() {
         return (Multiset<Term>) (Object) collectionVariables();
     }
@@ -241,14 +250,14 @@ public class CellCollection extends Collection {
 
         CellCollection collection = (CellCollection) object;
         return collectionVariables.equals(collection.collectionVariables)
-                && ImmutableMultiset.copyOf(cells.entries()).equals(ImmutableMultiset.copyOf(collection.cells.entries()));
+                && values().equals(collection.values());
     }
 
     @Override
     protected int computeHash() {
         int hashCode = 1;
-        hashCode = hashCode * Utils.HASH_PRIME + cells.hashCode();
         hashCode = hashCode * Utils.HASH_PRIME + collectionVariables.hashCode();
+        hashCode = hashCode * Utils.HASH_PRIME + values().hashCode();
         return hashCode;
     }
 
@@ -278,16 +287,6 @@ public class CellCollection extends Collection {
             }
             return stringBuilder.toString();
         }
-    }
-
-    @Override
-    public void accept(Unifier unifier, Term pattern) {
-        unifier.unify(this, pattern);
-    }
-
-    @Override
-    public void accept(Matcher matcher, Term pattern) {
-        matcher.match(this, pattern);
     }
 
     @Override

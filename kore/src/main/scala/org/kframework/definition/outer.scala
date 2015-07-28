@@ -127,13 +127,12 @@ case class Module(name: String, imports: Set[Module], localSentences: Set[Senten
   lazy val sortDeclarationsFor: Map[Sort, Set[SyntaxSort]] =
     sortDeclarations
       .groupBy(_.sort)
-      .map { case (l, ps) => (l, ps) }
 
   @transient lazy val sortAttributesFor: Map[Sort, Att] =  sortDeclarationsFor mapValues {mergeAttributes(_)}
 
   private def mergeAttributes[T <: Sentence](p: Set[T]) = {
     val union = p.flatMap(_.att.att)
-    val attMap = union.collect({case t@KApply(KLabel(_), _) => t}).groupBy(_.klabel).map { case (l, as) => (l, as) }
+    val attMap = union.collect({case t@KApply(KLabel(_), _) => t}).groupBy(_.klabel)
     Att(union.filter { k => !k.isInstanceOf[KApply] || attMap(k.asInstanceOf[KApply].klabel).size == 1})
   }
 
@@ -172,7 +171,7 @@ case class Module(name: String, imports: Set[Module], localSentences: Set[Senten
 
   lazy val subsorts: POSet[Sort] = POSet(subsortRelations)
 
-  lazy val freshFunctionFor: Map[Sort, KLabel] =
+  @transient lazy val freshFunctionFor: Map[Sort, KLabel] =
     productions.groupBy(_.sort).mapValues(_.filter(_.att.contains("freshGenerator")) )
       .filter(_._2.nonEmpty).mapValues(_.map(p => p.klabel.get)).mapValues { set => {
       if (set.size > 1)
@@ -181,17 +180,6 @@ case class Module(name: String, imports: Set[Module], localSentences: Set[Senten
       else
         set.head
     }}
-
-  lazy val collectionFor: Map[KLabel, KLabel] = productions.filter(_.att.contains("assoc")).flatMap { p => {
-    var set : Set[Tuple2[KLabel, KLabel]] = Set(Tuple2(p.klabel.get, p.klabel.get))
-    if (p.att.contains("unit")) {
-      set = set + Tuple2(KORE.KLabel(p.att.get("unit").get), p.klabel.get)
-    }
-    if (p.att.contains("element")) {
-      set = set + Tuple2(KORE.KLabel(p.att.get("element").get), p.klabel.get)
-    }
-    set
-  }} toMap
 
   // check that non-terminals have a defined sort
   private val nonTerminalsWithUndefinedSort = sentences flatMap {
@@ -306,7 +294,8 @@ RegexTerminalToString {
 case class Terminal(value: String, followRegex: String) extends TerminalLike // hooked
 with TerminalToString {
   lazy val pattern = new RunAutomaton(BasicAutomata.makeString(value), false)
-  lazy val followPattern = new RunAutomaton(new RegExp(followRegex).toAutomaton, false)
+  lazy val followPattern =
+    new RunAutomaton(new RegExp(followRegex).toAutomaton, false)
   lazy val precedePattern = new RunAutomaton(BasicAutomata.makeEmpty(), false)
 }
 

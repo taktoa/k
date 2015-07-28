@@ -14,8 +14,10 @@ import org.kframework.backend.java.kil.Term;
 import org.kframework.backend.java.kil.TermContext;
 import org.kframework.backend.java.util.JavaKRunState;
 import org.kframework.definition.Module;
+import org.kframework.definition.Rule;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
+import org.kframework.kore.KVariable;
 import org.kframework.krun.KRunOptions;
 import org.kframework.krun.api.KRunState;
 import org.kframework.krun.api.io.FileSystem;
@@ -26,11 +28,13 @@ import org.kframework.utils.inject.Builtins;
 import org.kframework.utils.inject.DefinitionScoped;
 import org.kframework.utils.inject.RequestScoped;
 import org.kframework.utils.options.SMTOptions;
+import scala.Tuple2;
 import scala.collection.JavaConversions;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -104,6 +108,17 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
             Term backendKil = KILtoBackendJavaKILTransformer.expandAndEvaluate(rewritingContext, kem, converter.convert(k));
             JavaKRunState result = (JavaKRunState) rewriter.rewrite(new ConstrainedTerm(backendKil, TermContext.of(rewritingContext, backendKil, BigInteger.ZERO)), rewritingContext.getDefinition().context(), depth.orElse(-1), false);
             return result.getJavaKilTerm();
+        }
+
+        @Override
+        public List<Map<KVariable, K>> match(K k, Rule rule) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Tuple2<K, List<Map<KVariable, K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
+            K res = execute(k, depth);
+            return Tuple2.apply(res, match(res, rule));
         }
     }
 
