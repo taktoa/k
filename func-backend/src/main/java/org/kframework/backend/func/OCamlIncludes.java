@@ -314,7 +314,7 @@ public final class OCamlIncludes {
         sb.append("var");
         sb.append(encodeStringToAlphanumeric(name));
         sb.append("_");
-        sb.append(counter++);
+        sb.append(counter++); // implicit global state >:(
         return sb.toString();
     }
 

@@ -4,7 +4,7 @@ TEE = tee
 CAT = cat
 MAKE = make
 FIND = find
-XARGS = xargs
+ETAGS = etags
 MAVEN = mvn -T 8
 KOMPILE = kompile
 KRUN = krun
@@ -35,7 +35,7 @@ doc: func-test-clean
 	${MAVEN} ${DOC} ${DOC_FLAGS}
 
 etags: func-test-clean
-	${FIND} . -name '*.java' | ${XARGS} etags
+	${FIND} . -name '*.java' | ${ETAGS} --language=java -
 
 
 

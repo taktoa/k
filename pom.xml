@@ -171,6 +171,20 @@
           </execution>
         </executions>
       </plugin>
+<!--  <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>2.10.3</version>
+        <configuration>
+          <doclet>org.dbdoclet.doclet.docbook.DocBookDoclet</doclet>
+          <docletArtifact>
+            <groupId>org.dbdoclet</groupId>
+            <artifactId>dbdoclet</artifactId>
+            <version>8.0.2</version>
+          </docletArtifact>
+          <useStandardDocletOptions>false</useStandardDocletOptions>
+        </configuration>
+      </plugin> -->
       <plugin>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>2.13</version>

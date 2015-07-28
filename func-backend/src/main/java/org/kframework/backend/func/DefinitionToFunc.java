@@ -322,7 +322,6 @@ public class DefinitionToFunc {
 
         String functionName = encodeStringToFunction(functionLabel.name());
 
-        outprintfln(";; function: %s", functionLabel.name());
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
                                  .beginRender()
@@ -434,16 +433,22 @@ public class DefinitionToFunc {
 
         Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
 
-        sb.beginLetrecDeclaration();
-        sb.beginLetrecDefinitions();
 
         for(List<KLabel> component : ppk.functionOrder) {
+            sb.beginLetrecDeclaration();
+            sb.beginLetrecDefinitions();
             for(KLabel functionLabel : component) {
                 sb.append(addFunctionEquation(functionLabel, ppk));
             }
+            sb.endLetrecDefinitions();
+            sb.endLetrecDeclaration();
         }
 
+        sb.beginLetrecDeclaration();
+        sb.beginLetrecDefinitions();
+
         sb.append(addFreshFunction(ppk));
+
         sb.append(addEval(funcAndAny, ppk));
 
         sb.endLetrecDefinitions();
