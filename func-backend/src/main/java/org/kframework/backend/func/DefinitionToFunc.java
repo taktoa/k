@@ -65,8 +65,6 @@ public class DefinitionToFunc {
     public static final boolean debugEnabled = true;
 
 
-    private PreprocessedKORE preproc;
-
     private final KExceptionManager kem;
     private final SyntaxBuilder ocamlDef;
 
@@ -91,14 +89,14 @@ public class DefinitionToFunc {
                             PreprocessedKORE preproc) {
         this.kem = kem;
         this.ocamlDef = langDefToFunc(preproc);
-        debugOutput();
+        debugOutput(preproc);
     }
 
     public String genOCaml() {
         return ocamlDef.toString();
     }
 
-    private void debugOutput() {
+    private void debugOutput(PreprocessedKORE ppk) {
         outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
@@ -110,17 +108,20 @@ public class DefinitionToFunc {
         outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
         outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
 
-        XMLBuilder outXML = ocamlDef.getXML();
 
-        outprintfln("%s", outXML.renderSExpr());
+        outprintfln("functionSet: %s", ppk.functionSet);
+        outprintfln("anywhereSet: %s", ppk.anywhereSet);
 
-        try {
-            outprintfln("%s", outXML.renderSExpr());
-        } catch(KEMException e) {
-            outprintfln(";; %s", outXML.toString()
-                        .replaceAll("><", ">\n<")
-                        .replaceAll("\n", "\n;; "));
-        }
+//        XMLBuilder outXML = ocamlDef.getXML();
+//        outprintfln("%s", outXML.renderSExpr());
+//
+//        try {
+//            outprintfln("%s", outXML.renderSExpr());
+//        } catch(KEMException e) {
+//            outprintfln(";; %s", outXML.toString()
+//                        .replaceAll("><", ">\n<")
+//                        .replaceAll("\n", "\n;; "));
+//        }
 
         outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
@@ -321,6 +322,7 @@ public class DefinitionToFunc {
 
         String functionName = encodeStringToFunction(functionLabel.name());
 
+        outprintfln(";; function: %s", functionLabel.name());
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
                                  .beginRender()
@@ -397,7 +399,6 @@ public class DefinitionToFunc {
         sb.beginMatchExpression(newsb("c"));
 
         sb.beginMatchEquation();
-        // BUG SPOT? Can patterns have arbitrary parens in them?
         sb.addMatchEquationPattern(newsb()
                                    .addApplication("KApply",
                                                    newsb("(lbl, kl)")));
@@ -433,20 +434,18 @@ public class DefinitionToFunc {
 
         Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
 
+        sb.beginLetrecDeclaration();
+        sb.beginLetrecDefinitions();
+
         for(List<KLabel> component : ppk.functionOrder) {
-            sb.beginLetrecDeclaration();
-            sb.beginLetrecDefinitions();
             for(KLabel functionLabel : component) {
                 sb.append(addFunctionEquation(functionLabel, ppk));
             }
-            sb.endLetrecDefinitions();
-            sb.endLetrecDeclaration();
         }
 
-        sb.beginLetrecDeclaration();
-        sb.beginLetrecDefinitions();
         sb.append(addFreshFunction(ppk));
         sb.append(addEval(funcAndAny, ppk));
+
         sb.endLetrecDefinitions();
         sb.endLetrecDeclaration();
 

@@ -101,9 +101,7 @@ public class SyntaxBuilder implements Cloneable {
         if(s instanceof SyntaxEnum) {
             track.addSyntax((SyntaxEnum) s);
         }
-        // if(between(linum, 26900, 27000)) {
-        //     addStackTrace();
-        // }
+
         return this;
     }
 

@@ -419,15 +419,17 @@ public final class PreprocessedKORE implements Serializable {
         initializeFunctionSet();
         if(initialized.contains("functionOrder")) { return; }
 
+        Set<KLabel> funcAnySet = Sets.union(functionSet, anywhereSet);
+
         BiMap<KLabel, Integer> mapping = HashBiMap.create();
 
         int counter = 0;
 
-        for(KLabel lbl : functionSet) {
+        for(KLabel lbl : funcAnySet) {
             mapping.put(lbl, counter++);
         }
 
-        List<Integer>[] predecessors = new List[functionSet.size()];
+        List<Integer>[] predecessors = new List[funcAnySet.size()];
 
         for(int i = 0; i < predecessors.length; i++) {
             predecessors[i] = Lists.newArrayList();
@@ -442,7 +444,7 @@ public final class PreprocessedKORE implements Serializable {
 
             @Override
             public Void apply(KApply k) {
-                if(functionSet.contains(k.klabel())) {
+                if(funcAnySet.contains(k.klabel())) {
                     predecessors[mapping.get(current)].add(mapping.get(k.klabel()));
                 }
                 return super.apply(k);
@@ -450,6 +452,12 @@ public final class PreprocessedKORE implements Serializable {
         }
 
         for(Map.Entry<KLabel, Rule> entry : functionRules.entries()) {
+            GetPredecessors visitor = new GetPredecessors(entry.getKey());
+            visitor.apply(entry.getValue().body());
+            visitor.apply(entry.getValue().requires());
+        }
+
+        for(Map.Entry<KLabel, Rule> entry : anywhereRules.entries()) {
             GetPredecessors visitor = new GetPredecessors(entry.getKey());
             visitor.apply(entry.getValue().body());
             visitor.apply(entry.getValue().requires());
