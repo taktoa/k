@@ -25,6 +25,25 @@ public final class OCamlIncludes {
     public static final String INT = encodeStringToIdentifier(Sort("Int"));
     private static long counter = 0;
 
+
+    // public static final SyntaxBuilder definitionsSB = newsb();
+
+    // addModule(SyntaxBuilder moduleName, SyntaxBuilder moduleType, SBPair... bindings)                              | <module name="..." type="...">... <module-binding name="...">type</module-binding> ...</module>
+    // addSignature(SyntaxBuilder... specifications)                                                                  | <signature></signature>
+    // addConstraints(SyntaxBuilder moduleType, SyntaxBuilder... constraints)                                         |
+    // addTypeConstraint(SyntaxBuilder valueTypeConstr, SyntaxBuilder valueTypeEq, SyntaxBuilder... valueTypeParams)  |
+    // addFunctor(SyntaxBuilder moduleName, SyntaxBuilder moduleType, SyntaxBuilder moduleType)                       |
+    // addModuleValue(SyntaxBuilder valueName, SyntaxBuilder valueType)                                               |
+    // begin/endBinaryOpApp()                                                                                         |
+    // addBinaryOp(String symbol)                                                                                     |
+    //                                                                                                                |
+
+
+    // static {
+    //     definitionsSB
+    //         .addModuleSigj
+    // }
+
     public static final String kType =
         "t = kitem list\n" +
         " and kitem = KApply of klabel * t list\n" +

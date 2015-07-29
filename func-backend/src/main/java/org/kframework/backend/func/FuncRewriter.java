@@ -9,22 +9,27 @@ import java.io.IOException;
 import java.io.File;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import java.util.function.Function;
-import java.util.function.BiFunction;
 import java.util.concurrent.TimeUnit;
+import scala.Tuple2;
 
 import org.kframework.Rewriter;
 import org.kframework.attributes.Source;
-import org.kframework.builtin.Sorts;
 import org.kframework.definition.Module;
+import org.kframework.definition.Rule;
 import org.kframework.kompile.CompiledDefinition;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
+import org.kframework.kore.KVariable;
 import org.kframework.main.GlobalOptions;
+import org.kframework.utils.BinaryLoader;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 import org.kframework.utils.inject.DefinitionScoped;
+import org.kframework.utils.koreparser.KoreParser;
 
+import static org.kframework.kore.KORE.*;
 import static org.kframework.backend.func.FuncUtil.*;
 
 /**
@@ -45,13 +50,16 @@ public class FuncRewriter implements Function<Module, Rewriter> {
     private final File
         compileDirectory, compileOutFile, compileErrFile,
         runtimeDirectory, runtimeOutFile, runtimeErrFile,
-        kompileDirectory, kompileDefFile, pgmSourceFile;
+        kompileDirectory, kompileDefFile, pgmSourceFile,
+        runOutputFile,    runSubstFile;
+
+    private final String runOutputPath, runSubstPath;
 
     private static final String
-        compileDirectoryName, compileOutFileName, compileErrFileName,
-        runtimeDirectoryName, runtimeOutFileName, runtimeErrFileName,
+        compileDirectoryName, compileOutFileName,   compileErrFileName,
+        runtimeDirectoryName, runtimeOutFileName,   runtimeErrFileName,
         binaryOutputFileName, kompileDirectoryName, kompileDefFileName,
-        pgmSourceFileName;
+        pgmSourceFileName,    runOutputFileName,    runSubstFileName;
 
     static {
         compileDirectoryName = ".";
@@ -64,6 +72,8 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         kompileDirectoryName = ".";
         kompileDefFileName   = "def.cmo";
         pgmSourceFileName    = "pgm.ml";
+        runOutputFileName    = "run.out";
+        runSubstFileName     = "run.subst";
     }
 
     // If you don't use ocamlfind, you will want to change this
@@ -82,7 +92,8 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                         FileUtil files,
                         GlobalOptions globalOptions,
                         KompileOptions kompileOptions,
-                        CompiledDefinition def) {
+                        CompiledDefinition def,
+                        InitializeDefinition init) {
         this.kem = kem;
         this.def = def;
 
@@ -102,6 +113,12 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         this.kompileDefFile   = files.resolveKompiled(kompileDefFileName);
 
         this.pgmSourceFile    = files.resolveTemp(pgmSourceFileName);
+
+        this.runOutputFile    = files.resolveTemp(runOutputFileName);
+        this.runSubstFile     = files.resolveTemp(runSubstFileName);
+
+        this.runOutputPath    = runOutputFile.getAbsolutePath();
+        this.runSubstPath     = runSubstFile.getAbsolutePath();
     }
 
     @Override
@@ -113,39 +130,74 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         return new Rewriter() {
             @Override
             public K execute(K k, Optional<Integer> depth) {
-                return executeOCaml(k, depth);
+                return executeOCaml(k, depth.orElse(-1)).getE();
+            }
+
+            @Override
+            public List<Map<KVariable, K>> match(K k, Rule rule) {
+                return matchOCaml(k, rule).getM();
+            }
+
+            @Override
+            public Tuple2<K, List<Map<KVariable, K>>>
+                executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
+                RunResults r = executeAndMatchOCaml(k, depth.orElse(-1), rule);
+                return Tuple2.apply(r.getE(), r.getM());
             }
         };
     }
 
-    private K executeOCaml(K k, Optional<Integer> depth) {
-        timer.start();
-        generateOCaml(k, depth);
-        stopAndReportTimer("Time required to generate krun OCaml: %d s");
-        resetAndStartTimer();
-        compileOCaml();
-        stopAndReportTimer("Time required to compile krun OCaml: %d s");
-        resetAndStartTimer();
-        runOCaml();
-        stopAndReportTimer("Time required to run krun OCaml: %d s");
-        return parseOCamlOutput();
+    private RunResults executeOCaml(K k, int depth) {
+        savePgm(generateExecuteOCaml(k, depth));
+        compileAndRunOCaml();
+        return readOCamlOutput(RunMode.EXECUTE);
     }
 
-    private void generateOCaml(K k, Optional<Integer> depth) {
-        String ocaml = converter.convert(k, depth.orElse(-1));
+    private RunResults matchOCaml(K k, Rule rule) {
+        savePgm(generateMatchOCaml(k, rule));
+        compileAndRunOCaml();
+        return readOCamlOutput(RunMode.MATCH);
+    }
+
+    private RunResults executeAndMatchOCaml(K k, int depth, Rule rule) {
+        savePgm(generateExecuteAndMatchOCaml(k, depth, rule));
+        compileAndRunOCaml();
+        return readOCamlOutput(RunMode.BOTH);
+    }
+
+    private void savePgm(String ocaml) {
         FileUtil.save(pgmSourceFile, ocaml);
+    }
+
+    private String generateExecuteOCaml(K k, int depth) {
+        return converter.execute(k, depth, runOutputPath);
+    }
+
+    private String generateMatchOCaml(K k, Rule rule) {
+        return converter.match(k, rule, runOutputPath);
+    }
+
+    private String generateExecuteAndMatchOCaml(K k,
+                                                int depth,
+                                                Rule rule) {
+        return converter.executeAndMatch(k, depth, rule,
+                                         runOutputPath,
+                                         runSubstPath);
+    }
+
+    private void compileAndRunOCaml() {
+        compileOCaml();
+        runOCaml();
     }
 
     private void compileOCaml() {
         try {
             Process p = startCompileProcess();
 
-            try {
-                int exit = p.waitFor();
-                if(exit != 0) { compileFailedError(exit); }
-            } catch(InterruptedException e) {
+            int exit = p.waitFor();
+            if(exit != 0) { compileFailedError(exit); }
+        } catch(InterruptedException e) {
                 compileInterruptedError(e);
-            }
         } catch(IOException e) {
             compileIOError(e);
         }
@@ -155,22 +207,67 @@ public class FuncRewriter implements Function<Module, Rewriter> {
         try {
             Process p = startRuntimeProcess();
 
-            try {
-                int exit = p.waitFor();
-                if(exit != 0) { runtimeFailedError(exit); }
-            } catch(InterruptedException e) {
-                runtimeInterruptedError(e);
-            }
+            int exit = p.waitFor();
+            if(exit != 0) { runtimeFailedError(exit); }
+        } catch(InterruptedException e) {
+            runtimeInterruptedError(e);
         } catch(IOException e) {
             runtimeIOError(e);
         }
     }
 
-    private K parseOCamlOutput() {
-        String output = FileUtil.load(runtimeOutFile);
-        Module kseqSymbolic = def.getParsedDefinition().getModule("KSEQ-SYMBOLIC").get();
-        BiFunction<String, Source, K> parser = def.getParser(kseqSymbolic, Sorts.K(), kem);
-        return parser.apply(output, ocamlSrc);
+
+    private RunResults readOCamlOutput(RunMode rm) {
+        String output, subst;
+        output = FileUtil.load(runOutputFile);
+        subst  = rm == RunMode.EXECUTE ? "" : FileUtil.load(runSubstFile);
+        List<Map<KVariable, K>> match;
+
+        switch(rm) {
+        case EXECUTE:
+            return RunResults.newRunResults(parseExecuteOutput(output));
+        case MATCH:
+            return RunResults.newRunResults(parseMatchOutput(subst));
+        case BOTH:
+            return RunResults.newRunResults(parseExecuteOutput(output),
+                                            parseMatchOutput(subst));
+        default:
+            assert false; // we should not get here
+            return null;
+        }
+    }
+
+    // TODO(remy):
+    // There has to be a better way of doing this
+    // i.e.: by pretty-printing it to XML that Java can parse automatically
+    private List<Map<KVariable, K>> parseMatchOutput(String output) {
+        String[] lines = output.split("\n");
+        int count = Integer.parseInt(lines[0]);
+        int line = 1;
+        List<Map<KVariable, K>> list = newArrayList();
+        for (int i = 1; i <= count; i++) {
+            Map<KVariable, K> map = newHashMap();
+            list.add(map);
+            while(lines.length > line) {
+                if (lines[line].equals("|")) {
+                    line++;
+                    break;
+                }
+                KVariable key = KVariable(lines[line]);
+                K value = parseKORE(lines[line+1]);
+                map.put(key, value);
+                line += 2;
+            }
+        }
+        return list;
+    }
+
+    private K parseExecuteOutput(String output) {
+        return parseKORE(output);
+    }
+
+    private K parseKORE(String output) {
+        return KoreParser.parse(output, Source.apply(runOutputPath));
     }
 
     private Process startRuntimeProcess() throws IOException {
@@ -255,5 +352,60 @@ public class FuncRewriter implements Function<Module, Rewriter> {
     private void stopAndReportTimer(String format) {
         timer.stop();
         outprintfln(format, timer.elapsed(TimeUnit.SECONDS));
+    }
+
+    @DefinitionScoped
+    public static class InitializeDefinition {
+        private final DefinitionToFunc serialized;
+
+        @Inject
+        public InitializeDefinition(BinaryLoader loader, FileUtil files) {
+            serialized = null;
+//            serialized = loader.loadOrDie(DefinitionToFunc.class,
+//                                          files.resolveKompiled("conv.bin"));
+        }
+    }
+
+    private enum RunMode {
+        EXECUTE, MATCH, BOTH;
+    }
+
+    private static class RunResults {
+        private final Optional<K> resultE;
+        private final Optional<List<Map<KVariable, K>>> resultM;
+
+        public static RunResults newRunResults(K e) {
+            return new RunResults(Optional.of(e), Optional.empty());
+        }
+
+        public static RunResults newRunResults(List<Map<KVariable, K>> m) {
+            return new RunResults(Optional.empty(), Optional.of(m));
+        }
+
+        public static RunResults newRunResults(K e, List<Map<KVariable, K>> m) {
+            return new RunResults(Optional.of(e), Optional.of(m));
+        }
+
+        private RunResults(Optional<K> resultE,
+                           Optional<List<Map<KVariable, K>>> resultM) {
+            this.resultE = resultE;
+            this.resultM = resultM;
+        }
+
+        public K getE() {
+            if(resultE.isPresent()) {
+                return resultE.get();
+            } else {
+                throw kemCriticalErrorF("Called wrong accessor in RunResults");
+            }
+        }
+
+        public List<Map<KVariable, K>> getM() {
+            if(resultM.isPresent()) {
+                return resultM.get();
+            } else {
+                throw kemCriticalErrorF("Called wrong accessor in RunResults");
+            }
+        }
     }
 }

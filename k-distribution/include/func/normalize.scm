@@ -9,16 +9,19 @@
              (srfi srfi-1))
 (use-modules (statprof))
 
-
 (define debug-enabled      #f)
 (define unit-tests-enabled #f)
+(define rethrow            #f)
 
 (define-syntax-rule (defsyntax (name syntax-var) body)
   (define-syntax name (λ (syntax-var) body)))
 (define-syntax-rule (try (body ...) key-sym (args ...) (handler ...))
   (catch key-sym (λ () body ...) (λ* (args ...) handler ...)))
 (define-syntax-rule (try-all (body ...) (key args) (handler ...))
-  (try (body ...) #t (key #:rest args) (handler ... (throw key args))))
+  (try (body ...)
+       #t
+       (key #:rest args)
+       (handler ... (when rethrow (throw key args)))))
 (define-syntax-rule (λ* args ...)
   (lambda* args ...))
 (define-syntax-rule (thunk args ...)
@@ -34,13 +37,27 @@
 (define* (const-null  #:rest xs) '())
 
 (define* (printf fmt #:rest args) (apply format `(#t ,fmt ,@args)))
-(define* (fmtstr fmt #:rest args) (apply format `(#f ,fmt ,@args)))
+(define* (fmtstr fmt #:rest args)
+  (try-all
+   ((apply format `(#f ,fmt ,@args)))
+   (k a) ((throw 'format-error `(#f "Format error: ~a | ~a" (,fmt ,args) #f)))))
 
 (define* (printfln fmt #:rest args)
   (apply printf `(,(string-append ";; " fmt "\n") ,@args)))
 
 (define* (errorfmt fmt #:rest args)
   (error (apply fmtstr `(,(fmtstr ";; Error: ~s" fmt) ,@args))))
+
+(define* (tryfmt args)
+  (match args
+    [(_ fmt lst _) (apply fmtstr (cons fmt lst))]
+    [_             (fmtstr "~s" args)]))
+
+(define* (run-handler fn-name key args syntax)
+  (unless (eqv? key 'quit)
+    (printfln "Error in ~a: ~a | ~a" fn-name key (tryfmt args))
+    (printfln "Error in ~a:  stx = ~s" fn-name syntax)
+    (unless debug-enabled (exit -1))))
 
 (define* (profile prof-thunk
                   #:key
@@ -56,17 +73,18 @@
                     full-stacks?))
   (statprof-start)
   (letrec
-      ((statprof-string (thunk (with-output-to-string statprof-display)))
-       (sed             regexp-substitute/global)
-       (comment-string  (λ* (str) (sed #f "\n" str 'pre "\n;; " 'post)))
-       (res             (prof-thunk)))
+      ([statprof-string (thunk (with-output-to-string statprof-display))]
+       [sed             regexp-substitute/global]
+       [comment-string  (λ* (str) (sed #f "\n" str 'pre "\n;; " 'post))]
+       [res             (prof-thunk)])
     (statprof-stop)
     (when display? (display (comment-string (statprof-string))))
     res))
 
 (define* (list-intersperse src-l elem)
   (if (null? src-l) src-l
-      (let loop ((l (cdr src-l)) (dest (cons (car src-l) '())))
+      (let loop ([l (cdr src-l)]
+                 [dest (cons (car src-l) '())])
         (if (null? l) (reverse dest)
             (loop (cdr l) (cons (car l) (cons elem dest)))))))
 
@@ -124,80 +142,92 @@
 (define* (run-cleanup stx)
   (try-all
    ((cleanup-syntax stx))
-   (k a) ((printfln "Error in cleanup-syntax: key = ~s, args = ~s" k a))))
+   (k a) ((run-handler 'run-cleanup k a stx))))
 
 (define* (render func #:rest args)
   (letrec*
-      ([err       (λ* [err-sym] (throw err-sym func args))]
-       [joining   (λ* [list between]
-                      (apply string-append
-                             (list-intersperse list between)))]
-       [!=        (λ* [#:rest xs] (not (apply = xs)))]
-       [largs     (length args)]
-       [rdl       (λ* [list] (map render-syntax list))]
-       [rd        (rdl args)]
-       [to-list   (thunk (cdr (to-func)))]
-       [to-eqn    (thunk (if (= (length args) 2)
-                             `[,(car args) => ,@(rdl (cdr args))]
-                             (err 'render-error)))]
-       [rendf     (λ* [n fmt #:rest rs]
-                      (match n
-                       ['n      (fmtstr fmt (car rs))]
-                       [`,largs (apply fmtstr `(,fmt ,@rs))]
-                       [_       (err 'render-rendf)]))]
-       [rend      (λ* [n fmt] (rendf n fmt rd))]
-       [rdef      (λ* [is-rec]
-                      (apply fmtstr
-                             `(,(if (or (= largs 1) (= largs 2))
-                                    (if (= largs 1) "~a ~a;;" "~a ~a in ~a;;")
-                                    (err 'render-def))
-                               ,(if is-rec "let rec" "let")
-                               ,@args)))]
-       [to-func   (λ* [#:optional fn]
-                      (cons (if (not fn) func fn) rd))]
-       [type-var  (λ* [var-name] (fmtstr "'~a" var-name))]
-       [type-name (thunk (list-ref args 0))]
-       [type-vars (thunk (joining (map type-var (list-ref args 1)) " "))]
-       [type-cons (thunk (joining (list-ref args 2) " | "))]
-       [con-many  (thunk (fmtstr "~a of (~a)"
-                                 (car rd)
-                                 (joining (cdr rd) " * ")))])
-    (if (not (symbol? func))
-        (rdl (cons func args))
-        (match func
-          ['type      (rendf  3 "type ~a ~a = ~a;;\n"
-                                (type-vars)
-                                (type-name)
-                                (type-cons))]
-          ['con       (rendf 'n "~a" (if (= 1 largs) func (con-many)))]
-          ['cond      (rend   3 "(if ~a then ~a else ~a)")]
-          ['match     (rendf  2 "(match ~a with ~a)"
-                                 (car rd)
-                                 (joining (cdr rd) " | "))]
-          ['let-in    (rendf  2 "(let ~a in ~a)"
-                                 (joining (car rd) " ")
-                                 (car (cdr rend)))]
-          ['letr-in   (rendf  2 "(let rec ~a in ~a)"
-                                 (joining (car rd) " ")
-                                 (car (cdr rd)))]
-          ['def       (rdef  #f)]
-          ['defr      (rdef  #t)]
-          ['match-eqn (rend   2 "~a -> ~a")]
-          ['let-eqn   (rend   2 "~a = (~a);")]
-          ['letr-eqn  (rend   2 "~a = (~a);")]
-          ['lam       (rendf  2 "(fun ~a -> ~a)"
-                                 (car args)
-                                 (cdr rd))]
-          ['app       (rend  'n "~a")]
-          [_          (err 'render-unmatched)]))))
+      ([err        (λ* [err-sym] (throw err-sym func args))]
+       [joining    (λ* [list between]
+                       (apply string-append
+                              (list-intersperse list between)))]
+       [!=         (λ* [#:rest xs] (not (apply = xs)))]
+       [largs      (length args)]
+       [rdl        (λ* [list] (map render-syntax list))]
+       [rd         (thunk (rdl args))]
+       [to-list    (thunk (cdr (to-func)))]
+       [to-eqn     (thunk (if (= (length args) 2)
+                              `[,(car args) => ,@(rdl (cdr args))]
+                              (err 'render-error)))]
+       [rendf      (λ* [fmt #:rest rs] (apply fmtstr `(,fmt ,@rs)))]
+       [rend       (λ* [fmt] (rendf fmt (rd)))]
+       [rdef       (λ* [r is-rec]
+                       (apply fmtstr
+                              `(,(if (= largs 1) "~a ~a;;" "~a ~a in ~a;;")
+                                ,(if is-rec "let rec" "let")
+                                ,@r)))]
+       [rlet       (λ* [r is-rec]
+                       (apply fmtstr
+                              `("(~a ~a in ~a)"
+                                ,(if is-rec "let rec" "let")
+                                ,@r)))]
+
+       [to-func    (λ* [#:optional fn]
+                       (cons (if (not fn) func fn) (rd)))]
+       [otype-var  (λ* [var-name] (printfln "test1: ~s" var-name) (fmtstr "'~a" var-name))]
+       [otype-vars (λ* [a] (joining (map otype-var (cdr a)) " "))]
+       [otype-name (λ* [a] a)]
+       [otype-cons (λ* [a] (joining a " | "))]
+       [otype      (λ* [r] (rendf "type ~a ~a = ~a;;\n"
+                                  (otype-vars (list-ref args 0))
+                                  (otype-name (list-ref args 1))
+                                  (otype-cons (rdl
+                                               (cdr
+                                                (list-ref args 2))))))]
+       [ocon-many  (λ* [r] (fmtstr "~a of (~a)"
+                                   (car r)
+                                   (joining (cdr r) " * ")))]
+       [ocon       (λ* [r] (rendf "~a" (if (= 1 largs)
+                                           (car r)
+                                           (ocon-many r))))]
+       [omatch     (thunk  (rendf "(match ~a with ~a)"
+                                  (render-syntax (car args))
+                                  (joining (rdl
+                                            (cdr
+                                             (list-ref args 1))) " | ")))]
+       [obody      (λ* [r] (joining r "\n"))]
+       [omany      (λ* [r] (joining r " "))])
+    (try
+     ((if (not (symbol? func))
+          (rdl (cons func args))
+          (match func
+            ['body      (obody  (rd))]
+            ['many      (omany  (rd))]
+            ['type      (otype  (rd))]
+            ['con       (ocon   (rd))]
+            ['match     (omatch (rd))]
+            ['let-in    (rlet   (rd) #f)]
+            ['letr-in   (rlet   (rd) #t)]
+            ['def       (rdef   (rd) #f)]
+            ['defr      (rdef   (rd) #t)]
+            ['match-eqn (rend   "~a -> ~a;")]
+            ['let-eqn   (rend   "~a = ~a;")]
+            ['letr-eqn  (rend   "~a = ~a;")]
+            ['lam       (rendf  "(fun ~a -> ~a)"
+                                (car args)
+                                (rdl (cdr args)))]
+            ['cond      (rend   "(if ~a then ~a else ~a)")]
+            ['app       (rendf  "~a" `(,(rd)))]
+            [_          (err 'render-unmatched)]
+            )))
+     'format
+     (k a) ((printfln "Format error: ~a" a)))))
 
 (define* (render-syntax stx)
-  (if (proper-list? stx) (apply render stx) stx))
-
-(define* (run-render stx)
   (try-all
-   ((render-syntax stx))
-   (k a) ((printfln "Error in run-render: key = ~s, args = ~s" k a))))
+   ((if (proper-list? stx) (apply render stx) stx))
+   (k a) ((run-handler 'run-render k a stx))))
+
+(define* run-render render-syntax)
 
 (define* (normalize func #:rest args)
   (letrec
@@ -262,11 +292,7 @@
 (define* (run-normalize stx)
   (try-all
    ((cons (car stx) (map normalize-syntax (cdr stx))))
-   (k a) ((printfln "Error in run-normalize:  key = ~s" a)
-          (printfln "Error in run-normalize: args = ~s" a)
-          (printfln "Error in run-normalize:  stx = ~s" stx))))
-
-
+   (k a) ((run-handler 'run-normalize k a stx))))
 
 (define* (renormalize func #:rest args)
   (letrec
@@ -297,19 +323,20 @@
 (define* (run-renormalize stx)
   (try-all
    ((renormalize-syntax stx))
-   (k a) ((printfln "Error in run-renormalize: key = ~s, args = ~s" k a))))
+   (k a) ((run-handler 'run-renormalize k a stx))))
 
 (define* (read-xml path)
-  (let* ((port (open-file path "r"))
-         (xml (cdr (xml->sxml port))))
+  (let* ([port (open-file path "r")]
+         [xml (cdr (xml->sxml port))])
     (close-port port)
     xml))
 
 (define* (process-data input-data)
   (let* ([cleaned (run-cleanup     input-data)]
          [normal  (run-normalize      cleaned)]
-         [final   (run-renormalize     normal)])
-    final))
+         [final   (run-renormalize     normal)]
+         [render  (run-render          normal)])
+    `(,final . ,render)))
 
 (define* (main)
   (try-all
@@ -319,19 +346,22 @@
          (printfln "Usage: normalize.scm <path-to-xml>")
          (throw 'exit 1))
 
-       (let ((input-path (list-ref (command-line) 1)))
+       (let ([input-path (list-ref (command-line) 1)])
          (unless (access? input-path R_OK)
            (printfln "File not found. Quitting.")
            (throw 'exit 2))
-         (pretty-print (process-data (car (read-xml input-path))))
+         (let ([proc (process-data (car (read-xml input-path)))])
+           (pretty-print (car proc))
+           (printfln "")
+           (printfln "")
+           (printfln "")
+           (printfln "\n~a" (cdr proc)))
          (throw 'exit 0)))
 
       (λ* (key code)
           (printfln "Exit code: ~s" code)
           (exit code))))
-   (k a)
-   ((printfln "Error in main: key = ~s, args = ~s" k a))))
-
+   (k a) ((printfln "Error in main: ~a | ~a" k (tryfmt a)))))
 
 ;; Unit test input data and the relevant expected output from `process-data'
 

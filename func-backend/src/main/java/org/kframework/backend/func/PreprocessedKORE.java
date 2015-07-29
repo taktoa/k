@@ -6,7 +6,7 @@ import org.kframework.definition.ModuleTransformer;
 import org.kframework.definition.Sentence;
 import org.kframework.definition.Definition;
 import org.kframework.kore.compile.ConvertDataStructureToLookup;
-import org.kframework.kore.compile.DeconstructIntegerLiterals;
+import org.kframework.kore.compile.DeconstructIntegerAndFloatLiterals;
 import org.kframework.kore.compile.GenerateSortPredicateRules;
 import org.kframework.kore.compile.LiftToKSequence;
 import org.kframework.kore.compile.SimplifyConditions;
@@ -70,7 +70,7 @@ import static scala.compat.java8.JFunction.*;
  *
  * @author Remy Goldschmidt
  */
-public final class PreprocessedKORE implements Serializable {
+public final class PreprocessedKORE {
     /** Set of KLabels that are functions */
     public Set<KLabel> functionSet;
     /** Set of KLabels that are subject to [anywhere] rules */
@@ -122,13 +122,14 @@ public final class PreprocessedKORE implements Serializable {
      */
     public Map<String, Map<Sort, String>> attrSorts;
 
-    /** The same as mainModule.collectionFor, but converted to use Java collections */
-    public Map<KLabel, KLabel> collectionFor;
-
-    /** The same as mainModule.productionsFor, but converted to use Java collections */
+    /** The same as mainModule.productionsFor,
+     *  but converted to use Java collections
+     */
     public Map<KLabel, Set<Production>> productionsFor;
 
-    /** The same as mainModule.freshFunctionFor, but converted to use Java collections */
+    /** The same as mainModule.freshFunctionFor,
+     *  but converted to use Java collections
+     */
     public Map<Sort, KLabel> freshFunctionFor;
 
     /** A map from rules to a cleaned-up subset of their attributes */
@@ -154,8 +155,8 @@ public final class PreprocessedKORE implements Serializable {
         = "Generate predicates";
     private static final String liftToKSequenceStr
         = "Lift K into KSequence";
-    private static final String deconstructIntsStr
-        = "Remove matches on integer literals in left hand side";
+    private static final String deconstructNumsStr
+        = "Remove matches on integer/float literals in left hand side";
     private static final String expandMacrosStr
         = "Expand macros rules";
     private static final String simplifyConditionsStr
@@ -169,7 +170,6 @@ public final class PreprocessedKORE implements Serializable {
                             FileUtil files,
                             GlobalOptions globalOptions,
                             KompileOptions kompileOptions) {
-
         executionModule       = def.executionModule();
 
         kompiledDefinition    = def.kompiledDefinition;
@@ -180,16 +180,15 @@ public final class PreprocessedKORE implements Serializable {
                                                  globalOptions,
                                                  kompileOptions);
 
-        initialized = Sets.newHashSet();
-
         mainModule = mainModulePipeline(executionModule);
+
+        initialized = Sets.newHashSet();
 
         definedSorts      = stream(mainModule.definedSorts()).collect(Collectors.toSet());
         definedKLabels    = stream(mainModule.definedKLabels()).collect(Collectors.toSet());
         rules             = stream(mainModule.rules()).collect(Collectors.toSet());
         attributesFor     = scalaMapAsJava(mainModule.attributesFor());
         sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
-        collectionFor     = scalaMapAsJava(mainModule.collectionFor());
         freshFunctionFor  = scalaMapAsJava(mainModule.freshFunctionFor());
 
         initializeFinal();
@@ -199,7 +198,7 @@ public final class PreprocessedKORE implements Serializable {
      * Process incoming K at runtime
      */
     public K runtimeProcess(K k) {
-        return new LiftToKSequence().convert(expandMacrosObj.expand(k));
+        return new LiftToKSequence().lift(expandMacrosObj.expand(k));
     }
 
     // Returns a transformation pipeline for the main module
@@ -209,39 +208,39 @@ public final class PreprocessedKORE implements Serializable {
             return ModuleTransformer.fromSentenceTransformer(conv, str);
         };
 
-        ConvertDataStructureToLookup convertLookupsObj;
-        GenerateSortPredicateRules   generatePredicatesObj;
-        LiftToKSequence              liftToKSequenceObj;
-        DeconstructIntegerLiterals   deconstructIntsObj;
-        SimplifyConditions           simplifyConditionsObj;
+        ConvertDataStructureToLookup       convertLookupsObj;
+        GenerateSortPredicateRules         generatePredicatesObj;
+        LiftToKSequence                    liftToKSequenceObj;
+        DeconstructIntegerAndFloatLiterals deconstructNumsObj;
+        SimplifyConditions                 simplifyConditionsObj;
 
-        convertLookupsObj     = new ConvertDataStructureToLookup(executionModule);
+        convertLookupsObj     = new ConvertDataStructureToLookup(executionModule, true);
         generatePredicatesObj = new GenerateSortPredicateRules(kompiledDefinition);
         liftToKSequenceObj    = new LiftToKSequence();
-        deconstructIntsObj    = new DeconstructIntegerLiterals();
+        deconstructNumsObj    = new DeconstructIntegerAndFloatLiterals();
         simplifyConditionsObj = new SimplifyConditions();
 
         ModuleTransformer
             convertLookupsMT, liftToKSequenceMT,
-            simplifyConditionsMT, deconstructIntsMT,
+            simplifyConditionsMT, deconstructNumsMT,
             expandMacrosMT;
 
         Function1<Module, Module> generatePredicatesMT;
 
         convertLookupsMT     = fromST.apply(convertLookupsObj::convert,
                                             convertLookupsStr);
-        liftToKSequenceMT    = fromST.apply(liftToKSequenceObj::convert,
+        liftToKSequenceMT    = fromST.apply(liftToKSequenceObj::lift,
                                             liftToKSequenceStr);
         simplifyConditionsMT = fromST.apply(simplifyConditionsObj::convert,
                                             simplifyConditionsStr);
-        deconstructIntsMT    = fromST.apply(deconstructIntsObj::convert,
-                                            deconstructIntsStr);
+        deconstructNumsMT    = fromST.apply(deconstructNumsObj::convert,
+                                            deconstructNumsStr);
         expandMacrosMT       = fromST.apply(expandMacrosObj::expand,
                                             expandMacrosStr);
 
         generatePredicatesMT = func(generatePredicatesObj::gen);
 
-        return deconstructIntsMT
+        return deconstructNumsMT
             .andThen(convertLookupsMT)
             .andThen(expandMacrosMT)
             .andThen(generatePredicatesMT)

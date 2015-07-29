@@ -84,12 +84,6 @@ public class DefinitionToOcaml implements Serializable {
     private transient final KompileOptions kompileOptions;
     private transient ExpandMacros expandMacros;
 
-    public DefinitionToOcaml(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
-        this.kem = kem;
-        this.files = files;
-        this.globalOptions = globalOptions;
-        this.kompileOptions = kompileOptions;
-    }
     public static final boolean ocamlopt = false;
     public static final boolean fastCompilation = true;
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
@@ -126,6 +120,12 @@ public class DefinitionToOcaml implements Serializable {
     public static final ImmutableMap<String, Function<String, String>> sortHooks;
     public static final ImmutableMap<String, Function<Sort, String>> sortVarHooks;
     public static final ImmutableMap<String, String> predicateRules;
+
+    private Module mainModule;
+    private Map<KLabel, KLabel> collectionFor;
+    private Set<KLabel> functions;
+    private Set<KLabel> anywhereKLabels;
+
 
     static {
         ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -172,9 +172,12 @@ public class DefinitionToOcaml implements Serializable {
         predicateRules = builder.build();
     }
 
-
-    private Module mainModule;
-    private Map<KLabel, KLabel> collectionFor;
+    public DefinitionToOcaml(KExceptionManager kem, FileUtil files, GlobalOptions globalOptions, KompileOptions kompileOptions) {
+        this.kem = kem;
+        this.files = files;
+        this.globalOptions = globalOptions;
+        this.kompileOptions = kompileOptions;
+    }
 
     public void initialize(DefinitionToOcaml serialized, CompiledDefinition def) {
         mainModule = serialized.mainModule;
@@ -211,8 +214,6 @@ public class DefinitionToOcaml implements Serializable {
                 .andThen(liftToKSequence)
                 .apply(r);
     }
-
-    Set<KLabel> functions;
 
     public static String enquoteString(String value) {
         char delimiter = '"';

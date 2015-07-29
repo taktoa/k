@@ -83,10 +83,10 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
         int count = Integer.parseInt(lines[0]);
         int line = 1;
         List<Map<KVariable, K>> list = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
+        for(int i = 0; i < count; i++) {
             Map<KVariable, K> map = new HashMap<>();
             list.add(map);
-            for (; line < lines.length; line += 2) {
+            while(line < lines.length) {
                 if (lines[line].equals("|")) {
                     line++;
                     break;
@@ -94,6 +94,7 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                 KVariable key = KVariable(lines[line]);
                 K value = parseOcamlOutput(lines[line+1]);
                 map.put(key, value);
+                line += 2;
             }
         }
         return list;

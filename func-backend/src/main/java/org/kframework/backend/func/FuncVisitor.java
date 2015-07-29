@@ -195,13 +195,6 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             res = applyBoolDyad(k, stack ? "(%s) || (%s)" : "[Bool (%s) || (%s)]");
         } else if(isNativeNot(hook)) {
             res = applyBoolMonad(k, stack ? "(not (%s))"  : "[Bool (not (%s))]");
-        } else if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
-            res = newsb()
-                .append(applyKLabel(k))
-                .addSpace()
-                .addKeyword("::")
-                .addSpace()
-                .addValue("[]");
         } else {
             if(ppk.attrLabels
                   .get(Attribute.PREDICATE_KEY)

@@ -9,6 +9,7 @@ import org.kframework.utils.file.FileUtil;
 import org.kframework.main.GlobalOptions;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
+import org.kframework.definition.Rule;
 
 import static org.kframework.backend.func.FuncUtil.*;
 
@@ -19,6 +20,17 @@ import static org.kframework.backend.func.FuncUtil.*;
  */
 public class KToFunc {
     private final PreprocessedKORE preproc;
+
+    private static final SyntaxBuilder imports;
+
+    static {
+        imports = newsb()
+            .addImport("Prelude")
+            .addImport("Constants")
+            .addImport("Prelude.K")
+            .addImport("Gmp")
+            .addImport("Def");
+    }
 
     /**
      * Constructor for KToFunc
@@ -40,11 +52,52 @@ public class KToFunc {
     }
 
     /**
-     * Generate OCaml from the given KORE
+     * Generate execution OCaml from the given KORE
      */
-    public String convert(K k, int depth) {
-        return convertSB(k, depth).toString();
+    public String execute(K k, int depth, String outputPath) {
+        return executeSB(k, depth, outputPath).toString();
     }
+
+    /**
+     * Generate search OCaml from the given KORE
+     */
+    public String match(K k, Rule rule, String outputPath) {
+        return matchSB(k, rule, outputPath).toString();
+    }
+
+    /**
+     * Generate execution and search OCaml from the given KORE
+     */
+    public String executeAndMatch(K k, int depth,
+                                  Rule rule,
+                                  String outputPath,
+                                  String substPath) {
+        return executeAndMatchSB(k, depth, rule,
+                                 outputPath, substPath).toString();
+    }
+
+
+    private SyntaxBuilder executeSB(K k, int depth, String outputPath) {
+        outprintfln("DBG: executeSB");
+        SyntaxBuilder sb = convertSB(k, depth);
+        return sb;
+    }
+
+    private SyntaxBuilder matchSB(K k, Rule rule, String outputPath) {
+        outprintfln("DBG: matchSB");
+        SyntaxBuilder sb = imports;
+        return sb;
+    }
+
+    private SyntaxBuilder executeAndMatchSB(K k, int depth,
+                                            Rule rule,
+                                            String outputPath,
+                                            String substPath) {
+        outprintfln("DBG: executeAndMatchSB");
+        SyntaxBuilder sb = imports;
+        return sb;
+    }
+
 
     private SyntaxBuilder convertSB(K k, int depth) {
         SyntaxBuilder sb = newsb();
