@@ -621,11 +621,19 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder addMatch(SyntaxBuilder value,
                                   List<String> pats,
                                   List<String> vals) {
+
+        return addMatch(value,
+                        pats.stream().map(FuncUtil::newsbp),
+                        vals.stream().map(FuncUtil::newsbv));
+    }
+
+    public SyntaxBuilder addMatch(SyntaxBuilder value,
+                                  List<SyntaxBuilder> pats,
+                                  List<SyntaxBuilder> vals) {
         beginMatchExpression(value);
         int size = Math.min(pats.size(), vals.size());
         for(int i = 0; size > i; i++) {
-            addMatchEquation(newsb(pats.get(i)),
-                             newsb(vals.get(i)));
+            addMatchEquation(pats.get(i), vals.get(i));
         }
         endMatchExpression();
         return this;
