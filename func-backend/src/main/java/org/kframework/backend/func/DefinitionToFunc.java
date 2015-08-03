@@ -284,14 +284,48 @@ public class DefinitionToFunc {
                                   Rule r,
                                   String outFile,
                                   String substFile) {
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("print_subst")
+            .addArgument("file2")
+            .beginArgument()
+            .beginApplication()
+            .addFunction("try_match")
+            .beginArgument()
+            .beginLetExpression()
+            .beginLetEquations()
+            .addLetEquation(newsbn("res"),
+                            newsbApp("run",
+                                     newsbv(convertRuntime(k)),
+                                     newsbv(depth)))
+            .endLetEquations()
+            .beginLetScope()
+            .addSequence(newsbApp("output_string",
+                                  newsbn("file1"),
+                                  newsbApp("print_k", newsbn("res"))),
+                         newsbn("res"))
+            .endLetScope()
+            .endLetExpression()
+            .endArgument()
+            .endApplication()
+            .endArgument()
+            .endApplication();
+        SyntaxBuilder printOutSB   = newsbApp("output_string",
+                                              newsbn("file1")
+                                              newsbApp("print_k", newsbn("c")));
+        SyntaxBuilder printSubstSB = newsbApp("output_string",
+                                              newsbn("file2"),
+                                              newsbv(enquoteString("0\n")));
         return genRuntime(newsb()
-                          .append("(try print_subst file2 (try_match (let res = run (");
-                          .append(convertRuntime(k));
-                          .append("\n");
-                          .append(") (");
-                          .append(depth);
-                          .append(") in output_string out (print_k(res)); res");
-                          .append(")) with Stuck c -> output_string out (print_k(c)); output_string subst \"0\\n\")"),
+                          .beginTry()
+                          .addTryValue(tryValueSB)
+                          .beginTryEquations()
+                          .addTryEquation(newsbn("Stuck c"),
+                                          newsb().addSequence(printOutSB,
+                                                              printSubstSB))
+                          .endTryEquations()
+                          .endTry(),
                           outFile, substFile);
     }
 
