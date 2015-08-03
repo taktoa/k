@@ -264,19 +264,31 @@ public class DefinitionToFunc {
     public String match(K k,
                         Rule r,
                         String file) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(genImports());
-        sb.append(genTryMatch(r));
-        sb.append("let");
-        sb.append("_ = ");
-        sb.append("let config = [Bottom] in ");
-        sb.append("let ");
-        sb.append("out = open_out %s in ", enquoteString(file));
-        sb.append("(try print_subst out (try_match(");
-        sb.append(convertRuntime(k));
-        sb.append("\n");
-        sb.append(")) with Stuck c -> output_string out \"0\\n\")");
-        return sb.toString();
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("print_subst")
+            .addArgument("file1")
+            .beginArgument()
+            .beginApplication()
+            .addFunction("try_match")
+            .beginArgument()
+            .addValue(convertRuntime(k))
+            .endArgument()
+            .endApplication()
+            .endArgument()
+            .endApplication();
+        SyntaxBuilder printOutSB = newsbApp("output_string",
+                                            newsbn("file1"),
+                                            newsbv(enquoteString("0\n")));
+        return genRuntime(newsb()
+                          .beginTry()
+                          .addTryValue(tryValueSB)
+                          .beginTryEquations()
+                          .addTryEquation(newsbn("Stuck c"), printOutSB)
+                          .endTryEquations()
+                          .endTry(),
+                          outFile, substFile);
     }
 
     public String executeAndMatch(K k,
