@@ -199,17 +199,6 @@ public class DefinitionToFunc {
         outprintfln("");
     }
 
-    private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.append(FuncConstants.genConstants(ppk));
-        sb.append(addFunctions(ppk));
-        sb.append(addSteps(ppk));
-        sb.append(OCamlIncludes.postludeSB);
-
-        return sb;
-    }
-
     public String execute(K k, int depth, String outFile) {
         return executeSB(k, depth, outFile).toString();
     }
@@ -222,6 +211,17 @@ public class DefinitionToFunc {
                                   String outFile,
                                   String substFile) {
         return executeAndMatchSB(k, depth, r, outFile, substFile).toString();
+    }
+
+    private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {
+        SyntaxBuilder sb = newsb();
+
+        sb.append(FuncConstants.genConstants(ppk));
+        sb.append(addFunctions(ppk));
+        sb.append(addSteps(ppk));
+        sb.append(OCamlIncludes.postludeSB);
+
+        return sb;
     }
 
     private SyntaxBuilder executeSB(K k, int depth, String outFile) {
