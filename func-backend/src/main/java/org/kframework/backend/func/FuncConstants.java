@@ -4,15 +4,9 @@ package org.kframework.backend.func;
 import org.kframework.builtin.Sorts;
 import org.kframework.kore.Sort;
 import org.kframework.kore.ToKast;
-import org.kframework.utils.StringUtil;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.function.Function;
-
-//import static org.kframework.kore.KORE.*;
 import static org.kframework.backend.func.FuncUtil.*;
-import static org.kframework.backend.func.OCamlIncludes.*;
+// import static org.kframework.backend.func.OCamlIncludes.*;
 
 /**
  * Generate constants in OCaml
@@ -21,162 +15,157 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class FuncConstants {
     public static SyntaxBuilder genConstants(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.append(addSortType(ppk));
-        sb.append(addSortOrderFunc(ppk));
-        sb.append(addKLabelType(ppk));
-        sb.append(addKLabelOrderFunc(ppk));
-        sb.append(OCamlIncludes.preludeSB);
-        sb.append(addPrintSort(ppk));
-        sb.append(addPrintKLabel(ppk));
-        sb.append(OCamlIncludes.midludeSB);
-
-        return sb;
+        return newsb()
+            .append(genSortType(ppk))
+            .append(genKLabelType(ppk))
+            .append(genPrintSortFunc(ppk))
+            .append(genPrintKLabelFunc(ppk))
+            .append(genCollectionForFunc(ppk))
+            .append(genUnitForFunc(ppk))
+            .append(genElementForFunc(ppk))
+            .append(genOtherConstants(ppk));
     }
 
-    private static Function<String, String> wrapPrint(String pfx) {
-        return x -> pfx + encodeStringToAlphanumeric(x);
+    private SyntaxBuilder genMatchFunction(SyntaxBuilder pattern,
+                                           SyntaxBuilder value,
+                                           SyntaxBuilder equations) {
+        return newsb()
+            .beginLetDeclaration()
+            .beginLetEquations()
+            .beginLetEquation()
+            .addLetEquationName(newsbp(pattern))
+            .endLetEquationValue()
+            .beginMatchExpression(value)
+            .append(equations)
+            .endMatchExpression()
+            .endLetEquationValue()
+            .endLetEquation()
+            .endLetEquations()
+            .endLetDeclaration();
     }
 
-    private static SyntaxBuilder addSimpleFunc(Collection<String> pats,
-                                               Collection<String> vals,
-                                               String args,
-                                               String outType,
-                                               String funcName,
-                                               String matchVal) {
-        List<String> pl = pats.stream().collect(toList());
-        List<String> vl = vals.stream().collect(toList());
-        return
-            newsb()
-            .addGlobalLet(newsbf("%s(%s) : %s",
-                                 funcName,
-                                 args,
-                                 outType),
-                          newsb().addMatch(newsb().addValue(matchVal),
-                                           pl,
-                                           vl));
-
-    }
-
-    private static SyntaxBuilder addSimpleFunc(Collection<String> pats,
-                                               Collection<String> vals,
-                                               String inType,
-                                               String outType,
-                                               String funcName) {
-        String varName = String.valueOf(inType.charAt(0));
-        String arg = String.format("%s: %s", varName, inType);
-        return addSimpleFunc(pats, vals, arg, outType, funcName, varName);
-    }
-
-    private static <T> SyntaxBuilder addOrderFunc(Collection<T> elems,
-                                                  Function<T, String> print,
-                                                  String pfx,
-                                                  String tyName) {
-        String fnName = String.format("order_%s", tyName);
-
-        List<String> pats = elems.stream()
-                                 .map(print)
-                                 .map(wrapPrint(pfx))
-                                 .collect(toList());
-        List<String> vals = rangeInclusive(pats.size()).stream()
-                                                       .map(x -> Integer.toString(x))
-                                                       .collect(toList());
-
-        return addSimpleFunc(pats, vals, tyName, "int", fnName);
-    }
-
-    private static <T> SyntaxBuilder addPrintFunc(Collection<T> elems,
-                                                  Function<T, String> patPrint,
-                                                  Function<T, String> valPrint,
-                                                  String pfx,
-                                                  String tyName) {
-        String fnName = String.format("print_%s", tyName);
-
-        List<String> pats = elems.stream()
-                                 .map(patPrint)
-                                 .map(wrapPrint(pfx))
-                                 .collect(toList());
-
-        List<String> vals = elems.stream()
-                                 .map(valPrint.andThen(StringUtil::enquoteCString))
-                                 .collect(toList());
-
-        return addSimpleFunc(pats, vals, tyName, "string", fnName);
-    }
-
-    private static SyntaxBuilder addType(Collection<String> cons,
-                                         String tyName) {
-        SyntaxBuilder sb = newsb();
-        sb.beginTypeDefinition(tyName);
-        for(String c : cons) {
-            sb.addConstructor(newsb().addConstructorName(c));
-        }
-        sb.endTypeDefinition();
-        return sb;
-    }
-
-    private static <T> SyntaxBuilder addEnumType(Collection<T> toEnum,
-                                                 Function<T, String> print,
-                                                 String pfx,
-                                                 String tyName) {
-        List<String> cons = toEnum.stream()
-                                  .map(print)
-                                  .map(wrapPrint(pfx))
-                                  .collect(toList());
-        return addType(cons, tyName);
-    }
-
-
-    private static SyntaxBuilder addSortType(PreprocessedKORE ppk) {
+    private SyntaxBuilder genSortType(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
         SyntaxBuilder sb = newsb();
         sb.beginTypeDefinition("sort");
-        for(Sort s : ppk.definedSorts) {
-            sb.addConstructor(newsb()
-                              .addConstructorName(encodeStringToIdentifier(s)));
-        }
-        if(! ppk.definedSorts.contains(Sorts.String())) {
-            sb.addConstructor(newsb()
-                              .addConstructorName("SortString"));
+        if(fastCompilation) {
+            sb.addConstructor("Sort", "string");
+        } else {
+            for(Sort s : iterable(mm.definedSorts())) {
+                sb.addConstructor(encodeStringToIdentifier(s));
+            }
+            if(!mm.definedSorts().contains(Sorts.String())) {
+                sb.addConstructor("SortString");
+            }
+            if(!mm.definedSorts().contains(Sorts.Float())) {
+                sb.addConstructor("SortFloat");
+            }
         }
         sb.endTypeDefinition();
         return sb;
     }
 
-    private static SyntaxBuilder addKLabelType(PreprocessedKORE ppk) {
-        return addEnumType(ppk.definedKLabels,
-                           x -> x.name(),
-                           "Lbl",
-                           "klabel");
+    private SyntaxBuilder genKLabelType(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
+        SyntaxBuilder sb = newsb();
+        sb.beginTypeDefinition("klabel");
+        if(fastCompilation) {
+            sb.addConstructor("KLabel", "string");
+        } else {
+            for(KLabel label : iterable(mm.definedKLabels())) {
+                sb.addConstructor(encodeStringToIdentifier(label));
+            }
+        }
+        sb.endTypeDefinition();
+        return sb;
     }
 
-    private static SyntaxBuilder addSortOrderFunc(PreprocessedKORE ppk) {
-        return addOrderFunc(ppk.definedSorts,
-                            x -> x.name(),
-                            "Sort",
-                            "sort");
+    private SyntaxBuilder genPrintSortFunc(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
+        SyntaxBuilder name  = newsb("print_sort (c: sort) : string");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(Sort s : iterable(mm.definedSorts())) {
+            eqns.addMatchEquation(encodeStringToIdentifier(s),
+                                  enquoteString(s.name()));
+        }
+        if(fastCompilation) {
+            eqns.addMatchEquation(newsbn("Sort s"),
+                                  newsbApp("raise", "Invalid_argument s"));
+        }
+        return genMatchFunction(name, value, eqns);
     }
 
-    private static SyntaxBuilder addKLabelOrderFunc(PreprocessedKORE ppk) {
-        return addOrderFunc(ppk.definedKLabels,
-                            x -> x.name(),
-                            "Lbl",
-                            "klabel");
+    private SyntaxBuilder genPrintKLabelFunc(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
+        SyntaxBuilder name  = newsb("print_klabel (c: klabel) : string");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(KLabel label : iterable(mm.definedKLabels())) {
+            eqns.addMatchEquation(encodeStringToIdentifier(label),
+                                  enquoteString(ToKast.apply(label)));
+        }
+        if(fastCompilation) {
+            eqns.addMatchEquation(newsbn("KLabel s"),
+                                  newsbApp("raise", "Invalid_argument s"));
+        }
+        return genMatchFunction(name, value, eqns);
     }
 
-    private static SyntaxBuilder addPrintSort(PreprocessedKORE ppk) {
-        return addPrintFunc(ppk.definedSorts,
-                            x -> x.name(),
-                            x -> x.name(),
-                            "Sort",
-                            "sort");
+    private SyntaxBuilder genCollectionForFunc(PreprocessedKORE ppk) {
+        SyntaxBuilder name  = newsb("collection_for (c: klabel) : klabel");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(Map.Entry<KLabel, KLabel> entry : ppk.collectionFor.entrySet()) {
+            eqns.addMatchEquation(encodeStringToIdentifier(entry.getKey()),
+                                  encodeStringToIdentifier(entry.getValue()));
+        }
+        return genMatchFunction(name, value, eqns);
     }
 
-    private static SyntaxBuilder addPrintKLabel(PreprocessedKORE ppk) {
-        return addPrintFunc(ppk.definedKLabels,
-                            x -> x.name(),
-                            x -> ToKast.apply(x),
-                            "Lbl",
-                            "klabel");
+    private SyntaxBuilder genUnitForFunc(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
+        SyntaxBuilder name  = newsb("unit_for (c: klabel) : klabel");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(KLabel label : ppk.collectionFor.values()
+                                            .stream()
+                                            .collect(toSet())) {
+            eqns.addMatchEquation(encodeStringToIdentifier(label),
+                                  KLabel(mm.attributesFor()
+                                           .apply(label)
+                                           .<String>get(Attribute.UNIT_KEY)
+                                           .get()));
+        }
+        return genMatchFunction(name, value, eqns);
+    }
+
+    private SyntaxBuilder genElementForFunc(PreprocessedKORE ppk) {
+        Module mm = ppk.mainModule;
+        SyntaxBuilder name  = newsb("el_for (c: klabel) : klabel");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(KLabel label : ppk.collectionFor.values()
+                                            .stream()
+                                            .collect(toSet())) {
+            eqns.addMatchEquation(encodeStringToIdentifier(label),
+                                  KLabel(mm.attributesFor()
+                                           .apply(label)
+                                           .<String>get("element")
+                                           .get()));
+        }
+        return genMatchFunction(name, value, eqns);
+    }
+
+    public SyntaxBuilder genOtherConstants() {
+        return newsb()
+            .addGlobalLet(newsbn("boolSort"),        newsbv(BOOL))
+            .addGlobalLet(newsbn("stringSort"),      newsbv(STRING))
+            .addGlobalLet(newsbn("intSort"),         newsbv(INT))
+            .addGlobalLet(newsbn("floatSort"),       newsbv(FLOAT))
+            .addGlobalLet(newsbn("setSort"),         newsbv(SET))
+            .addGlobalLet(newsbn("setConcatLabel"),  newsbv(SET_CONCAT))
+            .addGlobalLet(newsbn("listSort"),        newsbv(LIST))
+            .addGlobalLet(newsbn("listConcatLabel"), newsbv(LIST_CONCAT));
     }
 }
