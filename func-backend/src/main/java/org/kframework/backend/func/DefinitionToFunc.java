@@ -243,27 +243,29 @@ public class DefinitionToFunc {
         return result.toString();
     }
 
-    public String execute(K k,
-                          int depth,
-                          String file) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(genImports());
-        sb.append("let");
-        sb.append("_ = ");
-        sb.appendf("let config = [Bottom] in ");
-        sb.appendf("let out = open_out %s in ", enquoteString(file));
-        sb.append("output_string out (print_k (try (run (");
-        sb.append(convertRuntime(k));
-        sb.append("\n");
-        sb.append(") (");
-        sb.append(depth);
-        sb.append(")) with Stuck c' -> c'))");
-        return sb.toString();
+    public String execute(K k, int depth, String outFile) {
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("run")
+            .addArgument(newsbv(convertRuntime(k)))
+            .addArgument(newsbv(Integer.toString(depth)))
+            .endApplication();
+        return genRuntime(newsbApp("output_string",
+                                   newsbn("out"),
+                                   newsbApp("print_k",
+                                            newsb()
+                                            .beginTry()
+                                            .addTryValue(tryValueSB)
+                                            .beginTryEquations()
+                                            .addTryEquation(newsbn("Stuck c'"),
+                                                            newsbn("c'"))
+                                            .endTryEquations()
+                                            .endTry())),
+                          outFile);
     }
 
-    public String match(K k,
-                        Rule r,
-                        String file) {
+    public String match(K k, Rule r, String outFile) {
         SyntaxBuilder tryValueSB =
             newsb()
             .beginApplication()
@@ -288,7 +290,7 @@ public class DefinitionToFunc {
                           .addTryEquation(newsbn("Stuck c"), printOutSB)
                           .endTryEquations()
                           .endTry(),
-                          outFile, substFile);
+                          outFile);
     }
 
     public String executeAndMatch(K k,
