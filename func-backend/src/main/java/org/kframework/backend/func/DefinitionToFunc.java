@@ -211,15 +211,19 @@ public class DefinitionToFunc {
     }
 
     // Move to OCamlIncludes
+    // This code is decidedly sketchy, and should be thoroughly tested
+    // Unicode support is also desirable (with Camomile maybe?)
     public static String enquoteString(String value) {
         char delimiter = '"';
         final int length = value.length();
         StringBuilder result = new StringBuilder();
         result.append(delimiter);
-        for(int offset = 0, codepoint; offset < length; offset += Character.charCount(codepoint)) {
+        for(int offset = 0, codepoint;
+            offset < length;
+            offset += Character.charCount(codepoint)) {
             codepoint = value.codePointAt(offset);
             if(codepoint > 0xFF) {
-                throw KEMException.compilerError("Unsupported: unicode characters in strings in Ocaml backend.");
+                throw unicodeInOCamlStringError();
             } else if(codepoint == delimiter) {
                 result.append("\\" + delimiter);
             } else if(codepoint == '\\') {
@@ -241,6 +245,12 @@ public class DefinitionToFunc {
         }
         result.append(delimiter);
         return result.toString();
+    }
+
+    private static KEMException unicodeInOCamlStringError() {
+        String msg
+            = "Unsupported: unicode characters in strings in Ocaml backend.";
+        return kemCompilerErrorF(msg);
     }
 
     public String execute(K k, int depth, String outFile) {
@@ -415,7 +425,7 @@ public class DefinitionToFunc {
 
     // Move to FuncConstants
     public SyntaxBuilder constants() {
-        SyntaxBuilder sb = new SyntaxBuilder();
+        SyntaxBuilder sb = newsb();
         sb.beginTypeDefinition("sort");
         if(fastCompilation) {
             sb.addConstructor("Sort", "string");
@@ -560,7 +570,7 @@ public class DefinitionToFunc {
     }
 
     public SyntaxBuilder definition(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = new SyntaxBuilder();
+        SyntaxBuilder sb = newsb();
         Module mm = ppk.mainModule;
 
         sb.append(genImports());
@@ -716,8 +726,10 @@ public class DefinitionToFunc {
         return sb.toString();
     }
 
-    private StringBuilder convertFunction(List<Rule> rules, String functionName, RuleType type) {
-        StringBuilder sb = new StringBuilder();
+    private SyntaxBuilder convertFunction(List<Rule> rules,
+                                          String functionName,
+                                          RuleType type) {
+        SyntaxBuilder sb = newsb();
         int ruleNum = 0;
         for(Rule r : rules) {
             if(hasLookups(r)) {
@@ -733,7 +745,6 @@ public class DefinitionToFunc {
                 sb.append("| _ -> match c with \n");
             }
         }
-
         return sb;
     }
 
@@ -819,7 +830,7 @@ public class DefinitionToFunc {
         return Tuple4.apply(k._1(), k._2(), k._3(), e.getValue());
     }
 
-    private Tuple2<Integer, StringBuilder> convert(PreprocessedKORE ppk,
+    private Tuple2<Integer, SyntaxBuilder> convert(PreprocessedKORE ppk,
                                                    List<Rule> rules,
                                                    String functionName,
                                                    RuleType ruleType,
@@ -1207,7 +1218,7 @@ public class DefinitionToFunc {
                 throw kemInternalErrorF(k, "Unexpected arity of lookup: %s",
                                         k.klist().size());
             }
-            StringBuilder sb = new StringBuilder();
+            SyntaxBuilder sb = newsb();
             sb.append(" -> (let e = ");
             sb.append(genVisitor(vars, true, false, false).apply(k.klist()
                                                                   .items()
@@ -1217,7 +1228,7 @@ public class DefinitionToFunc {
             sb.append(h.reapply);
             sb.append("\n");
             String prefix = sb.toString();
-            sb = new StringBuilder();
+            sb = newsb();
             sb.append("| ");
             sb.append(genVisitor(vars, false, false, false).apply(k.klist()
                                                                    .items()
@@ -2034,7 +2045,7 @@ public class DefinitionToFunc {
                                      int ruleNum) {
         Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
 
-        SyntaxBuilder res = new SyntaxBuilder();
+        SyntaxBuilder res = newsb();
         SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
         SyntaxBuilder mapChoiceSB2 = choiceSB2("m", ruleNum, functionName);
         String formatSB3 = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
@@ -2115,7 +2126,7 @@ public class DefinitionToFunc {
             }
         }.apply(requires);
 
-        SyntaxBuilder suffSB = new SyntaxBuilder();
+        SyntaxBuilder suffSB = newsb();
         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
 
         return newSBPair(res, suffSB);
@@ -2174,7 +2185,7 @@ public class DefinitionToFunc {
     }
 
     private static SyntaxBuilder oldConvert(SetMultimap<KVariable, String> vars) {
-        SyntaxBuilder sb = new SyntaxBuilder();
+        SyntaxBuilder sb = newsb();
         for(Collection<String> nonLinearVars : vars.asMap().values()) {
             if(nonLinearVars.size() < 2) { continue; }
             Iterator<String> iter = nonLinearVars.iterator();
