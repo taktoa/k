@@ -418,6 +418,8 @@ public class DefinitionToFunc {
             }
         }
         sb.endTypeDefinition();
+
+
         sb.beginTypeDefinition("klabel");
         if (fastCompilation) {
             sb.addConstructor("KLabel", "string");
@@ -427,60 +429,120 @@ public class DefinitionToFunc {
             }
         }
         sb.endTypeDefinition();
-        sb.append("let print_sort(c: sort) : string = match c with \n");
+
+
+        sb.beginLetDeclaration();
+        sb.beginLetEquations();
+        sb.beginLetEquation();
+        sb.addLetEquationName(newsbn("print_sort (c: sort) : string"));
+        sb.endLetEquationValue();
+        sb.beginMatchExpression(newsbn("c"));
         for (Sort s : iterable(mainModule.definedSorts())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, s);
-            sb.append(" -> ");
-            sb.append(enquoteString(s.name()));
-            sb.append("\n");
+            sb.addMatchEquation(encodeStringToIdentifier(s),
+                                enquoteString(s.name()));
         }
         if (fastCompilation) {
-            sb.append("| Sort s -> raise (Invalid_argument s)\n");
+            sb.addMatchEquation(newsbn("Sort s"),
+                                newsbApp("raise", "Invalid_argument s"));
         }
-        sb.append("let print_klabel(c: klabel) : string = match c with \n");
+        sb.endMatchExpression();
+        sb.endLetEquationValue();
+        sb.endLetEquation();
+        sb.endLetEquations();
+        sb.endLetDeclaration();
+
+
+        sb.beginLetDeclaration();
+        sb.beginLetEquations();
+        sb.beginLetEquation();
+        sb.addLetEquationName(newsbn("print_klabel (c: klabel) : string"));
+        sb.endLetEquationValue();
+        sb.beginMatchExpression(newsbn("c"));
         for (KLabel label : iterable(mainModule.definedKLabels())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, label);
-            sb.append(" -> ");
-            sb.append(enquoteString(ToKast.apply(label)));
-            sb.append("\n");
+            sb.addMatchEquation(encodeStringToIdentifier(label),
+                                enquoteString(ToKast.apply(label)));
         }
         if (fastCompilation) {
-            sb.append("| KLabel s -> raise (Invalid_argument s)\n");
+            sb.addMatchEquation(newsbn("KLabel s"),
+                                newsbApp("raise", "Invalid_argument s"));
         }
-        sb.append("let collection_for (c: klabel) : klabel = match c with \n");
+        sb.endMatchExpression();
+        sb.endLetEquationValue();
+        sb.endLetEquation();
+        sb.endLetEquations();
+        sb.endLetDeclaration();
+
+
+        sb.beginLetDeclaration();
+        sb.beginLetEquations();
+        sb.beginLetEquation();
+        sb.addLetEquationName(newsbn("collection_for (c: klabel) : klabel"));
+        sb.endLetEquationValue();
+        sb.beginMatchExpression(newsbn("c"));
         for (Map.Entry<KLabel, KLabel> entry : collectionFor.entrySet()) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, entry.getKey());
-            sb.append(" -> ");
-            encodeStringToIdentifier(sb, entry.getValue());
-            sb.append("\n");
+            sb.addMatchEquation(encodeStringToIdentifier(entry.getKey()),
+                                encodeStringToIdentifier(entry.getValue()));
         }
-        sb.append("let unit_for (c: klabel) : klabel = match c with \n");
-        for (KLabel label : collectionFor.values().stream().collect(Collectors.toSet())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, label);
-            sb.append(" -> ");
-            encodeStringToIdentifier(sb, KLabel(mainModule.attributesFor().apply(label).<String>get(Attribute.UNIT_KEY).get()));
-            sb.append("\n");
+        sb.endMatchExpression();
+        sb.endLetEquationValue();
+        sb.endLetEquation();
+        sb.endLetEquations();
+        sb.endLetDeclaration();
+
+
+        sb.beginLetDeclaration();
+        sb.beginLetEquations();
+        sb.beginLetEquation();
+        sb.addLetEquationName(newsbn("unit_for (c: klabel) : klabel"));
+        sb.endLetEquationValue();
+        sb.beginMatchExpression(newsbn("c"));
+        for (KLabel label : collectionFor.values()
+                                         .stream()
+                                         .collect(toSet())) {
+            sb.addMatchEquation(encodeStringToIdentifier(label),
+                                KLabel(mainModule.attributesFor()
+                                                 .apply(label)
+                                                 .<String>get(Attribute.UNIT_KEY)
+                                                 .get()));
         }
-        sb.append("let el_for (c: klabel) : klabel = match c with \n");
-        for (KLabel label : collectionFor.values().stream().collect(Collectors.toSet())) {
-            sb.append("|");
-            encodeStringToIdentifier(sb, label);
-            sb.append(" -> ");
-            encodeStringToIdentifier(sb, KLabel(mainModule.attributesFor().apply(label).<String>get("element").get()));
-            sb.append("\n");
+        sb.endMatchExpression();
+        sb.endLetEquationValue();
+        sb.endLetEquation();
+        sb.endLetEquations();
+        sb.endLetDeclaration();
+
+
+        sb.beginLetDeclaration();
+        sb.beginLetEquations();
+        sb.beginLetEquation();
+        sb.addLetEquationName(newsbn("el_for (c: klabel) : klabel"));
+        sb.endLetEquationValue();
+        sb.beginMatchExpression(newsbn("c"));
+        for (KLabel label : collectionFor.values()
+                                         .stream()
+                                         .collect(toSet())) {
+            sb.addMatchEquation(encodeStringToIdentifier(label),
+                                KLabel(mainModule.attributesFor()
+                                                 .apply(label)
+                                                 .<String>get("element")
+                                                 .get()));
         }
-        sb.append("let boolSort = ").append(BOOL);
-        sb.append("\n and stringSort = ").append(STRING);
-        sb.append("\n and intSort = ").append(INT);
-        sb.append("\n and floatSort = ").append(FLOAT);
-        sb.append("\n and setSort = ").append(SET);
-        sb.append("\n and setConcatLabel = ").append(SET_CONCAT);
-        sb.append("\n and listSort = ").append(LIST);
-        sb.append("\n and listConcatLabel = ").append(LIST_CONCAT);
+        sb.endMatchExpression();
+        sb.endLetEquationValue();
+        sb.endLetEquation();
+        sb.endLetEquations();
+        sb.endLetDeclaration();
+
+
+        sb.addGlobalLet(newsbn("boolSort"),        newsbv(BOOL));
+        sb.addGlobalLet(newsbn("stringSort"),      newsbv(STRING));
+        sb.addGlobalLet(newsbn("intSort"),         newsbv(INT));
+        sb.addGlobalLet(newsbn("floatSort"),       newsbv(FLOAT));
+        sb.addGlobalLet(newsbn("setSort"),         newsbv(SET));
+        sb.addGlobalLet(newsbn("setConcatLabel"),  newsbv(SET_CONCAT));
+        sb.addGlobalLet(newsbn("listSort"),        newsbv(LIST));
+        sb.addGlobalLet(newsbn("listConcatLabel"), newsbv(LIST_CONCAT));
+
         return sb;
     }
 
