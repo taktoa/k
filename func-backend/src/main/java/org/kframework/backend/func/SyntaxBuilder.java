@@ -722,6 +722,14 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
+    public SyntaxBuilder addConstructor(String name, String... args) {
+        beginConstructor();
+        addConstructorName(name);
+        addConstructorArgs(args);
+        endConstructor();
+        return this;
+    }
+
     public SyntaxBuilder addConstructor(SyntaxBuilder con) {
         beginConstructor();
         append(con);
@@ -731,7 +739,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addConstructorName(String con) {
         beginConstructorName();
-        addValue(con);
+        addName(con);
         endConstructorName();
         return this;
     }
@@ -750,6 +758,30 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder endConstructorName() {
         return append(SyntaxEnum.END_CONSTRUCTOR_NAME);
+    }
+
+    public SyntaxBuilder addConstructorArgs(String... args) {
+        beginConstructorArgs();
+        for(String arg : args) {
+            addConstructorArg(arg);
+        }
+        endConstructorArgs();
+        return this;
+    }
+
+    public SyntaxBuilder addConstructorArg(String arg) {
+        beginConstructorArg();
+        addName(arg);
+        endConstructorArg();
+        return this;
+    }
+
+    public SyntaxBuilder beginConstructorArg() {
+        return append(SyntaxEnum.BEGIN_CONSTRUCTOR_ARGUMENT);
+    }
+
+    public SyntaxBuilder endConstructorArg() {
+        return append(SyntaxEnum.END_CONSTRUCTOR_ARGUMENT);
     }
 
     public SyntaxBuilder beginConstructorArgs() {

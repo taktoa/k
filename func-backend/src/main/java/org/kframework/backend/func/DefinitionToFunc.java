@@ -401,34 +401,32 @@ public class DefinitionToFunc {
     }
 
     // Move to FuncConstants
-    public String constants() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("type sort = \n");
+    public SyntaxBuilder constants() {
+        SyntaxBuilder sb = new SyntaxBuilder();
+        sb.beginTypeDefinition("sort");
         if (fastCompilation) {
-            sb.append("Sort of string\n");
+            sb.addConstructor("Sort", "string");
         } else {
             for (Sort s : iterable(mainModule.definedSorts())) {
-                sb.append("|");
-                encodeStringToIdentifier(sb, s);
-                sb.append("\n");
+                sb.addConstructor(encodeStringToIdentifier(s));
             }
             if (!mainModule.definedSorts().contains(Sorts.String())) {
-                sb.append("|SortString\n");
+                sb.addConstructor("SortString");
             }
             if (!mainModule.definedSorts().contains(Sorts.Float())) {
-                sb.append("|SortFloat\n");
+                sb.addConstructor("SortFloat");
             }
         }
-        sb.append("type klabel = \n");
+        sb.endTypeDefinition();
+        sb.beginTypeDefinition("klabel");
         if (fastCompilation) {
-            sb.append("KLabel of string\n");
+            sb.addConstructor("KLabel", "string");
         } else {
             for (KLabel label : iterable(mainModule.definedKLabels())) {
-                sb.append("|");
-                encodeStringToIdentifier(sb, label);
-                sb.append("\n");
+                sb.addConstructor(encodeStringToIdentifier(label));
             }
         }
+        sb.endTypeDefinition();
         sb.append("let print_sort(c: sort) : string = match c with \n");
         for (Sort s : iterable(mainModule.definedSorts())) {
             sb.append("|");
@@ -483,7 +481,7 @@ public class DefinitionToFunc {
         sb.append("\n and setConcatLabel = ").append(SET_CONCAT);
         sb.append("\n and listSort = ").append(LIST);
         sb.append("\n and listConcatLabel = ").append(LIST_CONCAT);
-        return sb.toString();
+        return sb;
     }
 
     public String definition() {
