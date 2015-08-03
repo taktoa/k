@@ -407,10 +407,10 @@ public class DefinitionToFunc {
     }
 
     private SyntaxBuilder convertRuntime(K k) {
-        return convert(new VarInfo(),
-                       true,
-                       false,
-                       false).apply(preproc.runtimeProcess(k))
+        return genVisitor(new VarInfo(),
+                          true,
+                          false,
+                          false).apply(preproc.runtimeProcess(k))
     }
 
     // Move to FuncConstants
@@ -1096,7 +1096,7 @@ public class DefinitionToFunc {
     private SyntaxBuilder convertLHS(RuleType type,
                                      K left,
                                      VarInfo vars) {
-        Visitor visitor = convert(vars, false, false, false);
+        Visitor visitor = genVisitor(vars, false, false, false);
         if(type == RuleType.ANYWHERE || type == RuleType.FUNCTION) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
             return visitor.apply(kapp.klist().items(), true);
@@ -1110,7 +1110,10 @@ public class DefinitionToFunc {
                                      VarInfo vars,
                                      SyntaxBuilder suffix) {
         SyntaxBuilder sb = newsb();
-        if(type == RuleType.PATTERN) {
+        boolean isPat = type == RuleType.PATTERN;
+        boolean isAny = type == RuleType.ANYWHERE;
+
+        if(isPat) {
             for(KVariable var : vars.vars.keySet()) {
                 sb.beginApplication();
                 sb.addFunction("Subst.add");
@@ -1126,15 +1129,17 @@ public class DefinitionToFunc {
                 sb.endApplication();
             }
         } else {
-            sb.append(convert(vars, true, false, type == RuleType.ANYWHERE).apply(right));
+            sb.append(genVisitor(vars, true, false, isAny).apply(right));
         }
-        if(type == RuleType.ANYWHERE) {
+
+        if(isAny) {
             sb = newsb().addMatch(sb,
                                   asList(newsbp("[item]")),
                                   asList(newsbApp("eval",
                                                   newsbr("item"),
                                                   newsbr("config"))))
         }
+
         sb.append(suffix);
         sb.addNewline();
         return sb;
@@ -1151,7 +1156,7 @@ public class DefinitionToFunc {
         }
         result = convert(vars);
         sb.append(when ? " when " : " && ");
-        sb.append(convert(vars, true, true, false).apply(requires));
+        sb.append(genVisitor(vars, true, true, false).apply(requires));
         sb.appendf(" && (%s)", result);
         return Lists.reverse(lus)
                     .stream()
@@ -1204,9 +1209,9 @@ public class DefinitionToFunc {
             }
             StringBuilder sb = new StringBuilder();
             sb.append(" -> (let e = ");
-            sb.append(convert(vars, true, false, false).apply(k.klist()
-                                                               .items()
-                                                               .get(1)));
+            sb.append(genVisitor(vars, true, false, false).apply(k.klist()
+                                                                  .items()
+                                                                  .get(1)));
             sb.append(" in match e with \n");
             sb.append("| [Bottom] -> ");
             sb.append(h.reapply);
@@ -1214,9 +1219,9 @@ public class DefinitionToFunc {
             String prefix = sb.toString();
             sb = new StringBuilder();
             sb.append("| ");
-            sb.append(convert(vars, false, false, false).apply(k.klist()
-                                                                .items()
-                                                                .get(0)));
+            sb.append(genVisitor(vars, false, false, false).apply(k.klist()
+                                                                   .items()
+                                                                   .get(0)));
             String pattern = sb.toString();
             String suffix = "| _ -> " + h.reapply + ")";
             results.add(new Lookup(prefix, pattern, suffix));
@@ -1247,9 +1252,9 @@ public class DefinitionToFunc {
 
         SyntaxBuilder sb = newsb();
         sb.append(" -> (match ");
-        sb.append(convert(vars, true, false, false).apply(k.klist()
-                                                           .items()
-                                                           .get(1)));
+        sb.append(genVisitor(vars, true, false, false).apply(k.klist()
+                                                              .items()
+                                                              .get(1)));
         sb.append(" with \n");
         sb.append(choiceString);
         if(h.first) {
@@ -1269,9 +1274,9 @@ public class DefinitionToFunc {
             h.reapply = "[Bottom]";
         }
         sb.append("| ");
-        sb.append(convert(vars, false, false, false).apply(k.klist()
-                                                            .items()
-                                                            .get(0)));
+        sb.append(genVisitor(vars, false, false, false).apply(k.klist()
+                                                               .items()
+                                                               .get(0)));
         String pattern = sb.toString();
         results.add(new Lookup(prefix, pattern, suffix));
         h.first = false;
@@ -1346,10 +1351,10 @@ public class DefinitionToFunc {
     /**
      * Create a Visitor based on the given information
      */
-    private Visitor convert(VarInfo vars,
-                            boolean rhs,
-                            boolean useNativeBool,
-                            boolean anywhereRule) {
+    private Visitor genVisitor(VarInfo vars,
+                               boolean rhs,
+                               boolean useNativeBool,
+                               boolean anywhereRule) {
         return new Visitor(rhs, vars, useNativeBool, anywhereRule);
     }
 
