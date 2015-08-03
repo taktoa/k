@@ -1074,74 +1074,79 @@ public class DefinitionToFunc {
         }
     }
 
-    private void convertLHS(StringBuilder sb, RuleType type, K left, VarInfo vars) {
-        Visitor visitor = convert(sb, false, vars, false, false);
+    private SyntaxBuilder convertComment(Rule r) {
+        return newsb()
+            .addComment(String.format("rule %s requires %s ensures %s | %s",
+                                      ToKast.apply(r.body()),
+                                      ToKast.apply(r.requires()),
+                                      ToKast.apply(r.ensures()),
+                                      r.att()));
+    }
+
+    private SyntaxBuilder convertLHS(RuleType type,
+                                     K left,
+                                     VarInfo vars) {
+        Visitor visitor = convert(false, vars, false, false);
         if(type == RuleType.ANYWHERE || type == RuleType.FUNCTION) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
-            visitor.apply(kapp.klist().items(), true);
+            return visitor.apply(kapp.klist().items(), true);
         } else {
-            visitor.apply(left);
+            return visitor.apply(left);
         }
     }
 
-    private void convertComment(Rule r, StringBuilder sb) {
-        sb.append("(* rule ");
-        sb.append(ToKast.apply(r.body()));
-        sb.append(" requires ");
-        sb.append(ToKast.apply(r.requires()));
-        sb.append(" ensures ");
-        sb.append(ToKast.apply(r.ensures()));
-        sb.append(" ");
-        sb.append(r.att().toString());
-        sb.append("*)\n");
-    }
-
-    private void convertRHS(StringBuilder sb, RuleType type, K right, VarInfo vars, String suffix) {
-        if(type == RuleType.ANYWHERE) {
-            sb.append("(match ");
-        }
+    private SyntaxBuilder convertRHS(RuleType type,
+                                     K right,
+                                     VarInfo vars,
+                                     SyntaxBuilder suffix) {
+        SyntaxBuilder sb = newsb();
         if(type == RuleType.PATTERN) {
             for(KVariable var : vars.vars.keySet()) {
-                sb.append("(Subst.add \"");
-                sb.append(var.name());
-                sb.append("\" ");
-                boolean isList = isList(var, false, true, vars, false);
-                if(!isList) {
-                    sb.append("[");
-                }
-                sb.append(vars.vars.get(var).iterator().next());
-                if(!isList) {
-                    sb.append("]");
-                }
-                sb.append(" ");
+                sb.beginApplication();
+                sb.addFunction("Subst.add");
+                sb.addArgument(newsbv(enquoteString(var.name())));
+                String fmt = isList(var, vars, true, false) ? "%s" : "[%s]";
+                sb.addArgument(newsbv(String.format(fmt, vars.vars
+                                                             .get(var)
+                                                             .iterator()
+                                                             .next())));
             }
-            sb.append("Subst.empty");
+            sb.addArgument(newsbv("Subst.empty"));
             for(KVariable var : vars.vars.keySet()) {
-                sb.append(")");
+                sb.endApplication();
             }
         } else {
-            convert(sb, true, vars, false, type == RuleType.ANYWHERE).apply(right);
+            sb.append(convert(true, vars, false, type == RuleType.ANYWHERE).apply(right));
         }
         if(type == RuleType.ANYWHERE) {
-            sb.append(" with [item] -> eval item config)");
+            sb = newsb().addMatch(sb,
+                                  asList(newsbp("[item]")),
+                                  asList(newsbApp("eval",
+                                                  newsbr("item"),
+                                                  newsbr("config"))))
         }
         sb.append(suffix);
-        sb.append("\n");
+        sb.addNewline();
+        return sb;
     }
 
-    private String convertSideCondition(StringBuilder sb, K requires, VarInfo vars, List<Lookup> lookups, boolean when) {
+    private Tuple2<String, SyntaxBuilder> convertSideCondition(K requires,
+                                                               VarInfo vars,
+                                                               List<Lookup> lus,
+                                                               boolean when) {
         String result;
-        for(Lookup lookup : lookups) {
+        for(Lookup lookup : lus) {
             sb.append(lookup.prefix);
             sb.append(lookup.pattern);
         }
         result = convert(vars);
         sb.append(when ? " when " : " && ");
-        convert(sb, true, vars, true, false).apply(requires);
-        sb.append(" && (");
-        sb.append(result);
-        sb.append(")");
-        return Lists.reverse(lookups).stream().map(l -> l.suffix).reduce("", String::concat);
+        sb.append(convert(true, vars, true, false).apply(requires));
+        sb.appendf(" && (%s)", result);
+        return Lists.reverse(lus)
+                    .stream()
+                    .map(l -> l.suffix)
+                    .collect(joining()); // possible change in semantics
     }
 
     private static class Holder { String reapply; boolean first; }
@@ -1158,7 +1163,11 @@ public class DefinitionToFunc {
         }
     }
 
-    private List<Lookup> convertLookups(K requires, VarInfo vars, String functionName, int ruleNum, boolean hasMultiple) {
+    private List<Lookup> convertLookups(K requires,
+                                        VarInfo vars,
+                                        String functionName,
+                                        int ruleNum,
+                                        boolean hasMultiple) {
         List<Lookup> results = new ArrayList<>();
         Holder h = new Holder();
         h.first = hasMultiple;
@@ -1166,132 +1175,161 @@ public class DefinitionToFunc {
         new VisitKORE() {
             @Override
             public Void apply(KApply k) {
-                if(k.klabel().name().equals("#match")) {
-                    if(k.klist().items().size() != 2) {
-                        throw KEMException.internalError("Unexpected arity of lookup: " + k.klist().size(), k);
-                    }
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(" -> (let e = ");
-                    convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
-                    sb.append(" in match e with \n");
-                    sb.append("| [Bottom] -> ");
-                    sb.append(h.reapply);
-                    sb.append("\n");
-                    String prefix = sb.toString();
-                    sb = new StringBuilder();
-                    sb.append("| ");
-                    convert(sb, false, vars, false, false).apply(k.klist().items().get(0));
-                    String pattern = sb.toString();
-                    String suffix = "| _ -> " + h.reapply + ")";
-                    results.add(new Lookup(prefix, pattern, suffix));
-                    h.first = false;
-                } else if(k.klabel().name().equals("#setChoice")) {
-                    choose(k, "| [Set (_,_,collection)] -> let choice = (KSet.fold (fun e result -> ");
-                } else if(k.klabel().name().equals("#mapChoice")) {
-                    choose(k, "| [Map (_,_,collection)] -> let choice = (KMap.fold (fun e v result -> ");
-                }
+
                 return super.apply(k);
             }
 
             private void choose(KApply k, String choiceString) {
-                if(k.klist().items().size() != 2) {
-                    throw KEMException.internalError("Unexpected arity of choice: " + k.klist().size(), k);
-                }
-                StringBuilder sb = new StringBuilder();
-                sb.append(" -> (match ");
-                convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
-                sb.append(" with \n");
-                sb.append(choiceString);
-                if(h.first) {
-                    sb.append("let rec stepElt = fun guards -> ");
-                }
-                sb.append("if (compare result [Bottom]) = 0 then (match e with ");
-                String prefix = sb.toString();
-                sb = new StringBuilder();
-                String suffix2 = "| _ -> [Bottom]) else result" + (h.first ? " in stepElt Guard.empty" : "") + ") collection [Bottom]) in if (compare choice [Bottom]) = 0 then " + h.reapply + " else choice";
-                String suffix = suffix2 + "| _ -> " + h.reapply + ")";
-                if(h.first) {
-                    h.reapply = "(stepElt (Guard.add (GuardElt.Guard " + ruleNum + ") guards))";
-                } else {
-                    h.reapply = "[Bottom]";
-                }
-                sb.append("| ");
-                convert(sb, false, vars, false, false).apply(k.klist().items().get(0));
-                String pattern = sb.toString();
-                results.add(new Lookup(prefix, pattern, suffix));
-                h.first = false;
+                convertLookupsChoose(k, choiceString);
             }
         }.apply(requires);
         return results;
     }
 
-    private String convert(VarInfo vars) {
-        StringBuilder sb = new StringBuilder();
-        for(Map.Entry<KVariable, Collection<String>> entry : vars.vars.asMap().entrySet()) {
-            Collection<String> nonLinearVars = entry.getValue();
-            if(nonLinearVars.size() < 2) {
-                continue;
+    private void convertLookupsApply(KApply k) {
+        if(k.klabel().name().equals("#match")) {
+            if(k.klist().items().size() != 2) {
+                throw kemInternalErrorF(k, "Unexpected arity of lookup: %s",
+                                        k.klist().size());
             }
+            StringBuilder sb = new StringBuilder();
+            sb.append(" -> (let e = ");
+            convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
+            sb.append(" in match e with \n");
+            sb.append("| [Bottom] -> ");
+            sb.append(h.reapply);
+            sb.append("\n");
+            String prefix = sb.toString();
+            sb = new StringBuilder();
+            sb.append("| ");
+            convert(sb, false, vars, false, false).apply(k.klist().items().get(0));
+            String pattern = sb.toString();
+            String suffix = "| _ -> " + h.reapply + ")";
+            results.add(new Lookup(prefix, pattern, suffix));
+            h.first = false;
+        } else if(k.klabel().name().equals("#setChoice")) {
+            convertLookupsChoose(k, "Set", "e");
+        } else if(k.klabel().name().equals("#mapChoice")) {
+            convertLookupsChoose(k, "Map", "e v");
+        }
+    }
+
+    private void convertLookupsChoose(KApply k,
+                                      int ruleNum,
+                                      String collectionName,
+                                      String collectionVars) {
+        String formatString =
+            "| [%s (_,_,collection)] -> let choice = (K%s.fold (fun %s result -> ";
+
+        String choiceString = String.format(formatString,
+                                            collectionName,
+                                            collectionName,
+                                            collectionVars);
+
+        if(k.klist().items().size() != 2) {
+            throw kemInternalErrorF(k, "Unexpected arity of choice: %s",
+                                    k.klist().size());
+        }
+
+        SyntaxBuilder sb = newsb();
+        sb.append(" -> (match ");
+        convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
+        sb.append(" with \n");
+        sb.append(choiceString);
+        if(h.first) {
+            sb.append("let rec stepElt = fun guards -> ");
+        }
+        sb.append("if (compare result [Bottom]) = 0 then (match e with ");
+        String prefix = sb.toString();
+        sb = newsb();
+        String suffix2 = String.format("| _ -> [Bottom]) else result%s) collection [Bottom]) in if (compare choice [Bottom]) = 0 then %s else choice"
+                                       (h.first ? " in stepElt Guard.empty" : ""),
+                                       h.reapply);
+        String suffix = String.format("%s| _ -> %s)", suffix2, h.reapply);
+        if(h.first) {
+            h.reapply = String.format("(stepElt (Guard.add (GuardElt.Guard %d) guards))",
+                                      ruleNum);
+        } else {
+            h.reapply = "[Bottom]";
+        }
+        sb.append("| ");
+        sb.append(convert(false, vars, false, false).apply(k.klist().items().get(0)));
+        String pattern = sb.toString();
+        results.add(new Lookup(prefix, pattern, suffix));
+        h.first = false;
+    }
+
+    private SyntaxBuilder convert(VarInfo vars) {
+        SyntaxBuilder sb = newsb();
+        for(Map.Entry<KVariable, Collection<String>> entry : vars.vars
+                                                                 .asMap()
+                                                                 .entrySet()) {
+            Collection<String> nonLinearVars = entry.getValue();
+            if(nonLinearVars.size() < 2) { continue; }
             Iterator<String> iter = nonLinearVars.iterator();
             String last = iter.next();
             while (iter.hasNext()) {
                 //handle nonlinear variables in pattern
                 String next = iter.next();
-                if(!isList(entry.getKey(), false, true, vars, false)) {
-                    sb.append("((compare_kitem ");
-                } else{
-                    sb.append("((compare ");
-                }
-                applyVarRhs(last, sb, vars.listVars.get(last));
-                sb.append(" ");
-                applyVarRhs(next, sb, vars.listVars.get(next));
-                sb.append(") = 0)");
+                boolean il = isList(entry.getKey(), vars, true, false);
+                sb.appendf("((%s %s %s) = 0) && ",
+                           il ? "compare" : "compare_kitem",
+                           applyVarRhs(last, sb, vars.listVars.get(last)),
+                           applyVarRhs(next, sb, vars.listVars.get(next)));
                 last = next;
-                sb.append(" && ");
             }
         }
         sb.append("true");
-        return sb.toString();
+        return sb;
     }
 
-    private void applyVarRhs(KVariable v, StringBuilder sb, VarInfo vars) {
-        applyVarRhs(vars.vars.get(v).iterator().next(), sb, vars.listVars.get(vars.vars.get(v).iterator().next()));
+    private SyntaxBuilder applyVarRhs(KVariable v, VarInfo vars) {
+        return applyVarRhs(vars.vars.get(v).iterator().next(),
+                           vars.listVars.get(vars.vars.get(v).iterator().next()));
     }
 
-    private void applyVarRhs(String varOccurrance, StringBuilder sb, KLabel listVar) {
+    private SyntaxBuilder applyVarRhs(String varOccurrance, KLabel listVar) {
         if(listVar != null) {
-            sb.append("(List (");
-            encodeStringToIdentifier(sb, mainModule.sortFor().apply(listVar));
-            sb.append(", ");
-            encodeStringToIdentifier(sb, listVar);
-            sb.append(", ");
-            sb.append(varOccurrance);
-            sb.append("))");
+            return newsbf("(List (%s, %s, %s))",
+                          encodeStringToIdentifier(sb,
+                                                   mainModule.sortFor()
+                                                             .apply(listVar)),
+                          encodeStringToIdentifier(sb, listVar),
+                          varOccurrance);
         } else {
-            sb.append(varOccurrance);
+            return newsb(varOccurrance);
         }
     }
 
-    private void applyVarLhs(KVariable k, StringBuilder sb, VarInfo vars) {
+    private SyntaxBuilder applyVarLhs(KVariable k, VarInfo vars) {
         String varName = encodeStringToVariable(k.name());
         vars.vars.put(k, varName);
-        Sort s = Sort(k.att().<String>getOptional(Attribute.SORT_KEY).orElse(""));
+        Sort s = Sort(k.att()
+                       .<String>getOptional(Attribute.SORT_KEY)
+                       .orElse(""));
+        SyntaxBuilder res;
         if(mainModule.sortAttributesFor().contains(s)) {
-            String hook = mainModule.sortAttributesFor().apply(s).<String>getOptional("hook").orElse("");
+            String hook = mainModule.sortAttributesFor()
+                                    .apply(s)
+                                    .<String>getOptional("hook")
+                                    .orElse("");
             if(sortVarHooks.containsKey(hook)) {
-                sb.append("(");
-                sb.append(sortVarHooks.get(hook).apply(s));
-                sb.append(" as ");
-                sb.append(varName);
-                sb.append(")");
-                return;
+                res = newsbf("(%s as %s)",
+                             sortVarHooks.get(hook).apply(s),
+                             varName);
+            } else {
+                res = newsb(varName);
             }
         }
-        sb.append(varName);
+
+        return res;
     }
 
-    private Visitor convert(StringBuilder sb, boolean rhs, VarInfo vars, boolean useNativeBooleanExp, boolean anywhereRule) {
-        return new Visitor(sb, rhs, vars, useNativeBooleanExp, anywhereRule);
+    private Visitor convert(boolean rhs,
+                            VarInfo vars,
+                            boolean useNativeBool,
+                            boolean anywhereRule) {
+        return new Visitor(rhs, vars, useNativeBool, anywhereRule);
     }
 
     public static String getSortOfVar(KVariable k, VarInfo vars) {
@@ -1304,16 +1342,61 @@ public class DefinitionToFunc {
         return k.att().<String>getOptional(Attribute.SORT_KEY).orElse("K");
     }
 
+    /**
+     * Does the given KApply have a lookup-related label?
+     * @param k     The KApply to test
+     * @return      Whether or not the given KApply has a lookup-related label
+     */
     private boolean isLookupKLabel(KApply k) {
-        return k.klabel().name().equals("#match") || k.klabel().name().equals("#mapChoice") || k.klabel().name().equals("#setChoice");
+        return k.klabel().name().equals("#match")
+            || k.klabel().name().equals("#mapChoice")
+            || k.klabel().name().equals("#setChoice");
     }
 
-    private boolean isList(K item, boolean klist, boolean rhs, VarInfo vars, boolean anywhereRule) {
-        return !klist && ((item instanceof KVariable && getSortOfVar((KVariable)item, vars).equals("K")) || item instanceof KSequence
-                || (item instanceof KApply && (functions.contains(((KApply) item).klabel()) || (((anywhereKLabels.contains(((KApply) item).klabel()) && !anywhereRule) || ((KApply) item).klabel() instanceof KVariable) && rhs))))
-                && !(!rhs && item instanceof KApply && collectionFor.containsKey(((KApply) item).klabel()));
-    }
+    /**
+     * Determine whether the given item is a list, subject to the
+     * extra information given in the remaining parameters.
+     * @param item  The item to test for list-ness
+     * @param vars  Information about variables
+     * @param rhs   Are we on the right hand side of a KRewrite?
+     * @param any   Is the current rule an [anywhere] rule?
+     * @return      Whether or not item represents a list
+     */
+    private boolean isList(K item,
+                           VarInfo vars,
+                           boolean rhs,
+                           boolean any) {
+        // I'm using Supplier<Boolean> to retain the lazy
+        // semantics of && and || in Java without having
+        // a terrifyingly long boolean expression to read
 
+        // There is some overhead with making these objects
+        // but it shouldn't be too terrible
+
+        Supplier<Boolean> itemKVar =
+            () -> getSortOfVar((KVariable) item, vars).equals("K");
+
+        Supplier<Boolean> itemKSeq = () -> true;
+
+        Supplier<Boolean> itemKApp = () -> {
+            KLabel kl = ((KApply) item).klabel();
+            return functions.contains(kapp.klabel())
+                || (rhs && ((anywhereKLabels.contains(kl) && !anywhereRule)
+                            || kl instanceof KVariable));
+        };
+
+        Supplier<Boolean> valA =
+            () -> (item instanceof KVariable && itemKVar.get())
+               || (item instanceof KSequence && itemKSeq.get())
+               || (item instanceof KApply    && itemKApp.get());
+
+        Supplier<Boolean> valB =
+            () -> rhs
+               || !(item instanceof KApply)
+               || !collectionFor.containsKey(((KApply) item).klabel());
+
+        return valA.get() && valB.get();
+    }
 }
 
 
