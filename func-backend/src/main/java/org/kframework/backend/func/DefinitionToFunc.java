@@ -210,49 +210,6 @@ public class DefinitionToFunc {
         return sb;
     }
 
-    // Move to OCamlIncludes
-    // This code is decidedly sketchy, and should be thoroughly tested
-    // Unicode support is also desirable (with Camomile maybe?)
-    public static String enquoteString(String value) {
-        char delimiter = '"';
-        final int length = value.length();
-        StringBuilder result = new StringBuilder();
-        result.append(delimiter);
-        for(int offset = 0, codepoint;
-            offset < length;
-            offset += Character.charCount(codepoint)) {
-            codepoint = value.codePointAt(offset);
-            if(codepoint > 0xFF) {
-                throw unicodeInOCamlStringError();
-            } else if(codepoint == delimiter) {
-                result.append("\\" + delimiter);
-            } else if(codepoint == '\\') {
-                result.append("\\\\");
-            } else if(codepoint == '\n') {
-                result.append("\\n");
-            } else if(codepoint == '\t') {
-                result.append("\\t");
-            } else if(codepoint == '\r') {
-                result.append("\\r");
-            } else if(codepoint == '\b') {
-                result.append("\\b");
-            } else if(codepoint >= 32 && codepoint < 127) {
-                result.append((char)codepoint);
-            } else if(codepoint <= 0xff) {
-                result.append("\\");
-                result.append(String.format("%03d", codepoint));
-            }
-        }
-        result.append(delimiter);
-        return result.toString();
-    }
-
-    private static KEMException unicodeInOCamlStringError() {
-        String msg
-            = "Unsupported: unicode characters in strings in Ocaml backend.";
-        return kemCompilerErrorF(msg);
-    }
-
     public String execute(K k, int depth, String outFile) {
         return executeSB(k, depth, outFile).toString();
     }
@@ -266,7 +223,6 @@ public class DefinitionToFunc {
                                   String substFile) {
         return executeAndMatchSB(k, depth, r, outFile, substFile).toString();
     }
-
 
     private SyntaxBuilder executeSB(K k, int depth, String outFile) {
         SyntaxBuilder tryValueSB =

@@ -357,4 +357,55 @@ public final class OCamlIncludes {
         }
         return sb.toString();
     }
+
+    // This code is decidedly sketchy, and should be thoroughly unit tested
+    // Unicode support is also desirable (with Camomile maybe?)
+    /**
+     * Convert a string in Java to a string representing a string value in OCaml
+     * @param value The string to convert
+     * @return      A string containing the OCaml source of the given string.
+     */
+    public static String enquoteString(String value) {
+        char delimiter = '"';
+        final int length = value.length();
+        StringBuilder result = new StringBuilder();
+        result.append(delimiter);
+        for(int offset = 0, codepoint;
+            offset < length;
+            offset += Character.charCount(codepoint)) {
+            codepoint = value.codePointAt(offset);
+            if(codepoint > 0xFF) {
+                throw unicodeInOCamlStringError();
+            } else if(codepoint == delimiter) {
+                result.append("\\" + delimiter);
+            } else if(codepoint == '\\') {
+                result.append("\\\\");
+            } else if(codepoint == '\n') {
+                result.append("\\n");
+            } else if(codepoint == '\t') {
+                result.append("\\t");
+            } else if(codepoint == '\r') {
+                result.append("\\r");
+            } else if(codepoint == '\b') {
+                result.append("\\b");
+            } else if(codepoint >= 32 && codepoint < 127) {
+                result.append((char)codepoint);
+            } else if(codepoint <= 0xff) {
+                result.append("\\");
+                result.append(String.format("%03d", codepoint));
+            }
+        }
+        result.append(delimiter);
+        return result.toString();
+    }
+
+
+    /**
+     * An error resulting from inappropriate use of Unicode in an OCaml string
+     */
+    private static KEMException unicodeInOCamlStringError() {
+        String msg
+            = "Unsupported: unicode characters in strings in Ocaml backend.";
+        return kemCompilerErrorF(msg);
+    }
 }
