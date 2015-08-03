@@ -244,6 +244,21 @@ public class DefinitionToFunc {
     }
 
     public String execute(K k, int depth, String outFile) {
+        return executeSB(k, depth, outFile).toString();
+    }
+
+    public String match(K k, Rule r, String outFile) {
+        return matchSB(k, r, outFile).toString();
+    }
+
+    public String executeAndMatch(K k, int depth, Rule r,
+                                  String outFile,
+                                  String substFile) {
+        return executeAndMatchSB(k, depth, r, outFile, substFile).toString();
+    }
+
+
+    private SyntaxBuilder executeSB(K k, int depth, String outFile) {
         SyntaxBuilder tryValueSB =
             newsb()
             .beginApplication()
@@ -265,7 +280,7 @@ public class DefinitionToFunc {
                           outFile);
     }
 
-    public String match(K k, Rule r, String outFile) {
+    private SyntaxBuilder matchSB(K k, Rule r, String outFile) {
         SyntaxBuilder tryValueSB =
             newsb()
             .beginApplication()
@@ -293,11 +308,9 @@ public class DefinitionToFunc {
                           outFile);
     }
 
-    public String executeAndMatch(K k,
-                                  int depth,
-                                  Rule r,
-                                  String outFile,
-                                  String substFile) {
+    private SyntaxBuilder executeAndMatchSB(K k, int depth, Rule r,
+                                            String outFile,
+                                            String substFile) {
         SyntaxBuilder tryValueSB =
             newsb()
             .beginApplication()
@@ -393,7 +406,7 @@ public class DefinitionToFunc {
             .addImport("Def");
     }
 
-    private String convertRuntime(K k) {
+    private SyntaxBuilder convertRuntime(K k) {
         return convert(true,
                        new VarInfo(),
                        false,
