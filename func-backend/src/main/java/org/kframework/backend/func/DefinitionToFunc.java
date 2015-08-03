@@ -373,26 +373,24 @@ public class DefinitionToFunc {
     }
 
     private SyntaxBuilder genTryMatch() {
-        SyntaxBuilder sb = newsb();
-        sb.append("let try_match (c: k) : k Subst.t =");
-        sb.append("let config = c in");
-        sb.append("match c with ");
-        sb.append("\n");
-        sb.append(convertFunction(Collections.singletonList(convert(r)),
-                                  "try_match", RuleType.PATTERN));
-        sb.append("| _ -> raise(Stuck c)");
-        sb.append("\n");
-        return sb;
+        return newsb()
+            .append("let try_match (c: k) : k Subst.t =")
+            .append("let config = c in")
+            .append("match c with ")
+            .append("\n")
+            .append(convertFunction(Collections.singletonList(convert(r)),
+                                    "try_match", RuleType.PATTERN))
+            .append("| _ -> raise(Stuck c)")
+            .append("\n");
     }
 
     private SyntaxBuilder genImports() {
-        SyntaxBuilder sb = newsb();
-        sb.append("open Prelude");
-        sb.append("open Constants");
-        sb.append("open Prelude.K");
-        sb.append("open Gmp");
-        sb.append("open Def");
-        return sb;
+        return newsb()
+            .addImport("Prelude")
+            .addImport("Constants")
+            .addImport("Prelude.K")
+            .addImport("Gmp")
+            .addImport("Def");
     }
 
     private String convertRuntime(K k) {
