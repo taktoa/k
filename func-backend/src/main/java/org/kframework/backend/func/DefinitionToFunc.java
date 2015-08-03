@@ -559,9 +559,9 @@ public class DefinitionToFunc {
         return sb;
     }
 
-    public String definition() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("open Prelude\nopen Constants\nopen Prelude.K\nopen Gmp\n");
+    public SyntaxBuilder definition() {
+        SyntaxBuilder sb = new SyntaxBuilder();
+        sb.append(genImports());
         SetMultimap<KLabel, Rule> functionRules = HashMultimap.create();
         ListMultimap<KLabel, Rule> anywhereRules = ArrayListMultimap.create();
         anywhereKLabels = new HashSet<>();
@@ -587,45 +587,69 @@ public class DefinitionToFunc {
         String conn = "let rec ";
         for(KLabel functionLabel : functions) {
             sb.append(conn);
-            String functionName = encodeStringToFunction(sb, functionLabel.name());
-            sb.append(" (c: k list) (config: k) (guards: Guard.t) : k = let lbl = \n");
-            encodeStringToIdentifier(sb, functionLabel);
-            sb.append(" and sort = \n");
-            encodeStringToIdentifier(sb, mainModule.sortFor().apply(functionLabel));
+            String functionName = encodeStringToFunction(functionLabel.name());
+            sb.appendf("%s (c: k list) (config: k) (guards: Guard.t) : k = ",
+                       functionName);
+            sb.appendf("let lbl = %s and sort = %s",
+                       encodeStringToIdentifier(functionLabel),
+                       encodeStringToIdentifier(mainModule
+                                                .sortFor()
+                                                .apply(functionLabel)));
             String sortHook = "";
-            if(mainModule.attributesFor().apply(functionLabel).contains(Attribute.PREDICATE_KEY)) {
-                Sort sort = Sort(mainModule.attributesFor().apply(functionLabel).<String>get(Attribute.PREDICATE_KEY).get());
-                sb.append(" and pred_sort = \n");
-                encodeStringToIdentifier(sb, sort);
+            if(mainModule.attributesFor()
+                         .apply(functionLabel)
+                         .contains(Attribute.PREDICATE_KEY)) {
+                Sort sort = Sort(mainModule
+                                 .attributesFor()
+                                 .apply(functionLabel)
+                                 .<String>get(Attribute.PREDICATE_KEY)
+                                 .get());
+                sb.append(" and pred_sort = %s",
+                          encodeStringToIdentifier(sort));
                 if(mainModule.sortAttributesFor().contains(sort)) {
-                    sortHook = mainModule.sortAttributesFor().apply(sort).<String>getOptional("hook").orElse("");
+                    sortHook = mainModule.sortAttributesFor()
+                                         .apply(sort)
+                                         .<String>getOptional("hook")
+                                         .orElse("");
                 }
             }
-            sb.append(" in match c with \n");
-            String hook = mainModule.attributesFor().apply(functionLabel).<String>getOptional(Attribute.HOOK_KEY).orElse(".");
+
+            sb.append(" in match c with ");
+            sb.append("\n")
+
+            String hook = mainModule.attributesFor()
+                                    .apply(functionLabel)
+                                    .<String>getOptional(Attribute.HOOK_KEY)
+                                    .orElse(".");
             String namespace = hook.substring(0, hook.indexOf('.'));
             String function = hook.substring(namespace.length() + 1);
+
             if(hookNamespaces.contains(namespace)) {
                 sb.append("| _ -> try ");
-                sb.append(namespace);
-                sb.append(".hook_");
-                sb.append(function);
+                sb.appendf("%s.hook_%s", namespace, function);
                 sb.append(" c lbl sort config freshFunction\n");
                 sb.append("with Not_implemented -> match c with \n");
             } else if(!hook.equals(".")) {
                 kem.registerCompilerWarning("missing entry for hook " + hook);
             }
+
             if(predicateRules.containsKey(sortHook)) {
                 sb.append("| ");
                 sb.append(predicateRules.get(sortHook));
                 sb.append("\n");
             }
 
-            convertFunction( functionRules.get(functionLabel).stream().sorted(this::sortFunctionRules).collect(Collectors.toList()),
-                    sb, functionName, RuleType.FUNCTION);
+            sb.append(convertFunction(functionRules.get(functionLabel)
+                                                   .stream()
+                                                   .sorted(this::sortFunctionRules)
+                                                   .collect(toList()),
+                                      functionName,
+                                      RuleType.FUNCTION));
             sb.append("| _ -> raise (Stuck [KApply(lbl, c)])\n");
             conn = "and ";
         }
+
+
         for(KLabel functionLabel : anywhereKLabels) {
             sb.append(conn);
             String functionName = encodeStringToFunction(sb, functionLabel.name());
@@ -637,6 +661,7 @@ public class DefinitionToFunc {
             conn = "and ";
         }
 
+
         sb.append("and freshFunction (sort: string) (config: k) (counter: Z.t) : k = match sort with \n");
         for(Sort sort : iterable(mainModule.freshFunctionFor().keys())) {
             sb.append("| \"");
@@ -646,6 +671,8 @@ public class DefinitionToFunc {
             sb.append(encodeStringToFunction(freshFunction.name()));
             sb.append(" ([Int counter] :: []) config Guard.empty)\n");
         }
+
+
         sb.append("and eval (c: kitem) (config: k) : k = match c with KApply(lbl, kl) -> (match lbl with \n");
         for(KLabel label : Sets.union(functions, anywhereKLabels)) {
             sb.append("|");
@@ -654,6 +681,8 @@ public class DefinitionToFunc {
             encodeStringToFunction(sb, label.name());
             sb.append(" kl config Guard.empty\n");
         }
+
+
         sb.append("| _ -> [c])\n");
         sb.append("| _ -> [c]\n");
         sb.append("let rec lookups_step (c: k) (config: k) (guards: Guard.t) : k = match c with \n");
