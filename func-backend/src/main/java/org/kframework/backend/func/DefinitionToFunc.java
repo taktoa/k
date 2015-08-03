@@ -407,8 +407,8 @@ public class DefinitionToFunc {
     }
 
     private SyntaxBuilder convertRuntime(K k) {
-        return convert(true,
-                       new VarInfo(),
+        return convert(new VarInfo(),
+                       true,
                        false,
                        false).apply(preproc.runtimeProcess(k))
     }
@@ -697,12 +697,15 @@ public class DefinitionToFunc {
                 .collect(Collectors.toList());
         Map<Boolean, List<Rule>> groupedByLookup = sortedRules.stream()
                 .collect(Collectors.groupingBy(this::hasLookups));
-        convert(groupedByLookup.get(true), sb, "lookups_step", RuleType.REGULAR, 0);
+        sb.append(convert(groupedByLookup.get(true),
+                          "lookups_step",
+                          RuleType.REGULAR,
+                          0));
         sb.append("| _ -> raise (Stuck c)\n");
         sb.append("let step (c: k) : k = let config = c in match c with \n");
         if(groupedByLookup.containsKey(false)) {
             for(Rule r : groupedByLookup.get(false)) {
-                convert(r, sb, RuleType.REGULAR);
+                sb.append(convert(r, RuleType.REGULAR));
                 if(fastCompilation) {
                     sb.append("| _ -> match c with \n");
                 }
@@ -718,11 +721,11 @@ public class DefinitionToFunc {
         int ruleNum = 0;
         for(Rule r : rules) {
             if(hasLookups(r)) {
-                ruleNum = convert(Collections.singletonList(r),
-                                  sb,
-                                  functionName,
-                                  type,
-                                  ruleNum);
+                Tuple2<Integer, SyntaxBuilder> pair;
+                pair = convert(Collections.singletonList(r),
+                               functionName, type, ruleNum);
+                ruleNum = pair._1();
+                sb.append(pair._2());
             } else {
                 sb.append(convert(r, type));
             }
@@ -1052,9 +1055,10 @@ public class DefinitionToFunc {
         return h.lookup;
     }
 
-    private void convert(Rule r, StringBuilder sb, RuleType type) {
+    private SyntaxBuilder convert(Rule r, RuleType type) {
         try {
-            convertComment(r, sb);
+            SyntaxBuilder sb = newsb();
+            sb.append(convertComment(r));
             sb.append("| ");
             K left = RewriteToTop.toLeft(r.body());
             K right = RewriteToTop.toRight(r.body());
@@ -1062,12 +1066,18 @@ public class DefinitionToFunc {
             VarInfo vars = new VarInfo();
             convertLHS(sb, type, left, vars);
             String result = convert(vars);
-            String suffix = "";
+            SyntaxBuilder suffix = newsb();
             if(!requires.equals(KSequence(BooleanUtils.TRUE)) || !result.equals("true")) {
-                suffix = convertSideCondition(sb, requires, vars, Collections.emptyList(), true);
+                pair = convertSideCondition(requires,
+                                            vars,
+                                            Collections.emptyList(),
+                                            true);
+                sb.append(pair.prefix);
+                suffix.append(pair.suffix);
             }
             sb.append(" -> ");
-            convertRHS(sb, type, right, vars, suffix);
+            sb.append(convertRHS(type, right, vars, suffix));
+            return sb;
         } catch (KEMException e) {
             e.exception.addTraceFrame("while compiling rule at " + r.att().getOptional(Source.class).map(Object::toString).orElse("<none>") + ":" + r.att().getOptional(Location.class).map(Object::toString).orElse("<none>"));
             throw e;
@@ -1086,7 +1096,7 @@ public class DefinitionToFunc {
     private SyntaxBuilder convertLHS(RuleType type,
                                      K left,
                                      VarInfo vars) {
-        Visitor visitor = convert(false, vars, false, false);
+        Visitor visitor = convert(vars, false, false, false);
         if(type == RuleType.ANYWHERE || type == RuleType.FUNCTION) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
             return visitor.apply(kapp.klist().items(), true);
@@ -1116,7 +1126,7 @@ public class DefinitionToFunc {
                 sb.endApplication();
             }
         } else {
-            sb.append(convert(true, vars, false, type == RuleType.ANYWHERE).apply(right));
+            sb.append(convert(vars, true, false, type == RuleType.ANYWHERE).apply(right));
         }
         if(type == RuleType.ANYWHERE) {
             sb = newsb().addMatch(sb,
@@ -1141,7 +1151,7 @@ public class DefinitionToFunc {
         }
         result = convert(vars);
         sb.append(when ? " when " : " && ");
-        sb.append(convert(true, vars, true, false).apply(requires));
+        sb.append(convert(vars, true, true, false).apply(requires));
         sb.appendf(" && (%s)", result);
         return Lists.reverse(lus)
                     .stream()
@@ -1194,7 +1204,9 @@ public class DefinitionToFunc {
             }
             StringBuilder sb = new StringBuilder();
             sb.append(" -> (let e = ");
-            convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
+            sb.append(convert(vars, true, false, false).apply(k.klist()
+                                                               .items()
+                                                               .get(1)));
             sb.append(" in match e with \n");
             sb.append("| [Bottom] -> ");
             sb.append(h.reapply);
@@ -1202,7 +1214,9 @@ public class DefinitionToFunc {
             String prefix = sb.toString();
             sb = new StringBuilder();
             sb.append("| ");
-            convert(sb, false, vars, false, false).apply(k.klist().items().get(0));
+            sb.append(convert(vars, false, false, false).apply(k.klist()
+                                                                .items()
+                                                                .get(0)));
             String pattern = sb.toString();
             String suffix = "| _ -> " + h.reapply + ")";
             results.add(new Lookup(prefix, pattern, suffix));
@@ -1233,7 +1247,9 @@ public class DefinitionToFunc {
 
         SyntaxBuilder sb = newsb();
         sb.append(" -> (match ");
-        convert(sb, true, vars, false, false).apply(k.klist().items().get(1));
+        sb.append(convert(vars, true, false, false).apply(k.klist()
+                                                           .items()
+                                                           .get(1)));
         sb.append(" with \n");
         sb.append(choiceString);
         if(h.first) {
@@ -1253,7 +1269,9 @@ public class DefinitionToFunc {
             h.reapply = "[Bottom]";
         }
         sb.append("| ");
-        sb.append(convert(false, vars, false, false).apply(k.klist().items().get(0)));
+        sb.append(convert(vars, false, false, false).apply(k.klist()
+                                                            .items()
+                                                            .get(0)));
         String pattern = sb.toString();
         results.add(new Lookup(prefix, pattern, suffix));
         h.first = false;
@@ -1325,8 +1343,11 @@ public class DefinitionToFunc {
         return res;
     }
 
-    private Visitor convert(boolean rhs,
-                            VarInfo vars,
+    /**
+     * Create a Visitor based on the given information
+     */
+    private Visitor convert(VarInfo vars,
+                            boolean rhs,
                             boolean useNativeBool,
                             boolean anywhereRule) {
         return new Visitor(rhs, vars, useNativeBool, anywhereRule);
