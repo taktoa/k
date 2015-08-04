@@ -132,7 +132,8 @@ public class DefinitionToFunc {
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     private final KExceptionManager kem;
-    private final SyntaxBuilder ocamlDef;
+    private final SyntaxBuilder ocamlDefinition;
+    private final SyntaxBuilder ocamlConstants;
 
     private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
     private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
@@ -154,12 +155,17 @@ public class DefinitionToFunc {
     public DefinitionToFunc(KExceptionManager kem,
                             PreprocessedKORE preproc) {
         this.kem = kem;
-        this.ocamlDef = langDefToFunc(preproc);
+        this.ocamlDefinition = genDefinition(preproc);
+        this.ocamlConstants  = FuncConstants.genConstants(preproc);
         debugOutput(preproc);
     }
 
-    public String genOCaml() {
-        return ocamlDef.toString();
+    public String getConstants() {
+        return ocamlConstants.toString();
+    }
+
+    public String getDefinition() {
+        return ocamlDefinition.toString();
     }
 
     private void debugOutput(PreprocessedKORE ppk) {
@@ -376,10 +382,10 @@ public class DefinitionToFunc {
         return genVisitor(new VarInfo(),
                           true,
                           false,
-                          false).apply(preproc.runtimeProcess(k))
+                          false).apply(preproc.runtimeProcess(k));
     }
 
-    public SyntaxBuilder definition(PreprocessedKORE ppk) {
+    public SyntaxBuilder genDefinition(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
         Module mm = ppk.mainModule;
 
