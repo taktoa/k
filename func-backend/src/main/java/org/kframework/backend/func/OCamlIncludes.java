@@ -316,6 +316,15 @@ public final class OCamlIncludes {
         predicateRules = bld.build();
     }
 
+    public SyntaxBuilder genImports() {
+        return newsb()
+            .addImport("Prelude")
+            .addImport("Constants")
+            .addImport("Prelude.K")
+            .addImport("Gmp")
+            .addImport("Def");
+    }
+
     public static String encodeStringToIdentifier(KLabel name) {
         return "Lbl" + encodeStringToAlphanumeric(name.name());
     }

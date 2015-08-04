@@ -76,47 +76,163 @@ public class KToFunc {
                                  outputPath, substPath).toString();
     }
 
-
-    private SyntaxBuilder executeSB(K k, int depth, String outputPath) {
-        outprintfln("DBG: executeSB");
-        SyntaxBuilder sb = convertSB(k, depth);
-        return sb;
+    private SyntaxBuilder executeSB(K k, int depth, String outFile) {
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("run")
+            .addArgument(newsbv(convertRuntime(k)))
+            .addArgument(newsbv(Integer.toString(depth)))
+            .endApplication();
+        return genRuntime(newsbApp("output_string",
+                                   newsbn("out"),
+                                   newsbApp("print_k",
+                                            newsb()
+                                            .beginTry()
+                                            .addTryValue(tryValueSB)
+                                            .beginTryEquations()
+                                            .addTryEquation(newsbn("Stuck c'"),
+                                                            newsbn("c'"))
+                                            .endTryEquations()
+                                            .endTry())),
+                          outFile);
     }
 
-    private SyntaxBuilder matchSB(K k, Rule rule, String outputPath) {
-        outprintfln("DBG: matchSB");
-        SyntaxBuilder sb = imports;
-        return sb;
+    private SyntaxBuilder matchSB(K k, Rule rule, String outFile) {
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("print_subst")
+            .addArgument("file1")
+            .beginArgument()
+            .beginApplication()
+            .addFunction("try_match")
+            .beginArgument()
+            .addValue(convertRuntime(k))
+            .endArgument()
+            .endApplication()
+            .endArgument()
+            .endApplication();
+        SyntaxBuilder printOutSB = newsbApp("output_string",
+                                            newsbn("file1"),
+                                            newsbv(enquoteString("0\n")));
+        return genRuntime(newsb()
+                          .beginTry()
+                          .addTryValue(tryValueSB)
+                          .beginTryEquations()
+                          .addTryEquation(newsbn("Stuck c"), printOutSB)
+                          .endTryEquations()
+                          .endTry(),
+                          rule,
+                          outFile);
     }
 
     private SyntaxBuilder executeAndMatchSB(K k, int depth,
                                             Rule rule,
-                                            String outputPath,
-                                            String substPath) {
-        outprintfln("DBG: executeAndMatchSB");
-        SyntaxBuilder sb = imports;
+                                            String outFile,
+                                            String substFile) {
+        SyntaxBuilder tryValueSB =
+            newsb()
+            .beginApplication()
+            .addFunction("print_subst")
+            .addArgument("file2")
+            .beginArgument()
+            .beginApplication()
+            .addFunction("try_match")
+            .beginArgument()
+            .beginLetExpression()
+            .beginLetEquations()
+            .addLetEquation(newsbn("res"),
+                            newsbApp("run",
+                                     newsbv(convertRuntime(k)),
+                                     newsbv(depth)))
+            .endLetEquations()
+            .beginLetScope()
+            .addSequence(newsbApp("output_string",
+                                  newsbn("file1"),
+                                  newsbApp("print_k", newsbn("res"))),
+                         newsbn("res"))
+            .endLetScope()
+            .endLetExpression()
+            .endArgument()
+            .endApplication()
+            .endArgument()
+            .endApplication();
+        SyntaxBuilder printOutSB   = newsbApp("output_string",
+                                              newsbn("file1")
+                                              newsbApp("print_k", newsbn("c")));
+        SyntaxBuilder printSubstSB = newsbApp("output_string",
+                                              newsbn("file2"),
+                                              newsbv(enquoteString("0\n")));
+        return genRuntime(newsb()
+                          .beginTry()
+                          .addTryValue(tryValueSB)
+                          .beginTryEquations()
+                          .addTryEquation(newsbn("Stuck c"),
+                                          newsb().addSequence(printOutSB,
+                                                              printSubstSB))
+                          .endTryEquations()
+                          .endTry(),
+                          rule,
+                          outFile, substFile);
+    }
+
+    private SyntaxBuilder genRuntime(SyntaxBuilder body,
+                                     String... paths) {
+        return newsb()
+            .append(genImports())
+            .append(genFileDefs(paths))
+            .append(genConfig())
+            .append(runCode(body));
+    }
+
+    private SyntaxBuilder genRuntime(SyntaxBuilder body,
+                                     Rule r,
+                                     String... paths) {
+        return newsb()
+            .append(genImports())
+            .append(genTryMatch(r))
+            .append(genFileDefs(paths))
+            .append(genConfig())
+            .append(runCode(body));
+    }
+
+    private SyntaxBuilder runCode(SyntaxBuilder code) {
+        return newsb().addGlobalLet(newsbp("_"), code);
+    }
+
+    private SyntaxBuilder genConfig() {
+        return newsb().addGlobalLet(newsb().addName("config"), bottomSB);
+    }
+
+    private SyntaxBuilder genFileDefs(String... paths) {
+        SyntaxBuilder sb;
+        int i = 0;
+        for(String path : paths) {
+            sb.addGlobalLet(newsb().addName(String.format("file%d", i++)),
+                            newsb().addApplication("open_out",
+                                                   newsbv(enquoteString(path))));
+        }
         return sb;
     }
 
+    private SyntaxBuilder genTryMatch() {
+        return newsb()
+            .append("let try_match (c: k) : k Subst.t =")
+            .append("let config = c in")
+            .append("match c with ")
+            .append("\n")
+            .append(convertFunction(Collections.singletonList(convert(preproc, r)),
+                                    "try_match", RuleType.PATTERN))
+            .append("| _ -> raise(Stuck c)")
+            .append("\n");
+    }
 
-    private SyntaxBuilder convertSB(K k, int depth) {
-        SyntaxBuilder sb = newsb();
 
-        FuncVisitor convVisitor = new FuncVisitor(preproc,
-                                                  true,
-                                                  HashMultimap.create(),
-                                                  false);
-        sb.addImport("Def");
-        sb.addImport("K");
-        sb.beginLetDeclaration();
-        sb.beginLetDefinitions();
-        String runFmt = "print_string(print_k(try(run(%s) (%s)) with Stuck c' -> c'))";
-        sb.addLetEquation(newsb("_"),
-                          newsbf(runFmt,
-                                 convVisitor.apply(preproc.runtimeProcess(k)),
-                                 depth));
-        sb.endLetDefinitions();
-        sb.endLetDeclaration();
-        return sb;
+    private SyntaxBuilder convertRuntime(K k) {
+        return genVisitor(new VarInfo(),
+                          true,
+                          false,
+                          false).apply(preproc.runtimeProcess(k));
     }
 }
