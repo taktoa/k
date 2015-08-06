@@ -311,7 +311,7 @@ public class DefinitionToFunc {
             .endArgument()
             .endApplication();
         SyntaxBuilder printOutSB   = newsbApp("output_string",
-                                              newsbn("file1")
+                                              newsbn("file1"),
                                               newsbApp("print_k", newsbn("c")));
         SyntaxBuilder printSubstSB = newsbApp("output_string",
                                               newsbn("file2"),
@@ -441,7 +441,7 @@ public class DefinitionToFunc {
             }
 
             sb.append(" in match c with ");
-            sb.append("\n")
+            sb.append("\n");
 
             String hook = mm.attributesFor()
                             .apply(functionLabel)
@@ -974,7 +974,7 @@ public class DefinitionToFunc {
                                   asList(newsbp("[item]")),
                                   asList(newsbApp("eval",
                                                   newsbr("item"),
-                                                  newsbr("config"))))
+                                                  newsbr("config"))));
         }
 
         sb.append(suffix);
@@ -1102,7 +1102,7 @@ public class DefinitionToFunc {
         sb.append("if (compare result [Bottom]) = 0 then (match e with ");
         String prefix = sb.toString();
         sb = newsb();
-        String suffix2 = String.format("| _ -> [Bottom]) else result%s) collection [Bottom]) in if (compare choice [Bottom]) = 0 then %s else choice"
+        String suffix2 = String.format("| _ -> [Bottom]) else result%s) collection [Bottom]) in if (compare choice [Bottom]) = 0 then %s else choice",
                                        (h.first ? " in stepElt Guard.empty" : ""),
                                        h.reapply);
         String suffix = String.format("%s| _ -> %s)", suffix2, h.reapply);
@@ -1290,765 +1290,764 @@ public class DefinitionToFunc {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-    /**
-     * Flag that determines whether or not we annotate output OCaml with rules
-     */
-    public static final boolean annotateOutput = false;
-
-    /**
-     * Flag that determines whether or not we output debug info
-     */
-    public static final boolean debugEnabled = true;
-
-
-    private final KExceptionManager kem;
-    private final SyntaxBuilder ocamlDef;
-
-    private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
-    private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
-
-    static {
-        wildcardSB = newsbv("_");
-        bottomSB = newsbv("[Bottom]");
-        choiceSB = newsbv("choice");
-        resultSB = newsbv("result");
-        setChoiceSB1 = choiceSB1("e", "KSet.fold", "[Set s]",
-                                 "e", "result");
-        mapChoiceSB1 = choiceSB1("k", "KMap.fold", "[Map m]",
-                                 "k", "v", "result");
-    }
-
-    /**
-     * Constructor for DefinitionToFunc
-     */
-    public DefinitionToFunc(KExceptionManager kem,
-                            PreprocessedKORE preproc) {
-        this.kem = kem;
-        this.ocamlDef = langDefToFunc(preproc);
-        debugOutput(preproc);
-    }
-
-    public String genOCaml() {
-        return ocamlDef.toString();
-    }
-
-    private void debugOutput(PreprocessedKORE ppk) {
-        outprintfln("");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("");
-
-        outprintfln(";; %s", ocamlDef.trackPrint()
-                                     .replaceAll("\n", "\n;; "));
-        outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
-        outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
-
-
-        outprintfln("functionSet: %s", ppk.functionSet);
-        outprintfln("anywhereSet: %s", ppk.anywhereSet);
-
-        XMLBuilder outXML = ocamlDef.getXML();
-
-
-        outprintfln("");
-
-        try {
-            outprintfln("%s", outXML.renderSExpr());
-        } catch(KEMException e) {
-            outprintfln(";; %s", outXML.toString()
-                        .replaceAll("><", ">\n<")
-                        .replaceAll("\n", "\n;; "));
-        }
-
-
-        outprintfln("");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
-        outprintfln("");
-    }
-
-    private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.append(FuncConstants.genConstants(ppk));
-        sb.append(addFunctions(ppk));
-        sb.append(addSteps(ppk));
-        sb.append(OCamlIncludes.postludeSB);
-
-        return sb;
-    }
-
-    private SyntaxBuilder addFunctionMatch(String functionName,
-                                           KLabel functionLabel,
-                                           PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-        String hook = ppk.attrLabels
-                         .get(Attribute.HOOK_KEY)
-                         .getOrDefault(functionLabel, "");
-        String fn = functionLabel.name();
-        boolean isHook = OCamlIncludes.hooks.containsKey(hook);
-        boolean isPred = OCamlIncludes.predicateRules.containsKey(fn);
-        Collection<Rule> rules = ppk.functionRulesOrdered
-                                    .getOrDefault(functionLabel, newArrayList());
-
-        if(!isHook && !hook.isEmpty()) {
-            kem.registerCompilerWarning("missing entry for hook " + hook);
-        }
-
-        sb.beginMatchExpression(newsbv("c"));
-
-        if(isHook) {
-            sb.append(OCamlIncludes.hooks.get(hook));
-        }
-
-        if(isPred) {
-            sb.append(OCamlIncludes.predicateRules.get(fn));
-        }
-
-        int i = 0;
-        for(Rule r : rules) {
-            sb.append(oldConvert(ppk, r, true, i++, functionName));
-        }
-
-        sb.addMatchEquation(wildcardSB, raiseStuck(newsbv("[KApply(lbl, c)]")));
-        sb.endMatchExpression();
-
-        return sb;
-    }
-
-    private SyntaxBuilder addFunctionEquation(KLabel functionLabel,
-                                              PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        String functionName = encodeStringToFunction(functionLabel.name());
-
-        sb.beginLetrecEquation();
-        sb.addLetrecEquationName(newsb()
-                                 .beginRender()
-                                 .addValue(functionName)
-                                 .addSpace()
-                                 .addValue("(c: k list)")
-                                 .addSpace()
-                                 .addValue("(guards: Guard.t)")
-                                 .addSpace()
-                                 .addKeyword(":")
-                                 .addSpace()
-                                 .addValue("k")
-                                 .endRender());
-        sb.beginLetrecEquationValue();
-        sb.beginLetExpression();
-        sb.beginLetDefinitions();
-        sb.addLetEquation(newsb("lbl"),
-                          newsb(encodeStringToIdentifier(functionLabel)));
-        sb.endLetDefinitions();
-
-        sb.beginLetScope();
-        sb.append(addFunctionMatch(functionName, functionLabel, ppk));
-        sb.endLetScope();
-
-        sb.endLetExpression();
-        sb.endLetrecEquationValue();
-        sb.endLetrecEquation();
-
-        return sb;
-    }
-
-    private SyntaxBuilder addFreshFunction(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.beginLetrecEquation();
-        sb.addLetrecEquationName(newsb()
-                                 .beginRender()
-                                 .addValue("freshFunction")
-                                 .addSpace()
-                                 .addValue("(sort: string)")
-                                 .addSpace()
-                                 .addValue("(counter: Z.t)")
-                                 .addSpace()
-                                 .addKeyword(":")
-                                 .addSpace()
-                                 .addValue("k")
-                                 .endRender());
-        sb.beginLetrecEquationValue();
-
-        sb.beginMatchExpression(newsb("sort"));
-        for(Sort sort : ppk.freshFunctionFor.keySet()) {
-            KLabel freshFunction = ppk.freshFunctionFor.get(sort);
-            sb.addMatchEquation(newsbf("\"%s\"",
-                                       sort.name()),
-                                newsbf("(%s ([Int counter] :: []) Guard.empty)",
-                                       encodeStringToFunction(freshFunction.name())));
-        }
-        sb.endMatchExpression();
-
-        sb.endLetrecEquationValue();
-        sb.endLetrecEquation();
-
-        return sb;
-    }
-
-    private SyntaxBuilder addEval(Set<KLabel> labels,
-                                  PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.beginLetrecEquation();
-        sb.addLetrecEquationName(newsb("eval (c: kitem) : k"));
-        sb.beginLetrecEquationValue();
-
-        sb.beginMatchExpression(newsb("c"));
-
-        sb.beginMatchEquation();
-        sb.addMatchEquationPattern(newsb()
-                                   .addApplication("KApply",
-                                                   newsb("(lbl, kl)")));
-        sb.beginMatchEquationValue();
-        sb.beginMatchExpression(newsb("lbl"));
-        for(KLabel label : labels) {
-            SyntaxBuilder valSB =
-                newsb().addApplication(encodeStringToFunction(label.name()),
-                                       newsb("kl"),
-                                       newsb("Guard.empty"));
-            sb.addMatchEquation(newsb(encodeStringToIdentifier(label)),
-                                valSB);
-        }
-        sb.endMatchExpression();
-        sb.endMatchEquationValue();
-        sb.endMatchEquation();
-
-        sb.addMatchEquation(wildcardSB, newsbv("[c]"));
-
-        sb.endMatchExpression();
-
-        sb.endLetrecEquationValue();
-        sb.endLetrecEquation();
-
-        return sb;
-    }
-
-    private SyntaxBuilder addFunctions(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        Set<KLabel> functions = ppk.functionSet;
-        Set<KLabel> anywheres = ppk.anywhereSet;
-
-        Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
-
-
-        for(List<KLabel> component : ppk.functionOrder) {
-            sb.beginLetrecDeclaration();
-            sb.beginLetrecDefinitions();
-            for(KLabel functionLabel : component) {
-                sb.append(addFunctionEquation(functionLabel, ppk));
-            }
-            sb.endLetrecDefinitions();
-            sb.endLetrecDeclaration();
-        }
-
-        sb.beginLetrecDeclaration();
-        sb.beginLetrecDefinitions();
-
-        sb.append(addFreshFunction(ppk));
-
-        sb.append(addEval(funcAndAny, ppk));
-
-        sb.endLetrecDefinitions();
-        sb.endLetrecDeclaration();
-
-        return sb;
-    }
-
-    private SyntaxBuilder makeStuck(SyntaxBuilder body) {
-        return newsb().addApplication("Stuck", body);
-    }
-
-    private SyntaxBuilder raiseStuck(SyntaxBuilder body) {
-        return newsb().addApplication("raise", makeStuck(body));
-    }
-
-    private SyntaxBuilder addSteps(PreprocessedKORE ppk) {
-        SyntaxBuilder sb = newsb();
-
-        sb.beginLetrecDeclaration();
-        sb.beginLetrecDefinitions();
-        sb.beginLetrecEquation();
-        sb.addLetrecEquationName(newsb("lookups_step (c: k) (guards: Guard.t) : k"));
-        sb.beginLetrecEquationValue();
-        sb.beginMatchExpression(newsb("c"));
-
-        int i = 0;
-        for(Rule r : ppk.indexedRules.keySet()) {
-            Set<String> cap = ppk.indexedRules.get(r);
-            if(cap.contains("lookup") && !cap.contains("function")) {
-                sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "lookups_step")));
-            }
-        }
-
-        sb.addMatchEquation(wildcardSB, raiseStuck(newsb("c")));
-        sb.endMatchExpression();
-        sb.endLetrecEquationValue();
-        sb.endLetrecEquation();
-        sb.endLetrecDefinitions();
-        sb.endLetrecDeclaration();
-
-        sb.beginLetDeclaration();
-        sb.beginLetDefinitions();
-        sb.beginLetEquation();
-        sb.addLetEquationName(newsb("step (c: k) : k"));
-        sb.beginLetEquationValue();
-        sb.beginMatchExpression(newsb("c"));
-        for(Rule r : ppk.indexedRules.keySet()) {
-            Set<String> cap = ppk.indexedRules.get(r);
-            if(!cap.contains("lookup") && !cap.contains("function")) {
-                sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "step")));
-            }
-        }
-        sb.addMatchEquation(newsb("_"),
-                            newsb("lookups_step c Guard.empty"));
-        sb.endMatchExpression();
-        sb.endLetEquationValue();
-        sb.endLetEquation();
-        sb.endLetDefinitions();
-        sb.endLetDeclaration();
-
-        return sb;
-    }
-
-    private SyntaxBuilder debugMismatch(SyntaxBuilder sb) {
-        Pattern xmlBegPat = Pattern.compile("<[^<>/]*>");
-        Pattern xmlEndPat = Pattern.compile("</[^<>/]*>");
-        Map<String, Integer> sbMap = sb.getTrack();
-        List<String> sbKeys = sbMap.keySet()
-                                   .stream()
-                                   .filter(x -> xmlEndPat.matcher(x).matches())
-                                   .map(x -> x.substring(2, x.length() - 1))
-                                   .collect(toList());
-        Map<String, Integer> mismatched = newHashMap();
-        for(String k : sbKeys) {
-            int begin = sbMap.get("<"  + k + ">").intValue();
-            int end   = sbMap.get("</" + k + ">").intValue();
-            if(begin != end) { mismatched.put(k, begin - end); }
-        }
-        if(! mismatched.isEmpty()) {
-            outprintfln(";; ---------------- ERROR ----------------");
-            outprintfln(";; The following were mismatched:");
-            for(String k : mismatched.keySet()) {
-                outprintfln(";; %30s --> %s", k, mismatched.get(k));
-            }
-            outprintfln(";; ----------------");
-            outprintfln(";; XML:\n;; %s",
-                        sb.pretty().stream().collect(joining("\n;; ")));
-            outprintfln(";; ---------------- ERROR ----------------");
-        }
-        return sb;
-    }
-
-    private SyntaxBuilder outputAnnotate(Rule r) {
-        SyntaxBuilder sb = newsb();
-
-        sb.beginMultilineComment();
-        sb.appendf("rule %s requires %s ensures %s %s",
-                   ToKast.apply(r.body()),
-                   ToKast.apply(r.requires()),
-                   ToKast.apply(r.ensures()),
-                   r.att().toString());
-        sb.endMultilineComment();
-        sb.addNewline();
-
-        return sb;
-    }
-
-    private SyntaxBuilder unhandledOldConvert(PreprocessedKORE ppk,
-                                              Rule r,
-                                              boolean isFunction,
-                                              int ruleNum,
-                                              String functionName) throws KEMException {
-        SyntaxBuilder sb = newsb();
-
-        if(annotateOutput) { sb.append(outputAnnotate(r)); }
-
-        K left     = RewriteToTop.toLeft(r.body());
-        K right    = RewriteToTop.toRight(r.body());
-        K requires = r.requires();
-
-        Set<String> indices = ppk.indexedRules.get(r);
-        SetMultimap<KVariable, String> vars = HashMultimap.create();
-        FuncVisitor visitor = oldConvert(ppk, false, vars, false);
-
-        sb.beginMatchEquation();
-        sb.beginMatchEquationPattern();
-        sb.append(handleLeft(isFunction, left, visitor));
-
-        sb.append(handleLookup(indices, ruleNum));
-
-        SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
-
-        sb.append(side.getFst());
-        sb.endMatchEquationPattern();
-        sb.beginMatchEquationValue();
-        sb.append(oldConvert(ppk, true, vars, false).apply(right));
-
-        sb.endMatchEquationValue();
-        sb.endMatchEquation();
-        sb.append(side.getSnd());
-
-        return sb;
-    }
-
-    private SyntaxBuilder handleLeft(boolean isFunction,
-                                     K left,
-                                     FuncVisitor visitor) {
-        if(isFunction) {
-            return handleFunction(left, visitor);
-        } else {
-            return handleNonFunction(left, visitor);
-        }
-    }
-
-    private SyntaxBuilder handleFunction(K left, FuncVisitor visitor) {
-        KApply kapp = (KApply) ((KSequence) left).items().get(0);
-        return visitor.apply(kapp.klist().items(), true);
-    }
-
-    private SyntaxBuilder handleNonFunction(K left, FuncVisitor visitor) {
-        return visitor.apply(left);
-    }
-
-    private SyntaxBuilder handleLookup(Set<String> indices, int ruleNum) {
-        if(indices.contains("lookup")) {
-            return newsb()
-                .beginRender()
-                .addSpace()
-                .addKeyword("when")
-                .addSpace()
-                .addKeyword("not")
-                .addSpace()
-                .beginApplication()
-                .addFunction("Guard.mem")
-                .beginArgument()
-                .addApplication("GuardElt.Guard", newsbf("%d", ruleNum))
-                .endArgument()
-                .addArgument(newsb("guards"))
-                .endApplication()
-                .endRender();
-        } else {
-            return newsb();
-        }
-    }
-
-    private SBPair handleSideCondition(PreprocessedKORE ppk,
-                                       SetMultimap<KVariable, String> vars,
-                                       String functionName,
-                                       int ruleNum,
-                                       K requires) {
-         SBPair convLookups = oldConvertLookups(ppk, requires, vars,
-                                               functionName, ruleNum);
-
-         SyntaxBuilder result = oldConvert(vars);
-
-         if(hasSideCondition(requires, result.toString())) {
-             SyntaxBuilder fstSB =
-                 convLookups
-                 .getFst()
-                 .beginRender()
-                 .addSpace()
-                 .addKeyword("when")
-                 .addSpace()
-                 .beginRender()
-                 .append(oldConvert(ppk, true, vars, true).apply(requires))
-                 .endRender()
-                 .addSpace()
-                 .addKeyword("&&")
-                 .addSpace()
-                 .beginParenthesis()
-                 .beginRender()
-                 .append(result)
-                 .endRender()
-                 .endParenthesis()
-                 .endRender();
-             SyntaxBuilder sndSB = convLookups.getSnd();
-             return newSBPair(fstSB, sndSB);
-         } else {
-             return newSBPair(newsb(), newsb());
-         }
-    }
-
-    private boolean hasSideCondition(K requires, String result) {
-        return !(KSequence(BooleanUtils.TRUE).equals(requires))
-            || !("true".equals(result));
-    }
-
-    private SyntaxBuilder oldConvert(PreprocessedKORE ppk,
-                                     Rule r,
-                                     boolean function,
-                                     int ruleNum,
-                                     String functionName) {
-        try {
-            return unhandledOldConvert(ppk, r, function, ruleNum, functionName);
-        } catch (KEMException e) {
-            String src = r.att()
-                          .getOptional(Source.class)
-                          .map(Object::toString)
-                          .orElse("<none>");
-            String loc = r.att()
-                          .getOptional(Location.class)
-                          .map(Object::toString)
-                          .orElse("<none>");
-            e.exception
-             .addTraceFrame(String.format("while compiling rule at %s: %s",
-                                          src, loc));
-            throw e;
-        }
-    }
-
-    private void checkApplyArity(KApply k,
-                                 int arity,
-                                 String funcName) throws KEMException {
-        if(k.klist().size() != arity) {
-            throw kemInternalErrorF(k,
-                                    "Unexpected arity of %s: %s",
-                                    funcName,
-                                    k.klist().size());
-        }
-    }
-
-    private static final SyntaxBuilder choiceSB1(String chChoiceVar,
-                                                 String chFold,
-                                                 String chPat,
-                                                 String... chArgs) {
-        return newsb()
-            .beginMatchEquation()
-            .addMatchEquationPattern(newsbv(chPat))
-            .beginMatchEquationValue()
-            .beginLetExpression()
-            .beginLetDefinitions()
-            .beginLetEquation()
-            .addLetEquationName(choiceSB)
-            .beginLetEquationValue()
-            .beginApplication()
-            .addFunction(chFold)
-            .beginArgument()
-            .beginLambda(chArgs)
-            .beginConditional()
-            .addConditionalIf()
-            .append(newsb().addApplication("eq", resultSB, bottomSB))
-            .addConditionalThen()
-            .beginMatchExpression(newsbv(chChoiceVar));
-    }
-
-
-    private static final SyntaxBuilder choiceSB2(String chVar,
-                                                 int ruleNum,
-                                                 String functionName) {
-        String guardCon = "GuardElt.Guard";
-        String guardAdd = "Guard.add";
-        SyntaxBuilder rnsb = newsbv(Integer.toString(ruleNum));
-
-        SyntaxBuilder guardSB =
-            newsb().addApplication(guardAdd,
-                                   newsb().addApplication(guardCon, rnsb),
-                                   newsbv("guards"));
-        SyntaxBuilder condSB =
-            newsb().addConditional(newsb().addApplication("eq", choiceSB, bottomSB),
-                                   newsb().addApplication(functionName,
-                                                          newsbv("c"),
-                                                          guardSB),
-                                   choiceSB);
-
-        return newsb()
-            .addMatchEquation(wildcardSB, bottomSB)
-            .endMatchExpression()
-            .addConditionalElse()
-            .append(resultSB)
-            .endConditional()
-            .endLambda()
-            .endArgument()
-            .addArgument(newsbv(chVar))
-            .addArgument(bottomSB)
-            .endApplication()
-            .endLetEquationValue()
-            .endLetEquation()
-            .endLetDefinitions()
-            .addLetScope(condSB)
-            .endLetExpression()
-            .endMatchEquationValue()
-            .endMatchEquation();
-    }
-
-    // TODO(remy): this needs refactoring very badly
-    private SBPair oldConvertLookups(PreprocessedKORE ppk,
-                                     K requires,
-                                     SetMultimap<KVariable, String> vars,
-                                     String functionName,
-                                     int ruleNum) {
-        Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
-
-        SyntaxBuilder res = newsb();
-        SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
-        SyntaxBuilder mapChoiceSB2 = choiceSB2("m", ruleNum, functionName);
-        String formatSB3 = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
-        SyntaxBuilder sb3 =
-            newsb().addMatchEquation(wildcardSB, newsbf(formatSB3,
-                                                        functionName,
-                                                        ruleNum))
-                   .endMatchExpression()
-                   .endMatchEquationValue()
-                   .endMatchEquation();
-
-        new VisitKORE() {
-            private SyntaxBuilder sb1;
-            private SyntaxBuilder sb2;
-            private String functionStr;
-            private int arity;
-
-            @Override
-            public Void apply(KApply k) {
-                List<K> kitems = k.klist().items();
-                String klabel = k.klabel().name();
-
-                boolean choiceOrMatch = true;
-
-                switch(klabel) {
-                case "#match":
-                    functionStr = "lookup";
-                    sb1 = newsb();
-                    sb2 = newsb();
-                    arity = 2;
-                    break;
-                case "#setChoice":
-                    functionStr = "set choice";
-                    sb1 = setChoiceSB1;
-                    sb2 = setChoiceSB2;
-                    arity = 2;
-                    break;
-                case "#mapChoice":
-                    functionStr = "map choice";
-                    sb1 = mapChoiceSB1;
-                    sb2 = mapChoiceSB2;
-                    arity = 2;
-                    break;
-                default:
-                    choiceOrMatch = false;
-                    break;
-                }
-
-                if(choiceOrMatch) {
-                    // prettyStackTrace();
-
-                    checkApplyArity(k, arity, functionStr);
-
-                    K kLabel1 = kitems.get(0);
-                    K kLabel2 = kitems.get(1);
-
-                    SyntaxBuilder luMatchValue
-                        = oldConvert(ppk, true,  vars, false).apply(kLabel2);
-                    SyntaxBuilder luLevelUp     = sb1;
-                    SyntaxBuilder luPattern
-                        = oldConvert(ppk, false, vars, false).apply(kLabel1);
-                    SyntaxBuilder luWildcardEqn = sb3;
-                    SyntaxBuilder luLevelDown   = sb2;
-
-                    res.endMatchEquationPattern();
-                    res.beginMatchEquationValue();
-                    res.beginMatchExpression(luMatchValue);
-                    res.append(luLevelUp);
-                    res.beginMatchEquation();
-                    res.beginMatchEquationPattern();
-                    res.append(luPattern);
-
-                    suffStack.add(luWildcardEqn);
-                    suffStack.add(luLevelDown);
-                }
-
-                return super.apply(k);
-            }
-        }.apply(requires);
-
-        SyntaxBuilder suffSB = newsb();
-        while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
-
-        return newSBPair(res, suffSB);
-    }
-
-    private static String prettyStackTrace() {
-        Pattern funcPat = Pattern.compile("^org[.]kframework.*$");
-
-        SyntaxBuilder sb = newsb();
-        sb.append(";; DBG: ----------------------------\n");
-        sb.append(";; DBG: apply executed:\n");
-        StackTraceElement[] traceArray = Thread.currentThread().getStackTrace();
-        List<StackTraceElement> trace = newArrayList(traceArray.length);
-
-        for(StackTraceElement ste : traceArray) { trace.add(ste); }
-
-        trace = trace
-            .stream()
-            .filter(x -> funcPat.matcher(x.toString()).matches())
-            .collect(toList());
-
-        int skip = 1;
-        for(StackTraceElement ste : trace) {
-            if(skip > 0) {
-                skip--;
-            } else {
-                sb.appendf(";; DBG: trace: %20s %6s %30s\n",
-                           ste.getMethodName(),
-                           "(" + Integer.toString(ste.getLineNumber()) + ")",
-                           "(" + ste.getFileName() + ")");
-            }
-        }
-        return sb.toString();
-    }
-
-    private static SBPair newSBPair(SyntaxBuilder a, SyntaxBuilder b) {
-        return new SBPair(a, b);
-    }
-
-    private static class SBPair {
-        private final SyntaxBuilder fst, snd;
-
-        public SBPair(SyntaxBuilder fst, SyntaxBuilder snd) {
-            this.fst = fst;
-            this.snd = snd;
-        }
-
-
-        public SyntaxBuilder getFst() {
-            return fst;
-        }
-
-        public SyntaxBuilder getSnd() {
-            return snd;
-        }
-    }
-
-    private static SyntaxBuilder oldConvert(SetMultimap<KVariable, String> vars) {
-        SyntaxBuilder sb = newsb();
-        for(Collection<String> nonLinearVars : vars.asMap().values()) {
-            if(nonLinearVars.size() < 2) { continue; }
-            Iterator<String> iter = nonLinearVars.iterator();
-            String last = iter.next();
-            while (iter.hasNext()) {
-                //handle nonlinear variables in pattern
-                String next = iter.next();
-                sb.beginRender();
-                sb.addApplication("eq", newsb(last), newsb(next));
-                sb.addSpace();
-                sb.addKeyword("&&");
-                sb.addSpace();
-                sb.endRender();
-                last = next;
-            }
-        }
-        sb.addValue("true");
-        return sb;
-    }
-
-    private FuncVisitor oldConvert(PreprocessedKORE ppk,
-                                   boolean rhs,
-                                   SetMultimap<KVariable, String> vars,
-                                   boolean useNativeBooleanExp) {
-        return new FuncVisitor(ppk, rhs, vars, useNativeBooleanExp);
-    }
-}
+//     /**
+//      * Flag that determines whether or not we annotate output OCaml with rules
+//      */
+//     public static final boolean annotateOutput = false;
+
+//     /**
+//      * Flag that determines whether or not we output debug info
+//      */
+//     public static final boolean debugEnabled = true;
+
+
+//     private final KExceptionManager kem;
+//     private final SyntaxBuilder ocamlDef;
+
+//     private static final SyntaxBuilder setChoiceSB1, mapChoiceSB1;
+//     private static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
+
+//     static {
+//         wildcardSB = newsbv("_");
+//         bottomSB = newsbv("[Bottom]");
+//         choiceSB = newsbv("choice");
+//         resultSB = newsbv("result");
+//         setChoiceSB1 = choiceSB1("e", "KSet.fold", "[Set s]",
+//                                  "e", "result");
+//         mapChoiceSB1 = choiceSB1("k", "KMap.fold", "[Map m]",
+//                                  "k", "v", "result");
+//     }
+
+//     /**
+//      * Constructor for DefinitionToFunc
+//      */
+//     public DefinitionToFunc(KExceptionManager kem,
+//                             PreprocessedKORE preproc) {
+//         this.kem = kem;
+//         this.ocamlDef = langDefToFunc(preproc);
+//         debugOutput(preproc);
+//     }
+
+//     public String genOCaml() {
+//         return ocamlDef.toString();
+//     }
+
+//     private void debugOutput(PreprocessedKORE ppk) {
+//         outprintfln("");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln("");
+
+//         outprintfln(";; %s", ocamlDef.trackPrint()
+//                                      .replaceAll("\n", "\n;; "));
+//         outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
+//         outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
+
+
+//         outprintfln("functionSet: %s", ppk.functionSet);
+//         outprintfln("anywhereSet: %s", ppk.anywhereSet);
+
+//         XMLBuilder outXML = ocamlDef.getXML();
+
+
+//         outprintfln("");
+
+//         try {
+//             outprintfln("%s", outXML.renderSExpr());
+//         } catch(KEMException e) {
+//             outprintfln(";; %s", outXML.toString()
+//                         .replaceAll("><", ">\n<")
+//                         .replaceAll("\n", "\n;; "));
+//         }
+
+
+//         outprintfln("");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
+//         outprintfln("");
+//     }
+
+//     private SyntaxBuilder langDefToFunc(PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         sb.append(FuncConstants.genConstants(ppk));
+//         sb.append(addFunctions(ppk));
+//         sb.append(addSteps(ppk));
+//         sb.append(OCamlIncludes.postludeSB);
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder addFunctionMatch(String functionName,
+//                                            KLabel functionLabel,
+//                                            PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+//         String hook = ppk.attrLabels
+//                          .get(Attribute.HOOK_KEY)
+//                          .getOrDefault(functionLabel, "");
+//         String fn = functionLabel.name();
+//         boolean isHook = OCamlIncludes.hooks.containsKey(hook);
+//         boolean isPred = OCamlIncludes.predicateRules.containsKey(fn);
+//         Collection<Rule> rules = ppk.functionRulesOrdered
+//                                     .getOrDefault(functionLabel, newArrayList());
+
+//         if(!isHook && !hook.isEmpty()) {
+//             kem.registerCompilerWarning("missing entry for hook " + hook);
+//         }
+
+//         sb.beginMatchExpression(newsbv("c"));
+
+//         if(isHook) {
+//             sb.append(OCamlIncludes.hooks.get(hook));
+//         }
+
+//         if(isPred) {
+//             sb.append(OCamlIncludes.predicateRules.get(fn));
+//         }
+
+//         int i = 0;
+//         for(Rule r : rules) {
+//             sb.append(oldConvert(ppk, r, true, i++, functionName));
+//         }
+
+//         sb.addMatchEquation(wildcardSB, raiseStuck(newsbv("[KApply(lbl, c)]")));
+//         sb.endMatchExpression();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder addFunctionEquation(KLabel functionLabel,
+//                                               PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         String functionName = encodeStringToFunction(functionLabel.name());
+
+//         sb.beginLetrecEquation();
+//         sb.addLetrecEquationName(newsb()
+//                                  .beginRender()
+//                                  .addValue(functionName)
+//                                  .addSpace()
+//                                  .addValue("(c: k list)")
+//                                  .addSpace()
+//                                  .addValue("(guards: Guard.t)")
+//                                  .addSpace()
+//                                  .addKeyword(":")
+//                                  .addSpace()
+//                                  .addValue("k")
+//                                  .endRender());
+//         sb.beginLetrecEquationValue();
+//         sb.beginLetExpression();
+//         sb.beginLetDefinitions();
+//         sb.addLetEquation(newsb("lbl"),
+//                           newsb(encodeStringToIdentifier(functionLabel)));
+//         sb.endLetDefinitions();
+
+//         sb.beginLetScope();
+//         sb.append(addFunctionMatch(functionName, functionLabel, ppk));
+//         sb.endLetScope();
+
+//         sb.endLetExpression();
+//         sb.endLetrecEquationValue();
+//         sb.endLetrecEquation();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder addFreshFunction(PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         sb.beginLetrecEquation();
+//         sb.addLetrecEquationName(newsb()
+//                                  .beginRender()
+//                                  .addValue("freshFunction")
+//                                  .addSpace()
+//                                  .addValue("(sort: string)")
+//                                  .addSpace()
+//                                  .addValue("(counter: Z.t)")
+//                                  .addSpace()
+//                                  .addKeyword(":")
+//                                  .addSpace()
+//                                  .addValue("k")
+//                                  .endRender());
+//         sb.beginLetrecEquationValue();
+
+//         sb.beginMatchExpression(newsb("sort"));
+//         for(Sort sort : ppk.freshFunctionFor.keySet()) {
+//             KLabel freshFunction = ppk.freshFunctionFor.get(sort);
+//             sb.addMatchEquation(newsbf("\"%s\"",
+//                                        sort.name()),
+//                                 newsbf("(%s ([Int counter] :: []) Guard.empty)",
+//                                        encodeStringToFunction(freshFunction.name())));
+//         }
+//         sb.endMatchExpression();
+
+//         sb.endLetrecEquationValue();
+//         sb.endLetrecEquation();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder addEval(Set<KLabel> labels,
+//                                   PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         sb.beginLetrecEquation();
+//         sb.addLetrecEquationName(newsb("eval (c: kitem) : k"));
+//         sb.beginLetrecEquationValue();
+
+//         sb.beginMatchExpression(newsb("c"));
+
+//         sb.beginMatchEquation();
+//         sb.addMatchEquationPattern(newsb()
+//                                    .addApplication("KApply",
+//                                                    newsb("(lbl, kl)")));
+//         sb.beginMatchEquationValue();
+//         sb.beginMatchExpression(newsb("lbl"));
+//         for(KLabel label : labels) {
+//             SyntaxBuilder valSB =
+//                 newsb().addApplication(encodeStringToFunction(label.name()),
+//                                        newsb("kl"),
+//                                        newsb("Guard.empty"));
+//             sb.addMatchEquation(newsb(encodeStringToIdentifier(label)),
+//                                 valSB);
+//         }
+//         sb.endMatchExpression();
+//         sb.endMatchEquationValue();
+//         sb.endMatchEquation();
+
+//         sb.addMatchEquation(wildcardSB, newsbv("[c]"));
+
+//         sb.endMatchExpression();
+
+//         sb.endLetrecEquationValue();
+//         sb.endLetrecEquation();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder addFunctions(PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         Set<KLabel> functions = ppk.functionSet;
+//         Set<KLabel> anywheres = ppk.anywhereSet;
+
+//         Set<KLabel> funcAndAny = Sets.union(functions, anywheres);
+
+
+//         for(List<KLabel> component : ppk.functionOrder) {
+//             sb.beginLetrecDeclaration();
+//             sb.beginLetrecDefinitions();
+//             for(KLabel functionLabel : component) {
+//                 sb.append(addFunctionEquation(functionLabel, ppk));
+//             }
+//             sb.endLetrecDefinitions();
+//             sb.endLetrecDeclaration();
+//         }
+
+//         sb.beginLetrecDeclaration();
+//         sb.beginLetrecDefinitions();
+
+//         sb.append(addFreshFunction(ppk));
+
+//         sb.append(addEval(funcAndAny, ppk));
+
+//         sb.endLetrecDefinitions();
+//         sb.endLetrecDeclaration();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder makeStuck(SyntaxBuilder body) {
+//         return newsb().addApplication("Stuck", body);
+//     }
+
+//     private SyntaxBuilder raiseStuck(SyntaxBuilder body) {
+//         return newsb().addApplication("raise", makeStuck(body));
+//     }
+
+//     private SyntaxBuilder addSteps(PreprocessedKORE ppk) {
+//         SyntaxBuilder sb = newsb();
+
+//         sb.beginLetrecDeclaration();
+//         sb.beginLetrecDefinitions();
+//         sb.beginLetrecEquation();
+//         sb.addLetrecEquationName(newsb("lookups_step (c: k) (guards: Guard.t) : k"));
+//         sb.beginLetrecEquationValue();
+//         sb.beginMatchExpression(newsb("c"));
+
+//         int i = 0;
+//         for(Rule r : ppk.indexedRules.keySet()) {
+//             Set<String> cap = ppk.indexedRules.get(r);
+//             if(cap.contains("lookup") && !cap.contains("function")) {
+//                 sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "lookups_step")));
+//             }
+//         }
+
+//         sb.addMatchEquation(wildcardSB, raiseStuck(newsb("c")));
+//         sb.endMatchExpression();
+//         sb.endLetrecEquationValue();
+//         sb.endLetrecEquation();
+//         sb.endLetrecDefinitions();
+//         sb.endLetrecDeclaration();
+
+//         sb.beginLetDeclaration();
+//         sb.beginLetDefinitions();
+//         sb.beginLetEquation();
+//         sb.addLetEquationName(newsb("step (c: k) : k"));
+//         sb.beginLetEquationValue();
+//         sb.beginMatchExpression(newsb("c"));
+//         for(Rule r : ppk.indexedRules.keySet()) {
+//             Set<String> cap = ppk.indexedRules.get(r);
+//             if(!cap.contains("lookup") && !cap.contains("function")) {
+//                 sb.append(debugMismatch(oldConvert(ppk, r, false, i++, "step")));
+//             }
+//         }
+//         sb.addMatchEquation(newsb("_"),
+//                             newsb("lookups_step c Guard.empty"));
+//         sb.endMatchExpression();
+//         sb.endLetEquationValue();
+//         sb.endLetEquation();
+//         sb.endLetDefinitions();
+//         sb.endLetDeclaration();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder debugMismatch(SyntaxBuilder sb) {
+//         Pattern xmlBegPat = Pattern.compile("<[^<>/]*>");
+//         Pattern xmlEndPat = Pattern.compile("</[^<>/]*>");
+//         Map<String, Integer> sbMap = sb.getTrack();
+//         List<String> sbKeys = sbMap.keySet()
+//                                    .stream()
+//                                    .filter(x -> xmlEndPat.matcher(x).matches())
+//                                    .map(x -> x.substring(2, x.length() - 1))
+//                                    .collect(toList());
+//         Map<String, Integer> mismatched = newHashMap();
+//         for(String k : sbKeys) {
+//             int begin = sbMap.get("<"  + k + ">").intValue();
+//             int end   = sbMap.get("</" + k + ">").intValue();
+//             if(begin != end) { mismatched.put(k, begin - end); }
+//         }
+//         if(! mismatched.isEmpty()) {
+//             outprintfln(";; ---------------- ERROR ----------------");
+//             outprintfln(";; The following were mismatched:");
+//             for(String k : mismatched.keySet()) {
+//                 outprintfln(";; %30s --> %s", k, mismatched.get(k));
+//             }
+//             outprintfln(";; ----------------");
+//             outprintfln(";; XML:\n;; %s",
+//                         sb.pretty().stream().collect(joining("\n;; ")));
+//             outprintfln(";; ---------------- ERROR ----------------");
+//         }
+//         return sb;
+//     }
+
+//     private SyntaxBuilder outputAnnotate(Rule r) {
+//         SyntaxBuilder sb = newsb();
+
+//         sb.beginMultilineComment();
+//         sb.appendf("rule %s requires %s ensures %s %s",
+//                    ToKast.apply(r.body()),
+//                    ToKast.apply(r.requires()),
+//                    ToKast.apply(r.ensures()),
+//                    r.att().toString());
+//         sb.endMultilineComment();
+//         sb.addNewline();
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder unhandledOldConvert(PreprocessedKORE ppk,
+//                                               Rule r,
+//                                               boolean isFunction,
+//                                               int ruleNum,
+//                                               String functionName) throws KEMException {
+//         SyntaxBuilder sb = newsb();
+
+//         if(annotateOutput) { sb.append(outputAnnotate(r)); }
+
+//         K left     = RewriteToTop.toLeft(r.body());
+//         K right    = RewriteToTop.toRight(r.body());
+//         K requires = r.requires();
+
+//         Set<String> indices = ppk.indexedRules.get(r);
+//         SetMultimap<KVariable, String> vars = HashMultimap.create();
+//         FuncVisitor visitor = oldConvert(ppk, false, vars, false);
+
+//         sb.beginMatchEquation();
+//         sb.beginMatchEquationPattern();
+//         sb.append(handleLeft(isFunction, left, visitor));
+
+//         sb.append(handleLookup(indices, ruleNum));
+
+//         SBPair side = handleSideCondition(ppk, vars, functionName, ruleNum, requires);
+
+//         sb.append(side.getFst());
+//         sb.endMatchEquationPattern();
+//         sb.beginMatchEquationValue();
+//         sb.append(oldConvert(ppk, true, vars, false).apply(right));
+
+//         sb.endMatchEquationValue();
+//         sb.endMatchEquation();
+//         sb.append(side.getSnd());
+
+//         return sb;
+//     }
+
+//     private SyntaxBuilder handleLeft(boolean isFunction,
+//                                      K left,
+//                                      FuncVisitor visitor) {
+//         if(isFunction) {
+//             return handleFunction(left, visitor);
+//         } else {
+//             return handleNonFunction(left, visitor);
+//         }
+//     }
+
+//     private SyntaxBuilder handleFunction(K left, FuncVisitor visitor) {
+//         KApply kapp = (KApply) ((KSequence) left).items().get(0);
+//         return visitor.apply(kapp.klist().items(), true);
+//     }
+
+//     private SyntaxBuilder handleNonFunction(K left, FuncVisitor visitor) {
+//         return visitor.apply(left);
+//     }
+
+//     private SyntaxBuilder handleLookup(Set<String> indices, int ruleNum) {
+//         if(indices.contains("lookup")) {
+//             return newsb()
+//                 .beginRender()
+//                 .addSpace()
+//                 .addKeyword("when")
+//                 .addSpace()
+//                 .addKeyword("not")
+//                 .addSpace()
+//                 .beginApplication()
+//                 .addFunction("Guard.mem")
+//                 .beginArgument()
+//                 .addApplication("GuardElt.Guard", newsbf("%d", ruleNum))
+//                 .endArgument()
+//                 .addArgument(newsb("guards"))
+//                 .endApplication()
+//                 .endRender();
+//         } else {
+//             return newsb();
+//         }
+//     }
+
+//     private SBPair handleSideCondition(PreprocessedKORE ppk,
+//                                        SetMultimap<KVariable, String> vars,
+//                                        String functionName,
+//                                        int ruleNum,
+//                                        K requires) {
+//          SBPair convLookups = oldConvertLookups(ppk, requires, vars,
+//                                                functionName, ruleNum);
+
+//          SyntaxBuilder result = oldConvert(vars);
+
+//          if(hasSideCondition(requires, result.toString())) {
+//              SyntaxBuilder fstSB =
+//                  convLookups
+//                  .getFst()
+//                  .beginRender()
+//                  .addSpace()
+//                  .addKeyword("when")
+//                  .addSpace()
+//                  .beginRender()
+//                  .append(oldConvert(ppk, true, vars, true).apply(requires))
+//                  .endRender()
+//                  .addSpace()
+//                  .addKeyword("&&")
+//                  .addSpace()
+//                  .beginParenthesis()
+//                  .beginRender()
+//                  .append(result)
+//                  .endRender()
+//                  .endParenthesis()
+//                  .endRender();
+//              SyntaxBuilder sndSB = convLookups.getSnd();
+//              return newSBPair(fstSB, sndSB);
+//          } else {
+//              return newSBPair(newsb(), newsb());
+//          }
+//     }
+
+//     private boolean hasSideCondition(K requires, String result) {
+//         return !(KSequence(BooleanUtils.TRUE).equals(requires))
+//             || !("true".equals(result));
+//     }
+
+//     private SyntaxBuilder oldConvert(PreprocessedKORE ppk,
+//                                      Rule r,
+//                                      boolean function,
+//                                      int ruleNum,
+//                                      String functionName) {
+//         try {
+//             return unhandledOldConvert(ppk, r, function, ruleNum, functionName);
+//         } catch (KEMException e) {
+//             String src = r.att()
+//                           .getOptional(Source.class)
+//                           .map(Object::toString)
+//                           .orElse("<none>");
+//             String loc = r.att()
+//                           .getOptional(Location.class)
+//                           .map(Object::toString)
+//                           .orElse("<none>");
+//             e.exception
+//              .addTraceFrame(String.format("while compiling rule at %s: %s",
+//                                           src, loc));
+//             throw e;
+//         }
+//     }
+
+//     private void checkApplyArity(KApply k,
+//                                  int arity,
+//                                  String funcName) throws KEMException {
+//         if(k.klist().size() != arity) {
+//             throw kemInternalErrorF(k,
+//                                     "Unexpected arity of %s: %s",
+//                                     funcName,
+//                                     k.klist().size());
+//         }
+//     }
+
+//     private static final SyntaxBuilder choiceSB1(String chChoiceVar,
+//                                                  String chFold,
+//                                                  String chPat,
+//                                                  String... chArgs) {
+//         return newsb()
+//             .beginMatchEquation()
+//             .addMatchEquationPattern(newsbv(chPat))
+//             .beginMatchEquationValue()
+//             .beginLetExpression()
+//             .beginLetDefinitions()
+//             .beginLetEquation()
+//             .addLetEquationName(choiceSB)
+//             .beginLetEquationValue()
+//             .beginApplication()
+//             .addFunction(chFold)
+//             .beginArgument()
+//             .beginLambda(chArgs)
+//             .beginConditional()
+//             .addConditionalIf()
+//             .append(newsb().addApplication("eq", resultSB, bottomSB))
+//             .addConditionalThen()
+//             .beginMatchExpression(newsbv(chChoiceVar));
+//     }
+
+
+//     private static final SyntaxBuilder choiceSB2(String chVar,
+//                                                  int ruleNum,
+//                                                  String functionName) {
+//         String guardCon = "GuardElt.Guard";
+//         String guardAdd = "Guard.add";
+//         SyntaxBuilder rnsb = newsbv(Integer.toString(ruleNum));
+
+//         SyntaxBuilder guardSB =
+//             newsb().addApplication(guardAdd,
+//                                    newsb().addApplication(guardCon, rnsb),
+//                                    newsbv("guards"));
+//         SyntaxBuilder condSB =
+//             newsb().addConditional(newsb().addApplication("eq", choiceSB, bottomSB),
+//                                    newsb().addApplication(functionName,
+//                                                           newsbv("c"),
+//                                                           guardSB),
+//                                    choiceSB);
+
+//         return newsb()
+//             .addMatchEquation(wildcardSB, bottomSB)
+//             .endMatchExpression()
+//             .addConditionalElse()
+//             .append(resultSB)
+//             .endConditional()
+//             .endLambda()
+//             .endArgument()
+//             .addArgument(newsbv(chVar))
+//             .addArgument(bottomSB)
+//             .endApplication()
+//             .endLetEquationValue()
+//             .endLetEquation()
+//             .endLetDefinitions()
+//             .addLetScope(condSB)
+//             .endLetExpression()
+//             .endMatchEquationValue()
+//             .endMatchEquation();
+//     }
+
+//     // TODO(remy): this needs refactoring very badly
+//     private SBPair oldConvertLookups(PreprocessedKORE ppk,
+//                                      K requires,
+//                                      SetMultimap<KVariable, String> vars,
+//                                      String functionName,
+//                                      int ruleNum) {
+//         Deque<SyntaxBuilder> suffStack = new ArrayDeque<>();
+
+//         SyntaxBuilder res = newsb();
+//         SyntaxBuilder setChoiceSB2 = choiceSB2("s", ruleNum, functionName);
+//         SyntaxBuilder mapChoiceSB2 = choiceSB2("m", ruleNum, functionName);
+//         String formatSB3 = "(%s c (Guard.add (GuardElt.Guard %d) guards))";
+//         SyntaxBuilder sb3 =
+//             newsb().addMatchEquation(wildcardSB, newsbf(formatSB3,
+//                                                         functionName,
+//                                                         ruleNum))
+//                    .endMatchExpression()
+//                    .endMatchEquationValue()
+//                    .endMatchEquation();
+
+//         new VisitKORE() {
+//             private SyntaxBuilder sb1;
+//             private SyntaxBuilder sb2;
+//             private String functionStr;
+//             private int arity;
+
+//             @Override
+//             public Void apply(KApply k) {
+//                 List<K> kitems = k.klist().items();
+//                 String klabel = k.klabel().name();
+
+//                 boolean choiceOrMatch = true;
+
+//                 switch(klabel) {
+//                 case "#match":
+//                     functionStr = "lookup";
+//                     sb1 = newsb();
+//                     sb2 = newsb();
+//                     arity = 2;
+//                     break;
+//                 case "#setChoice":
+//                     functionStr = "set choice";
+//                     sb1 = setChoiceSB1;
+//                     sb2 = setChoiceSB2;
+//                     arity = 2;
+//                     break;
+//                 case "#mapChoice":
+//                     functionStr = "map choice";
+//                     sb1 = mapChoiceSB1;
+//                     sb2 = mapChoiceSB2;
+//                     arity = 2;
+//                     break;
+//                 default:
+//                     choiceOrMatch = false;
+//                     break;
+//                 }
+
+//                 if(choiceOrMatch) {
+//                     // prettyStackTrace();
+
+//                     checkApplyArity(k, arity, functionStr);
+
+//                     K kLabel1 = kitems.get(0);
+//                     K kLabel2 = kitems.get(1);
+
+//                     SyntaxBuilder luMatchValue
+//                         = oldConvert(ppk, true,  vars, false).apply(kLabel2);
+//                     SyntaxBuilder luLevelUp     = sb1;
+//                     SyntaxBuilder luPattern
+//                         = oldConvert(ppk, false, vars, false).apply(kLabel1);
+//                     SyntaxBuilder luWildcardEqn = sb3;
+//                     SyntaxBuilder luLevelDown   = sb2;
+
+//                     res.endMatchEquationPattern();
+//                     res.beginMatchEquationValue();
+//                     res.beginMatchExpression(luMatchValue);
+//                     res.append(luLevelUp);
+//                     res.beginMatchEquation();
+//                     res.beginMatchEquationPattern();
+//                     res.append(luPattern);
+
+//                     suffStack.add(luWildcardEqn);
+//                     suffStack.add(luLevelDown);
+//                 }
+
+//                 return super.apply(k);
+//             }
+//         }.apply(requires);
+
+//         SyntaxBuilder suffSB = newsb();
+//         while(!suffStack.isEmpty()) { suffSB.append(suffStack.pollLast()); }
+
+//         return newSBPair(res, suffSB);
+//     }
+
+//     private static String prettyStackTrace() {
+//         Pattern funcPat = Pattern.compile("^org[.]kframework.*$");
+
+//         SyntaxBuilder sb = newsb();
+//         sb.append(";; DBG: ----------------------------\n");
+//         sb.append(";; DBG: apply executed:\n");
+//         StackTraceElement[] traceArray = Thread.currentThread().getStackTrace();
+//         List<StackTraceElement> trace = newArrayList(traceArray.length);
+
+//         for(StackTraceElement ste : traceArray) { trace.add(ste); }
+
+//         trace = trace
+//             .stream()
+//             .filter(x -> funcPat.matcher(x.toString()).matches())
+//             .collect(toList());
+
+//         int skip = 1;
+//         for(StackTraceElement ste : trace) {
+//             if(skip > 0) {
+//                 skip--;
+//             } else {
+//                 sb.appendf(";; DBG: trace: %20s %6s %30s\n",
+//                            ste.getMethodName(),
+//                            "(" + Integer.toString(ste.getLineNumber()) + ")",
+//                            "(" + ste.getFileName() + ")");
+//             }
+//         }
+//         return sb.toString();
+//     }
+
+//     private static SBPair newSBPair(SyntaxBuilder a, SyntaxBuilder b) {
+//         return new SBPair(a, b);
+//     }
+
+//     private static class SBPair {
+//         private final SyntaxBuilder fst, snd;
+
+//         public SBPair(SyntaxBuilder fst, SyntaxBuilder snd) {
+//             this.fst = fst;
+//             this.snd = snd;
+//         }
+
+
+//         public SyntaxBuilder getFst() {
+//             return fst;
+//         }
+
+//         public SyntaxBuilder getSnd() {
+//             return snd;
+//         }
+//     }
+
+//     private static SyntaxBuilder oldConvert(SetMultimap<KVariable, String> vars) {
+//         SyntaxBuilder sb = newsb();
+//         for(Collection<String> nonLinearVars : vars.asMap().values()) {
+//             if(nonLinearVars.size() < 2) { continue; }
+//             Iterator<String> iter = nonLinearVars.iterator();
+//             String last = iter.next();
+//             while (iter.hasNext()) {
+//                 //handle nonlinear variables in pattern
+//                 String next = iter.next();
+//                 sb.beginRender();
+//                 sb.addApplication("eq", newsb(last), newsb(next));
+//                 sb.addSpace();
+//                 sb.addKeyword("&&");
+//                 sb.addSpace();
+//                 sb.endRender();
+//                 last = next;
+//             }
+//         }
+//         sb.addValue("true");
+//         return sb;
+//     }
+
+//     private FuncVisitor oldConvert(PreprocessedKORE ppk,
+//                                    boolean rhs,
+//                                    SetMultimap<KVariable, String> vars,
+//                                    boolean useNativeBooleanExp) {
+//         return new FuncVisitor(ppk, rhs, vars, useNativeBooleanExp);
+//     }

@@ -627,7 +627,7 @@ public class SyntaxBuilder implements Cloneable {
                         vals.stream().map(FuncUtil::newsbv));
     }
 
-    public SyntaxBuilder addMatch(SyntaxBuilder value,
+    public SyntaxBuilder addMatchSB(SyntaxBuilder value,
                                   List<SyntaxBuilder> pats,
                                   List<SyntaxBuilder> vals) {
         beginMatchExpression(value);

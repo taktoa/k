@@ -159,7 +159,7 @@ public class KToFunc {
             .endArgument()
             .endApplication();
         SyntaxBuilder printOutSB   = newsbApp("output_string",
-                                              newsbn("file1")
+                                              newsbn("file1"),
                                               newsbApp("print_k", newsbn("c")));
         SyntaxBuilder printSubstSB = newsbApp("output_string",
                                               newsbn("file2"),
