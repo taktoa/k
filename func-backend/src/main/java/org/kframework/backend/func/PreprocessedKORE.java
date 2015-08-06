@@ -209,23 +209,20 @@ public final class PreprocessedKORE {
         };
 
         ConvertDataStructureToLookup       convertLookupsObj;
-        GenerateSortPredicateRules         generatePredicatesObj;
         LiftToKSequence                    liftToKSequenceObj;
         DeconstructIntegerAndFloatLiterals deconstructNumsObj;
-        SimplifyConditions                 simplifyConditionsObj;
+        SimplifyConditions                 simplifyCondsObj;
 
-        convertLookupsObj     = new ConvertDataStructureToLookup(executionModule, true);
-        generatePredicatesObj = new GenerateSortPredicateRules(kompiledDefinition);
-        liftToKSequenceObj    = new LiftToKSequence();
-        deconstructNumsObj    = new DeconstructIntegerAndFloatLiterals();
-        simplifyConditionsObj = new SimplifyConditions();
+        convertLookupsObj  = new ConvertDataStructureToLookup(executionModule,
+                                                              true);
+        liftToKSequenceObj = new LiftToKSequence();
+        deconstructNumsObj = new DeconstructIntegerAndFloatLiterals();
+        simplifyCondsObj   = new SimplifyConditions();
 
         ModuleTransformer
             convertLookupsMT, liftToKSequenceMT,
-            simplifyConditionsMT, deconstructNumsMT,
+            simplifyCondsMT,  deconstructNumsMT,
             expandMacrosMT;
-
-        Function1<Module, Module> generatePredicatesMT;
 
         convertLookupsMT     = fromST.apply(convertLookupsObj::convert,
                                             convertLookupsStr);
@@ -237,8 +234,6 @@ public final class PreprocessedKORE {
                                             deconstructNumsStr);
         expandMacrosMT       = fromST.apply(expandMacrosObj::expand,
                                             expandMacrosStr);
-
-        generatePredicatesMT = func(generatePredicatesObj::gen);
 
         return deconstructNumsMT
             .andThen(convertLookupsMT)
