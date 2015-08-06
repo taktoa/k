@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -542,7 +543,7 @@ public class DefinitionToFunc {
             }
         }
         sb.append("| _ -> lookups_step c c Guard.empty\n");
-        sb.append(postlude);
+        sb.append(OCamlIncludes.postludeSB);
         return sb;
     }
 
@@ -661,7 +662,7 @@ public class DefinitionToFunc {
 
         NormalizeVariables t = new NormalizeVariables();
 
-        Function<?, ?> groupingFunc = r -> {
+        Function<Rule, ?> groupingFunc = r -> {
             return new AttCompare(t.normalize(RewriteToTop.toLeft(r.body())),
                                   "sort");
         };
@@ -675,7 +676,7 @@ public class DefinitionToFunc {
         for(Map.Entry<AttCompare, List<Rule>> entry : grouping.entrySet()) {
             AttCompare left = entry.getKey();
 
-            Function<?, ?> tempRule = r -> {
+            Function<Rule, ?> tempRule = r -> {
                 KApply lookup = getLookup(r, 0);
                 if(lookup == null) { return null; }
                 //reconstruct the denormalization for this particular rule
@@ -937,7 +938,7 @@ public class DefinitionToFunc {
                                      RuleType type,
                                      K left,
                                      VarInfo vars) {
-        Visitor visitor = genVisitor(vars, false, false, false);
+        FuncVisitor visitor = genVisitor(vars, false, false, false);
         if(type == RuleType.ANYWHERE || type == RuleType.FUNCTION) {
             KApply kapp = (KApply) ((KSequence) left).items().get(0);
             return visitor.apply(kapp.klist().items(), true);
@@ -1206,7 +1207,7 @@ public class DefinitionToFunc {
     /**
      * Create a Visitor based on the given information
      */
-    private Visitor genVisitor(VarInfo vars,
+    private FuncVisitor genVisitor(VarInfo vars,
                                boolean rhs,
                                boolean useNativeBool,
                                boolean anywhereRule) {

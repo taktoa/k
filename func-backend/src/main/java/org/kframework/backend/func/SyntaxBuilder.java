@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.EnumMap;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -622,9 +624,9 @@ public class SyntaxBuilder implements Cloneable {
                                   List<String> pats,
                                   List<String> vals) {
 
-        return addMatch(value,
-                        pats.stream().map(FuncUtil::newsbp),
-                        vals.stream().map(FuncUtil::newsbv));
+        return addMatchSB(value,
+                          pats.stream().map(FuncUtil::newsbp).collect(Collectors.toList()),
+                          vals.stream().map(FuncUtil::newsbv).collect(Collectors.toList()));
     }
 
     public SyntaxBuilder addMatchSB(SyntaxBuilder value,
