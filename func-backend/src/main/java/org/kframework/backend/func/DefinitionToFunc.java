@@ -98,7 +98,9 @@ import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 import scala.Function1;
+import scala.Tuple2;
 import scala.Tuple3;
+import scala.Tuple4;
 
 import java.io.Serializable;
 import java.util.ArrayDeque;
@@ -119,6 +121,7 @@ import java.util.stream.Collectors;
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
 import static scala.compat.java8.JFunction.*;
+import static org.kframework.backend.func.FuncUtil.*;
 
 /**
  * Main class for converting KORE to functional code
@@ -540,10 +543,11 @@ public class DefinitionToFunc {
         }
         sb.append("| _ -> lookups_step c c Guard.empty\n");
         sb.append(postlude);
-        return sb.toString();
+        return sb;
     }
 
-    private SyntaxBuilder convertFunction(List<Rule> rules,
+    private SyntaxBuilder convertFunction(PreprocessedKORE ppk,
+                                          List<Rule> rules,
                                           String functionName,
                                           RuleType type) {
         SyntaxBuilder sb = newsb();
@@ -585,6 +589,7 @@ public class DefinitionToFunc {
     private List<List<KLabel>> sortFunctions(SetMultimap<KLabel, Rule> functionRules) {
         BiMap<KLabel, Integer> mapping = HashBiMap.create();
         int counter = 0;
+        HashSet<KLabel> functions = new HashSet<KLabel>(functionRules.keySet());
         for(KLabel lbl : functions) {
             mapping.put(lbl, counter++);
         }
@@ -982,11 +987,11 @@ public class DefinitionToFunc {
         return sb;
     }
 
-    private SBPair convertSideCondition(PreprocessedKORE ppk,
-                                        K requires,
-                                        VarInfo vars,
-                                        List<Lookup> lus,
-                                        boolean when) {
+    private Tuple2<SyntaxBuilder,SyntaxBuilder> convertSideCondition(PreprocessedKORE ppk,
+                                                                     K requires,
+                                                                     VarInfo vars,
+                                                                     List<Lookup> lus,
+                                                                     boolean when) {
         SyntaxBuilder prefix, suffix;
         for(Lookup lookup : lus) {
             sb.append(lookup.prefix);
@@ -1000,7 +1005,7 @@ public class DefinitionToFunc {
                       .stream()
                       .map(l -> l.suffix)
                       .collect(joining()); // possible change in semantics
-        return new SBPair(prefix, suffix);
+        return new Tuple2<SyntaxBuilder,SyntaxBuilder>(prefix, suffix);
     }
 
     private static class Holder { String reapply; boolean first; }

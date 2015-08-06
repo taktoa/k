@@ -81,7 +81,7 @@ public class KToFunc {
             newsb()
             .beginApplication()
             .addFunction("run")
-            .addArgument(newsbv(convertRuntime(k)))
+            .addArgument(newsb(convertRuntime(k)))
             .addArgument(newsbv(Integer.toString(depth)))
             .endApplication();
         return genRuntime(newsbApp("output_string",
