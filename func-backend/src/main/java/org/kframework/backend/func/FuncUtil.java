@@ -181,6 +181,14 @@ public final class FuncUtil {
         return newsb().addValue(value);
     }
 
+    public static SyntaxBuilder newsbv(SyntaxBuilder val) {
+        return newsb().addValue(val);
+    }
+
+    public static SyntaxBuilder newsbv(int val) {
+        return newsb().addValue(val);
+    }
+
     public static SyntaxBuilder newsbk(String keyword) {
         return newsb().addKeyword(keyword);
     }

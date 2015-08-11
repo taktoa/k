@@ -232,16 +232,7 @@ public class DefinitionToFunc {
 
         return sb;
     }
-
-    private SyntaxBuilder genImports() {
-        return newsb()
-            .addImport("Prelude")
-            .addImport("Constants")
-            .addImport("Prelude.K")
-            .addImport("Gmp")
-            .addImport("Def");
-    }
-
+    
     public SyntaxBuilder genDefinition(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
         Module mm = ppk.mainModule;

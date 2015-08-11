@@ -317,7 +317,7 @@ public final class OCamlIncludes {
         predicateRules = bld.build();
     }
 
-    public SyntaxBuilder genImports() {
+    public static SyntaxBuilder genImports() {
         return newsb()
             .addImport("Prelude")
             .addImport("Constants")

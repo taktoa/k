@@ -438,7 +438,9 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_PARENTHESIS);
     }
 
-
+    public SyntaxBuilder addSequence(SyntaxBuilder sb1, SyntaxBuilder sb2) { //FIXME stub
+        return this;
+    }
 
     public SyntaxBuilder addGlobalLet(SyntaxBuilder name,
                                       SyntaxBuilder value) {
@@ -477,6 +479,14 @@ public class SyntaxBuilder implements Cloneable {
         beginLetEquationValue();
         append(value);
         endLetEquationValue();
+        return this;
+    }
+
+    public SyntaxBuilder beginLetEquations() { //FIXME stub
+        return this;
+    }
+
+    public SyntaxBuilder endLetEquations() { //FIXME stub
         return this;
     }
 

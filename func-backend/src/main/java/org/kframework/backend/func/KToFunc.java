@@ -12,6 +12,7 @@ import org.kframework.kore.K;
 import org.kframework.definition.Rule;
 
 import static org.kframework.backend.func.FuncUtil.*;
+import static org.kframework.backend.func.OCamlIncludes.*;
 
 /**
  * A way to partially evaluate the DefinitionToFunc constructor
@@ -135,7 +136,7 @@ public class KToFunc {
             newsb()
             .beginApplication()
             .addFunction("print_subst")
-            .addArgument("file2")
+            .addArgument(newsbv("file2"))
             .beginArgument()
             .beginApplication()
             .addFunction("try_match")
@@ -144,7 +145,7 @@ public class KToFunc {
             .beginLetEquations()
             .addLetEquation(newsbn("res"),
                             newsbApp("run",
-                                     newsbv(convertRuntime(k)),
+                                     convertRuntime(k),
                                      newsbv(depth)))
             .endLetEquations()
             .beginLetScope()
@@ -216,7 +217,7 @@ public class KToFunc {
         return sb;
     }
 
-    private SyntaxBuilder genTryMatch() {
+    private SyntaxBuilder genTryMatch(Rule r) {
         return newsb()
             .append("let try_match (c: k) : k Subst.t =")
             .append("let config = c in")

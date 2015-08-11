@@ -211,17 +211,17 @@ public final class PreprocessedKORE {
         ConvertDataStructureToLookup       convertLookupsObj;
         LiftToKSequence                    liftToKSequenceObj;
         DeconstructIntegerAndFloatLiterals deconstructNumsObj;
-        SimplifyConditions                 simplifyCondsObj;
+        SimplifyConditions                 simplifyConditionsObj;
 
         convertLookupsObj  = new ConvertDataStructureToLookup(executionModule,
                                                               true);
         liftToKSequenceObj = new LiftToKSequence();
         deconstructNumsObj = new DeconstructIntegerAndFloatLiterals();
-        simplifyCondsObj   = new SimplifyConditions();
+        simplifyConditionsObj   = new SimplifyConditions();
 
         ModuleTransformer
             convertLookupsMT, liftToKSequenceMT,
-            simplifyCondsMT,  deconstructNumsMT,
+            simplifyConditionsMT,  deconstructNumsMT,
             expandMacrosMT;
 
         convertLookupsMT     = fromST.apply(convertLookupsObj::convert,
@@ -238,7 +238,7 @@ public final class PreprocessedKORE {
         return deconstructNumsMT
             .andThen(convertLookupsMT)
             .andThen(expandMacrosMT)
-            .andThen(generatePredicatesMT)
+//            .andThen(generatePredicatesMT) //FIXME how should this variable be defined/initialized?
             .andThen(liftToKSequenceMT)
             .andThen(simplifyConditionsMT)
             .apply(input);
