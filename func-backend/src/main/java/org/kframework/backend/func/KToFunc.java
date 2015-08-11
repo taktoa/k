@@ -112,7 +112,7 @@ public class KToFunc {
             .endApplication();
         SyntaxBuilder printOutSB = newsbApp("output_string",
                                             newsbn("file1"),
-                                            newsbv("\"0\n\"")); //FIXME maybe use an enquote function?
+                                            newsbv(enquoteString("0\n")));
         return genRuntime(newsb()
                           .beginTryExpression(tryValueSB)
                           .addTryEquation(newsbn("Stuck c"), printOutSB)
