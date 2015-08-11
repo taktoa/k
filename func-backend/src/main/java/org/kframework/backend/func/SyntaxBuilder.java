@@ -290,9 +290,29 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
+    public SyntaxBuilder beginTry() { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder addTryValue(SyntaxBuilder tryValueSB) { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder beginTryEquations() { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder addTryEquation(SyntaxBuilder a, SyntaxBuilder b) { //FIXME: this should do something
+        return this;
+    }
+
+    public SyntaxBuilder endTryEquations() { //FIXME: this should do something
+        return this;
+    }
+
+    public SyntaxBuilder endTry() { //FIXME: this should do something
+        return this;
+    }
 
     public SyntaxBuilder addApplication(String fnName,
                                         SyntaxBuilder... args) {

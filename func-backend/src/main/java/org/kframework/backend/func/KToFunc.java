@@ -103,7 +103,7 @@ public class KToFunc {
             newsb()
             .beginApplication()
             .addFunction("print_subst")
-            .addArgument("file1")
+            .addArgument(newsbn("file1"))
             .beginArgument()
             .beginApplication()
             .addFunction("try_match")
@@ -115,7 +115,7 @@ public class KToFunc {
             .endApplication();
         SyntaxBuilder printOutSB = newsbApp("output_string",
                                             newsbn("file1"),
-                                            newsbv(enquoteString("0\n")));
+                                            newsbv("\"0\n\"")); //FIXME maybe use an enquote function?
         return genRuntime(newsb()
                           .beginTry()
                           .addTryValue(tryValueSB)

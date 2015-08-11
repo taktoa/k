@@ -189,6 +189,10 @@ public final class FuncUtil {
         return newsb().append(s);
     }
 
+    public static SyntaxBuilder newsbApp(String s, SyntaxBuilder ... t) {
+        return newsb(); //FIXME: this should do something
+    }
+
 
     // ------------------------------------------------------------------------
     // ------------------------ Collection generators -------------------------
