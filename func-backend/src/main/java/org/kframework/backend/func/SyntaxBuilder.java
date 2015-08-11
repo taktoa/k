@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.EnumMap;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.stream.Collectors;
+
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -288,9 +290,29 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
+    public SyntaxBuilder beginTry() { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder addTryValue(SyntaxBuilder tryValueSB) { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder beginTryEquations() { //FIXME: this should do something
+        return this;
+    }
 
+    public SyntaxBuilder addTryEquation(SyntaxBuilder a, SyntaxBuilder b) { //FIXME: this should do something
+        return this;
+    }
+
+    public SyntaxBuilder endTryEquations() { //FIXME: this should do something
+        return this;
+    }
+
+    public SyntaxBuilder endTry() { //FIXME: this should do something
+        return this;
+    }
 
     public SyntaxBuilder addApplication(String fnName,
                                         SyntaxBuilder... args) {
@@ -622,12 +644,12 @@ public class SyntaxBuilder implements Cloneable {
                                   List<String> pats,
                                   List<String> vals) {
 
-        return addMatch(value,
-                        pats.stream().map(FuncUtil::newsbp),
-                        vals.stream().map(FuncUtil::newsbv));
+        return addMatchSB(value,
+                          pats.stream().map(FuncUtil::newsbp).collect(Collectors.toList()),
+                          vals.stream().map(FuncUtil::newsbv).collect(Collectors.toList()));
     }
 
-    public SyntaxBuilder addMatch(SyntaxBuilder value,
+    public SyntaxBuilder addMatchSB(SyntaxBuilder value,
                                   List<SyntaxBuilder> pats,
                                   List<SyntaxBuilder> vals) {
         beginMatchExpression(value);

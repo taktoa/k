@@ -6,6 +6,7 @@ import java.util.function.Function;
 import org.kframework.kore.Sort;
 import org.kframework.kore.KLabel;
 import java.util.regex.Pattern;
+import org.kframework.utils.errorsystem.KEMException;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;

@@ -81,7 +81,7 @@ public class KToFunc {
             newsb()
             .beginApplication()
             .addFunction("run")
-            .addArgument(newsbv(convertRuntime(k)))
+            .addArgument(newsb(convertRuntime(k)))
             .addArgument(newsbv(Integer.toString(depth)))
             .endApplication();
         return genRuntime(newsbApp("output_string",
@@ -103,7 +103,7 @@ public class KToFunc {
             newsb()
             .beginApplication()
             .addFunction("print_subst")
-            .addArgument("file1")
+            .addArgument(newsbn("file1"))
             .beginArgument()
             .beginApplication()
             .addFunction("try_match")
@@ -115,7 +115,7 @@ public class KToFunc {
             .endApplication();
         SyntaxBuilder printOutSB = newsbApp("output_string",
                                             newsbn("file1"),
-                                            newsbv(enquoteString("0\n")));
+                                            newsbv("\"0\n\"")); //FIXME maybe use an enquote function?
         return genRuntime(newsb()
                           .beginTry()
                           .addTryValue(tryValueSB)
@@ -159,7 +159,7 @@ public class KToFunc {
             .endArgument()
             .endApplication();
         SyntaxBuilder printOutSB   = newsbApp("output_string",
-                                              newsbn("file1")
+                                              newsbn("file1"),
                                               newsbApp("print_k", newsbn("c")));
         SyntaxBuilder printSubstSB = newsbApp("output_string",
                                               newsbn("file2"),
