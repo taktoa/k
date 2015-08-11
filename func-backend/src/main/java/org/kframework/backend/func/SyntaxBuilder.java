@@ -2,6 +2,7 @@
 package org.kframework.backend.func;
 
 import java.util.List;
+import java.util.Stack;
 import java.util.Map;
 import java.util.EnumMap;
 import java.util.regex.Pattern;
@@ -23,6 +24,7 @@ import static org.kframework.backend.func.FuncUtil.*;
  */
 public class SyntaxBuilder implements Cloneable {
     private final List<Syntax> stx;
+    private final Stack<Integer> lambdaDepth = new Stack<>();
     private int parens = 0;
     private int linum = 0;
     private static final Pattern isSpace      = Pattern.compile("\\s+");
@@ -37,7 +39,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder() {
-        this(Lists.newArrayList());
+        this(newArrayList());
     }
 
     public SyntaxBuilder(String s) {
@@ -115,6 +117,9 @@ public class SyntaxBuilder implements Cloneable {
         for(Syntax s : sb.getStx()) {
             append(s);
         }
+        for(Integer i : sb.lambdaDepth) {
+            lambdaDepth.push(i);
+        }
         return this;
     }
 
@@ -134,7 +139,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public List<String> pretty() {
-        List<String> ret = Lists.newArrayListWithCapacity(stx.size() + 1);
+        List<String> ret = newArrayListWithCapacity(stx.size() + 1);
         for(Syntax s : stx) {
             ret.add(s.toString());
         }
@@ -448,26 +453,24 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginLambda(String... vars) {
-        append(SyntaxEnum.BEGIN_LAMBDA);
-        append(SyntaxEnum.BEGIN_LAMBDA_VARS);
-
+        lambdaDepth.push(vars.length);
         for(String v : vars) {
+            append(SyntaxEnum.BEGIN_LAMBDA);
             append(SyntaxEnum.BEGIN_LAMBDA_VAR);
             addName(v);
             append(SyntaxEnum.END_LAMBDA_VAR);
+            append(SyntaxEnum.BEGIN_LAMBDA_BODY);
         }
-
-        append(SyntaxEnum.END_LAMBDA_VARS);
-        append(SyntaxEnum.BEGIN_LAMBDA_BODY);
-
         if(introduce) { addIntroduce(vars); }
-
         return this;
     }
 
-    public SyntaxBuilder endLambda() {
-        append(SyntaxEnum.END_LAMBDA_BODY);
-        append(SyntaxEnum.END_LAMBDA);
+    public SyntaxBuilder endLambda(int numVars) {
+        int lam = lambdaDepth.pop();
+        for(int i = 0; lam > i; i++) {
+            append(SyntaxEnum.END_LAMBDA_BODY);
+            append(SyntaxEnum.END_LAMBDA);
+        }
         return this;
     }
 
@@ -1094,6 +1097,12 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_MATCH_EQUATION_VAL    (xStart(), "match-equation-val",    "("),
         END_MATCH_EQUATION_VAL      (xStop(),  "match-equation-val",    ")"),
 
+        BEGIN_EXCEPTION_DECLARATION (xStart(), "exception-declaration", "exception "),
+        END_EXCEPTION_DECLARATION   (xStop(),  "exception-declaration", ";;\n"),
+
+        BEGIN_EXCEPTION_RAISE       (xStart(), "exception-raise",       "(raise "),
+        END_EXCEPTION_RAISE         (xStop(),  "exception-raise",       ")"),
+
         BEGIN_TRY_EXPRESSION        (xStart(), "try-expression",        "FIXME"),
         END_TRY_EXPRESSION          (xStop(),  "try-expression",        "FIXME"),
         BEGIN_TRY_INPUT             (xStart(), "try-input",             "FIXME"),
@@ -1137,12 +1146,10 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LETREC_SCOPE          (xStart(), "letrec-scope",          " in ("),
         END_LETREC_SCOPE            (xStop(),  "letrec-scope",          ")"),
 
-        BEGIN_LAMBDA                (xStart(), "lam",                   "(fun"),
+        BEGIN_LAMBDA                (xStart(), "lam",                   "(function"),
         END_LAMBDA                  (xStop(),  "lam",                   ")"),
         BEGIN_LAMBDA_VAR            (xStart(), "lam-var",               " "),
-        END_LAMBDA_VAR              (xStop(),  "lam-var",               ""),
-        BEGIN_LAMBDA_VARS           (xStart(), "lam-vars",              ""),
-        END_LAMBDA_VARS             (xStop(),  "lam-vars",              " -> "),
+        END_LAMBDA_VAR              (xStop(),  "lam-var",               " -> "),
         BEGIN_LAMBDA_BODY           (xStart(), "lam-body",              "("),
         END_LAMBDA_BODY             (xStop(),  "lam-body",              ")"),
 
