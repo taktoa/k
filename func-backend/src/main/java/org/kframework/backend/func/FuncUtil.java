@@ -181,20 +181,16 @@ public final class FuncUtil {
         return newsb().addPattern(pattern);
     }
 
-    public static SyntaxBuilder newsbv(String value) {
-        return newsbv(newsb(value));
-    }
+    // public static SyntaxBuilder newsbv(String value) {
+    //     return newsbv(newsb(value));
+    // }
 
     public static SyntaxBuilder newsbv(SyntaxBuilder value) {
         return newsb().addValue(value);
     }
 
-    public static SyntaxBuilder newsbv(SyntaxBuilder val) {
-        return newsb().addValue(val);
-    }
-
-    public static SyntaxBuilder newsbv(int val) {
-        return newsb().addValue(val);
+    public static SyntaxBuilder newsbi(int val) {
+        return newsb(Integer.toString(val)); //FIXME
     }
 
     public static SyntaxBuilder newsbk(String keyword) {
