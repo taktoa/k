@@ -189,8 +189,12 @@ public final class FuncUtil {
         return newsb().addValue(value);
     }
 
-    public static SyntaxBuilder newsbi(int val) {
-        return newsb(Integer.toString(val)); //FIXME
+    public static SyntaxBuilder newsbi(int integer) {
+        return newsbi(newsb(Integer.toString(val)));
+    }
+
+    public static SyntaxBuilder newsbi(SyntaxBuilder integer) {
+        return newsb().addInteger(integer);
     }
 
     public static SyntaxBuilder newsbk(String keyword) {

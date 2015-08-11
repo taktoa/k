@@ -244,6 +244,21 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_PATTERN);
     }
 
+    public SyntaxBuilder addInteger(SyntaxBuilder integer) {
+        beginInteger();
+        append(integer);
+        endInteger();
+        return this;
+    }
+
+    public SyntaxBuilder beginInteger() {
+        return append(SyntaxEnum.BEGIN_INTEGER);
+    }
+
+    public SyntaxBuilder endInteger() {
+        return append(SyntaxEnum.END_INTEGER);
+    }
+
     public SyntaxBuilder addSpace() {
         return append(SyntaxEnum.SPACE);
     }
