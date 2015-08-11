@@ -173,11 +173,19 @@ public final class FuncUtil {
         return newsb().appendf(fmt, args);
     }
 
-    public static SyntaxBuilder newsbp(String pat) { //FIXME not sure what this should do
-        return newsb().append(pat);
+    public static SyntaxBuilder newsbp(String pattern) {
+        return newsbp(newsb(pattern));
+    }
+
+    public static SyntaxBuilder newsbp(SyntaxBuilder pattern) {
+        return newsb().addPattern(pattern);
     }
 
     public static SyntaxBuilder newsbv(String value) {
+        return newsbv(newsb(value));
+    }
+
+    public static SyntaxBuilder newsbv(SyntaxBuilder value) {
         return newsb().addValue(value);
     }
 
@@ -190,6 +198,10 @@ public final class FuncUtil {
     }
 
     public static SyntaxBuilder newsbk(String keyword) {
+        return newsbk(newsb(keyword));
+    }
+
+    public static SyntaxBuilder newsbk(SyntaxBuilder keyword) {
         return newsb().addKeyword(keyword);
     }
 
