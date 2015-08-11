@@ -88,13 +88,10 @@ public class KToFunc {
                                    newsbn("out"),
                                    newsbApp("print_k",
                                             newsb()
-                                            .beginTry()
-                                            .addTryValue(tryValueSB)
-                                            .beginTryEquations()
+                                            .beginTryExpression(tryValueSB)
                                             .addTryEquation(newsbn("Stuck c'"),
                                                             newsbn("c'"))
-                                            .endTryEquations()
-                                            .endTry())),
+                                            .endTryExpression())),
                           outFile);
     }
 
@@ -117,12 +114,9 @@ public class KToFunc {
                                             newsbn("file1"),
                                             newsbv("\"0\n\"")); //FIXME maybe use an enquote function?
         return genRuntime(newsb()
-                          .beginTry()
-                          .addTryValue(tryValueSB)
-                          .beginTryEquations()
+                          .beginTryExpression(tryValueSB)
                           .addTryEquation(newsbn("Stuck c"), printOutSB)
-                          .endTryEquations()
-                          .endTry(),
+                          .endTryExpression(),
                           rule,
                           outFile);
     }
@@ -165,14 +159,11 @@ public class KToFunc {
                                               newsbn("file2"),
                                               newsbv(enquoteString("0\n")));
         return genRuntime(newsb()
-                          .beginTry()
-                          .addTryValue(tryValueSB)
-                          .beginTryEquations()
+                          .beginTryExpression(tryValueSB)
                           .addTryEquation(newsbn("Stuck c"),
                                           newsb().addSequence(printOutSB,
                                                               printSubstSB))
-                          .endTryEquations()
-                          .endTry(),
+                          .endTryExpression(),
                           rule,
                           outFile, substFile);
     }

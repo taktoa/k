@@ -290,30 +290,6 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
-    public SyntaxBuilder beginTry() { //FIXME: this should do something
-        return this;
-    }
-
-    public SyntaxBuilder addTryValue(SyntaxBuilder tryValueSB) { //FIXME: this should do something
-        return this;
-    }
-
-    public SyntaxBuilder beginTryEquations() { //FIXME: this should do something
-        return this;
-    }
-
-    public SyntaxBuilder addTryEquation(SyntaxBuilder a, SyntaxBuilder b) { //FIXME: this should do something
-        return this;
-    }
-
-    public SyntaxBuilder endTryEquations() { //FIXME: this should do something
-        return this;
-    }
-
-    public SyntaxBuilder endTry() { //FIXME: this should do something
-        return this;
-    }
-
     public SyntaxBuilder addApplication(String fnName,
                                         SyntaxBuilder... args) {
         beginApplication();
@@ -645,8 +621,12 @@ public class SyntaxBuilder implements Cloneable {
                                   List<String> vals) {
 
         return addMatchSB(value,
-                          pats.stream().map(FuncUtil::newsbp).collect(Collectors.toList()),
-                          vals.stream().map(FuncUtil::newsbv).collect(Collectors.toList()));
+                          pats.stream()
+                              .map(FuncUtil::newsbp)
+                              .collect(Collectors.toList()),
+                          vals.stream()
+                              .map(FuncUtil::newsbv)
+                              .collect(Collectors.toList()));
     }
 
     public SyntaxBuilder addMatchSB(SyntaxBuilder value,
@@ -691,10 +671,10 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
-    public SyntaxBuilder beginMatchExpression(SyntaxBuilder varname) {
+    public SyntaxBuilder beginMatchExpression(SyntaxBuilder input) {
         append(SyntaxEnum.BEGIN_MATCH_EXPRESSION);
         append(SyntaxEnum.BEGIN_MATCH_INPUT);
-        append(varname);
+        append(input);
         append(SyntaxEnum.END_MATCH_INPUT);
         append(SyntaxEnum.BEGIN_MATCH_EQUATIONS);
         return this;
@@ -729,6 +709,71 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder endMatchEquationValue() {
         return append(SyntaxEnum.END_MATCH_EQUATION_VAL);
     }
+
+
+
+    public SyntaxBuilder beginTryExpression(SyntaxBuilder input) {
+        append(SyntaxEnum.BEGIN_TRY_EXPRESSION);
+        append(SyntaxEnum.BEGIN_TRY_INPUT);
+        append(input);
+        append(SyntaxEnum.END_TRY_INPUT);
+        append(SyntaxEnum.BEGIN_TRY_EQUATIONS);
+        return this;
+    }
+
+    public SyntaxBuilder endTryExpression() {
+        append(SyntaxEnum.END_TRY_EQUATIONS);
+        append(SyntaxEnum.END_TRY_EXPRESSION);
+        return this;
+    }
+
+    public SyntaxBuilder addTryEquation(SyntaxBuilder pat, SyntaxBuilder val) {
+        beginTryEquation();
+        addTryEquationPattern(pat);
+        addTryEquationValue(val);
+        endTryEquation();
+        return this;
+    }
+
+    public SyntaxBuilder addTryEquationPattern(SyntaxBuilder pat) {
+        beginTryEquationPattern();
+        append(pat);
+        beginTryEquationPattern();
+        return this;
+    }
+
+    public SyntaxBuilder addTryEquationValue(SyntaxBuilder val) {
+        beginTryEquationValue();
+        append(val);
+        beginTryEquationValue();
+        return this;
+    }
+
+    public SyntaxBuilder beginTryEquation() {
+        return append(SyntaxEnum.BEGIN_TRY_EQUATION);
+    }
+
+    public SyntaxBuilder endTryEquation() {
+        return append(SyntaxEnum.END_TRY_EQUATION);
+    }
+
+    public SyntaxBuilder beginTryEquationPattern() {
+        return append(SyntaxEnum.BEGIN_TRY_EQUATION_PAT);
+    }
+
+    public SyntaxBuilder endTryEquationPattern() {
+        return append(SyntaxEnum.END_TRY_EQUATION_PAT);
+    }
+
+    public SyntaxBuilder beginTryEquationValue() {
+        return append(SyntaxEnum.BEGIN_TRY_EQUATION_VAL);
+    }
+
+    public SyntaxBuilder endTryEquationValue() {
+        return append(SyntaxEnum.END_TRY_EQUATION_VAL);
+    }
+
+
 
     public SyntaxBuilder beginTypeDefinition(String name, String... vars) {
         append(SyntaxEnum.BEGIN_TYPE_DEFINITION);
@@ -922,10 +967,23 @@ public class SyntaxBuilder implements Cloneable {
         END_MATCH_EQUATIONS         (xStop(),  "match-equations",       ""),
         BEGIN_MATCH_EQUATION        (xStart(), "match-equation",        "\n| "),
         END_MATCH_EQUATION          (xStop(),  "match-equation",        ""),
-        BEGIN_MATCH_EQUATION_VAL    (xStart(), "match-equation-val",    "("),
-        END_MATCH_EQUATION_VAL      (xStop(),  "match-equation-val",    ")"),
         BEGIN_MATCH_EQUATION_PAT    (xStart(), "match-equation-pat",    ""),
         END_MATCH_EQUATION_PAT      (xStop(),  "match-equation-pat",    " -> "),
+        BEGIN_MATCH_EQUATION_VAL    (xStart(), "match-equation-val",    "("),
+        END_MATCH_EQUATION_VAL      (xStop(),  "match-equation-val",    ")"),
+
+        BEGIN_TRY_EXPRESSION        (xStart(), "try-expression",        "FIXME"),
+        END_TRY_EXPRESSION          (xStop(),  "try-expression",        "FIXME"),
+        BEGIN_TRY_INPUT             (xStart(), "try-input",             "FIXME"),
+        END_TRY_INPUT               (xStop(),  "try-input",             "FIXME"),
+        BEGIN_TRY_EQUATIONS         (xStart(), "try-equations",         "FIXME"),
+        END_TRY_EQUATIONS           (xStop(),  "try-equations",         "FIXME"),
+        BEGIN_TRY_EQUATION          (xStart(), "try-equation",          "FIXME"),
+        END_TRY_EQUATION            (xStop(),  "try-equation",          "FIXME"),
+        BEGIN_TRY_EQUATION_PAT      (xStart(), "try-equation-pat",      "FIXME"),
+        END_TRY_EQUATION_PAT        (xStop(),  "try-equation-pat",      "FIXME"),
+        BEGIN_TRY_EQUATION_VAL      (xStart(), "try-equation-val",      "FIXME"),
+        END_TRY_EQUATION_VAL        (xStop(),  "try-equation-val",      "FIXME"),
 
         BEGIN_LET_EXPRESSION        (xStart(), "let-expression",        "(let "),
         END_LET_EXPRESSION          (xStop(),  "let-expression",        ")"),
