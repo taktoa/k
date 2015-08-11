@@ -921,20 +921,23 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_RENDER                (xStart(), "rend",                  ""),
         END_RENDER                  (xStop(),  "rend",                  ""),
 
-        BEGIN_KEYWORD               (xStart(), "keyword",               ""),
-        END_KEYWORD                 (xStop(),  "keyword",               ""),
-
-        BEGIN_VALUE                 (xStart(), "value",                 ""),
-        END_VALUE                   (xStop(),  "value",                 ""),
-
         BEGIN_PARENTHESIS           (xStart(), "paren",                 "("),
         END_PARENTHESIS             (xStop(),  "paren",                 ")"),
 
         BEGIN_COMMENT               (xStart(), "comment",               "(*"),
         END_COMMENT                 (xStop(),  "comment",               "*)"),
 
+        BEGIN_KEYWORD               (xStart(), "keyword",               ""),
+        END_KEYWORD                 (xStop(),  "keyword",               ""),
+
+        BEGIN_VALUE                 (xStart(), "value",                 ""),
+        END_VALUE                   (xStop(),  "value",                 ""),
+
         BEGIN_NAME                  (xStart(), "name",                  ""),
         END_NAME                    (xStop(),  "name",                  ""),
+
+        BEGIN_PATTERN               (xStart(), "pattern",               ""),
+        END_PATTERN                 (xStop(),  "pattern",               ""),
 
         BEGIN_INTRODUCE             (xStart(), "introduce",             " (* introduce "),
         END_INTRODUCE               (xStop(),  "introduce",             " *) "),
