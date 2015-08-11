@@ -2,7 +2,7 @@
 package org.kframework.backend.func;
 
 import java.util.List;
-import java.util.Stack;
+import java.util.Deque;
 import java.util.Map;
 import java.util.EnumMap;
 import java.util.regex.Pattern;
@@ -24,7 +24,7 @@ import static org.kframework.backend.func.FuncUtil.*;
  */
 public class SyntaxBuilder implements Cloneable {
     private final List<Syntax> stx;
-    private final Stack<Integer> lambdaDepth = new Stack<>();
+    private final Deque<Integer> lambdaDepth = new Deque<>();
     private int parens = 0;
     private int linum = 0;
     private static final Pattern isSpace      = Pattern.compile("\\s+");
@@ -118,7 +118,7 @@ public class SyntaxBuilder implements Cloneable {
             append(s);
         }
         for(Integer i : sb.lambdaDepth) {
-            lambdaDepth.push(i);
+            lambdaDepth.addFirst(i);
         }
         return this;
     }
@@ -453,7 +453,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder beginLambda(String... vars) {
-        lambdaDepth.push(vars.length);
+        lambdaDepth.addFirst(vars.length);
         for(String v : vars) {
             append(SyntaxEnum.BEGIN_LAMBDA);
             append(SyntaxEnum.BEGIN_LAMBDA_VAR);
@@ -466,7 +466,7 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder endLambda(int numVars) {
-        int lam = lambdaDepth.pop();
+        int lam = lambdaDepth.removeFirst();
         for(int i = 0; lam > i; i++) {
             append(SyntaxEnum.END_LAMBDA_BODY);
             append(SyntaxEnum.END_LAMBDA);
