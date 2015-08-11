@@ -259,6 +259,67 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_INTEGER);
     }
 
+    public SyntaxBuilder addFloat(SyntaxBuilder float) {
+        beginFloat();
+        append(float);
+        endFloat();
+        return this;
+    }
+
+    public SyntaxBuilder beginFloat() {
+        return append(SyntaxEnum.BEGIN_FLOAT);
+    }
+
+    public SyntaxBuilder endFloat() {
+        return append(SyntaxEnum.END_FLOAT);
+    }
+
+    public SyntaxBuilder addBoolean(SyntaxBuilder bool) {
+        beginBoolean();
+        append(bool);
+        endBoolean();
+        return this;
+    }
+
+    public SyntaxBuilder beginBoolean() {
+        return append(SyntaxEnum.BEGIN_BOOLEAN);
+    }
+
+    public SyntaxBuilder endBoolean() {
+        return append(SyntaxEnum.END_BOOLEAN);
+    }
+
+    public SyntaxBuilder addString(SyntaxBuilder string) {
+        beginString();
+        append(string);
+        endString();
+        return this;
+    }
+
+    public SyntaxBuilder beginString() {
+        return append(SyntaxEnum.BEGIN_STRING);
+    }
+
+    public SyntaxBuilder endString() {
+        return append(SyntaxEnum.END_STRING);
+    }
+
+    public SyntaxBuilder addType(SyntaxBuilder type) {
+        beginType();
+        append(type);
+        endType();
+        return this;
+    }
+
+    public SyntaxBuilder beginType() {
+        return append(SyntaxEnum.BEGIN_TYPE);
+    }
+
+    public SyntaxBuilder endType() {
+        return append(SyntaxEnum.END_TYPE);
+    }
+
+
     public SyntaxBuilder addSpace() {
         return append(SyntaxEnum.SPACE);
     }
