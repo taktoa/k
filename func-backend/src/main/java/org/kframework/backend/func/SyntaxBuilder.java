@@ -169,7 +169,10 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addRender(SyntaxBuilder sb) {
-        return beginRender().append(sb).endRender();
+        beginRender();
+        append(sb);
+        endRender();
+        return this;
     }
 
     public SyntaxBuilder beginRender() {
@@ -180,25 +183,65 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_RENDER);
     }
 
-    public SyntaxBuilder addKeyword(Object keyword) {
-        append(SyntaxEnum.BEGIN_KEYWORD);
-        append(keyword.toString());
-        append(SyntaxEnum.END_KEYWORD);
+    public SyntaxBuilder addKeyword(SyntaxBuilder keyword) {
+        beginKeyword();
+        append(keyword);
+        endKeyword();
         return this;
     }
 
-    public SyntaxBuilder addValue(Object value) {
-        append(SyntaxEnum.BEGIN_VALUE);
-        append(value.toString());
-        append(SyntaxEnum.END_VALUE);
+    public SyntaxBuilder beginKeyword() {
+        return append(SyntaxEnum.BEGIN_KEYWORD);
+    }
+
+    public SyntaxBuilder endKeyword() {
+        return append(SyntaxEnum.END_KEYWORD);
+    }
+
+    public SyntaxBuilder addValue(SyntaxBuilder value) {
+        beginValue();
+        append(value);
+        endValue();
         return this;
     }
 
-    public SyntaxBuilder addName(String name) {
-        append(SyntaxEnum.BEGIN_NAME);
+    public SyntaxBuilder beginValue() {
+        return append(SyntaxEnum.BEGIN_VALUE);
+    }
+
+    public SyntaxBuilder endValue() {
+        return append(SyntaxEnum.END_VALUE);
+    }
+
+    public SyntaxBuilder addName(SyntaxBuilder name) {
+        beginName();
         append(name);
-        append(SyntaxEnum.END_NAME);
+        endName();
         return this;
+    }
+
+    public SyntaxBuilder beginName() {
+        return append(SyntaxEnum.BEGIN_NAME);
+    }
+
+    public SyntaxBuilder endName() {
+        return append(SyntaxEnum.END_NAME);
+    }
+
+
+    public SyntaxBuilder addPattern(SyntaxBuilder pattern) {
+        beginPattern();
+        append(pattern);
+        endPattern();
+        return this;
+    }
+
+    public SyntaxBuilder beginPattern() {
+        return append(SyntaxEnum.BEGIN_PATTERN);
+    }
+
+    public SyntaxBuilder endPattern() {
+        return append(SyntaxEnum.END_PATTERN);
     }
 
     public SyntaxBuilder addSpace() {
@@ -414,9 +457,7 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_PARENTHESIS);
     }
 
-    public SyntaxBuilder addSequence(SyntaxBuilder sb1, SyntaxBuilder sb2) { //FIXME stub
-        return this;
-    }
+
 
     public SyntaxBuilder addGlobalLet(SyntaxBuilder name,
                                       SyntaxBuilder value) {
@@ -455,14 +496,6 @@ public class SyntaxBuilder implements Cloneable {
         beginLetEquationValue();
         append(value);
         endLetEquationValue();
-        return this;
-    }
-
-    public SyntaxBuilder beginLetEquations() { //FIXME stub
-        return this;
-    }
-
-    public SyntaxBuilder endLetEquations() { //FIXME stub
         return this;
     }
 
