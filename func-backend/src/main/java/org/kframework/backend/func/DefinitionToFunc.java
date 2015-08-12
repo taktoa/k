@@ -112,8 +112,6 @@ public class DefinitionToFunc {
 
         XMLBuilder outXML = ocamlDef.getXML();
 
-        outprintfln("%s", outXML.renderSExpr());
-
         try {
             outprintfln("%s", outXML.renderSExpr());
         } catch(KEMException e) {
