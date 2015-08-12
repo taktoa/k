@@ -110,15 +110,19 @@ public class DefinitionToFunc {
         outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
         outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
 
-        XMLBuilder outXML = ocamlDef.getXML();
+        outprintfln(";; %s", outXML.toString()
+                    .replaceAll("><", ">\n<")
+                    .replaceAll("\n", "\n;; "));
 
-        try {
-            outprintfln("%s", outXML.renderSExpr());
-        } catch(KEMException e) {
-            outprintfln(";; %s", outXML.toString()
-                        .replaceAll("><", ">\n<")
-                        .replaceAll("\n", "\n;; "));
-        }
+        // XMLBuilder outXML = ocamlDef.getXML();
+        //
+        // try {
+        //     outprintfln("%s", outXML.renderSExpr());
+        // } catch(KEMException e) {
+        //     outprintfln(";; %s", outXML.toString()
+        //                 .replaceAll("><", ">\n<")
+        //                 .replaceAll("\n", "\n;; "));
+        // }
 
         outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
