@@ -190,7 +190,6 @@ public class DefinitionToFunc {
 
         XMLBuilder outXML = ocamlDef.getXML();
 
-
         outprintfln("");
 
         try {
@@ -232,7 +231,7 @@ public class DefinitionToFunc {
 
         return sb;
     }
-    
+
     public SyntaxBuilder genDefinition(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
         Module mm = ppk.mainModule;
