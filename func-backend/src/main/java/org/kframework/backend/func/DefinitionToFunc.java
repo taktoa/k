@@ -44,6 +44,8 @@ import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
+import frege.prelude.PreludeBase;
+
 import static org.kframework.kore.KORE.*;
 import static org.kframework.backend.func.FuncUtil.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
@@ -105,22 +107,24 @@ public class DefinitionToFunc {
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");
         outprintfln("");
 
-        outprintfln(";; %s", ocamlDef.trackPrint()
-                                     .replaceAll("\n", "\n;; "));
-        outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
-        outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
+        outprintfln("Testing: %s", ExampleFrege.testFunc(123));
 
-        XMLBuilder outXML = ocamlDef.getXML();
-
-        outprintfln("%s", outXML.renderSExpr());
-
-        try {
-            outprintfln("%s", outXML.renderSExpr());
-        } catch(KEMException e) {
-            outprintfln(";; %s", outXML.toString()
-                        .replaceAll("><", ">\n<")
-                        .replaceAll("\n", "\n;; "));
-        }
+        // outprintfln(";; %s", ocamlDef.trackPrint()
+        //                              .replaceAll("\n", "\n;; "));
+        // outprintfln(";; Number of parens: %d", ocamlDef.getNumParens());
+        // outprintfln(";; Number of lines:  %d", ocamlDef.getNumLines());
+        //
+        // XMLBuilder outXML = ocamlDef.getXML();
+        //
+        // outprintfln("%s", outXML.renderSExpr());
+        //
+        // try {
+        //     outprintfln("%s", outXML.renderSExpr());
+        // } catch(KEMException e) {
+        //     outprintfln(";; %s", outXML.toString()
+        //                 .replaceAll("><", ">\n<")
+        //                 .replaceAll("\n", "\n;; "));
+        // }
 
         outprintfln("");
         outprintfln(";; DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG DEBUG");

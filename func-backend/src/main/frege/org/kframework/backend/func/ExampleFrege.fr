@@ -1,0 +1,4 @@
+module org.kframework.backend.func.ExampleFrege where
+
+testFunc :: Int -> String
+testFunc x = "Hello, world! " ++ show x
