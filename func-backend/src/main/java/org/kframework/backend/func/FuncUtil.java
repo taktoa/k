@@ -174,11 +174,31 @@ public final class FuncUtil {
     }
 
     public static SyntaxBuilder newsbv(String value) {
-        return newsb().addValue(value);
+        return newsb().addValue(newsb(value));
     }
 
     public static SyntaxBuilder newsbk(String keyword) {
-        return newsb().addKeyword(keyword);
+        return newsb().addKeyword(newsb(keyword));
+    }
+
+    public static SyntaxBuilder newsbp(String pattern) {
+        return newsb().addPattern(newsb(pattern));
+    }
+
+    public static SyntaxBuilder newsbInt(int integer) {
+        return newsb().addInteger(newsb(Integer.toString(integer)));
+    }
+
+    public static SyntaxBuilder newsbFlt(float flt) {
+        return newsb().addFloat(newsb(Float.toString(flt)));
+    }
+
+    public static SyntaxBuilder newsbStr(String string) {
+        return newsb().addString(newsb(string));
+    }
+
+    public static SyntaxBuilder newsbBool(boolean bool) {
+        return newsb().addBoolean(bool);
     }
 
 

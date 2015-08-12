@@ -151,7 +151,7 @@ public class DefinitionToFunc {
                                  funcName,
                                  args,
                                  outType),
-                          newsb().addMatch(newsb().addValue(matchVal),
+                          newsb().addMatch(newsbv(matchVal),
                                            pl,
                                            vl));
 
@@ -324,15 +324,15 @@ public class DefinitionToFunc {
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
                                  .beginRender()
-                                 .addValue(functionName)
+                                 .addValue(newsb(functionName))
                                  .addSpace()
-                                 .addValue("(c: k list)")
+                                 .addValue(newsb("(c: k list)"))
                                  .addSpace()
-                                 .addValue("(guards: Guard.t)")
+                                 .addValue(newsb("(guards: Guard.t)"))
                                  .addSpace()
-                                 .addKeyword(":")
+                                 .addKeyword(newsb(":"))
                                  .addSpace()
-                                 .addValue("k")
+                                 .addValue(newsb("k"))
                                  .endRender());
         sb.beginLetrecEquationValue();
         sb.beginLetExpression();
@@ -358,15 +358,15 @@ public class DefinitionToFunc {
         sb.beginLetrecEquation();
         sb.addLetrecEquationName(newsb()
                                  .beginRender()
-                                 .addValue("freshFunction")
+                                 .addValue(newsb("freshFunction"))
                                  .addSpace()
-                                 .addValue("(sort: string)")
+                                 .addValue(newsb("(sort: string)"))
                                  .addSpace()
-                                 .addValue("(counter: Z.t)")
+                                 .addValue(newsb("(counter: Z.t)"))
                                  .addSpace()
-                                 .addKeyword(":")
+                                 .addKeyword(newsb(":"))
                                  .addSpace()
-                                 .addValue("k")
+                                 .addValue(newsb("k"))
                                  .endRender());
         sb.beginLetrecEquationValue();
 
@@ -632,9 +632,9 @@ public class DefinitionToFunc {
             return newsb()
                 .beginRender()
                 .addSpace()
-                .addKeyword("when")
+                .addKeyword(newsb("when"))
                 .addSpace()
-                .addKeyword("not")
+                .addKeyword(newsb("not"))
                 .addSpace()
                 .beginApplication()
                 .addFunction("Guard.mem")
@@ -665,13 +665,13 @@ public class DefinitionToFunc {
                  .getFst()
                  .beginRender()
                  .addSpace()
-                 .addKeyword("when")
+                 .addKeyword(newsb("when"))
                  .addSpace()
                  .beginRender()
                  .append(oldConvert(ppk, true, vars, true).apply(requires))
                  .endRender()
                  .addSpace()
-                 .addKeyword("&&")
+                 .addKeyword(newsb("&&"))
                  .addSpace()
                  .beginParenthesis()
                  .beginRender()
@@ -947,13 +947,13 @@ public class DefinitionToFunc {
                 sb.beginRender();
                 sb.addApplication("eq", newsb(last), newsb(next));
                 sb.addSpace();
-                sb.addKeyword("&&");
+                sb.addKeyword(newsb("&&"));
                 sb.addSpace();
                 sb.endRender();
                 last = next;
             }
         }
-        sb.addValue("true");
+        sb.addValue(newsb("true"));
         return sb;
     }
 

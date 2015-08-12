@@ -70,10 +70,10 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             KToken    ktok1 = (KToken)    kseq1.items().get(0);
             return
                 newsb()
-                .addValue("KToken")
+                .addValue(newsb("KToken"))
                 .beginParenthesis()
                 .append(apply(Sort(ktok1.s())))
-                .addKeyword(",")
+                .addKeyword(newsb(","))
                 .addSpace()
                 .append(apply(kseq2.items().get(0)))
                 .endParenthesis();
@@ -199,9 +199,9 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             res = newsb()
                 .append(applyKLabel(k))
                 .addSpace()
-                .addKeyword("::")
+                .addKeyword(newsb("::"))
                 .addSpace()
-                .addValue("[]");
+                .addValue(newsb("[]"));
         } else {
             if(ppk.attrLabels
                   .get(Attribute.PREDICATE_KEY)
@@ -234,24 +234,24 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             if(i == items.size() - 1) {
                 if(!isList(item, klist)) {
                     sb.addSpace();
-                    sb.addKeyword("::");
+                    sb.addKeyword(newsb("::"));
                     sb.addSpace();
-                    sb.addValue("[]");
+                    sb.addValue(newsb("[]"));
                 }
             } else {
                 if(isList(item, klist)) {
                     sb.addSpace();
-                    sb.addKeyword("@");
+                    sb.addKeyword(newsb("@"));
                     sb.addSpace();
                 } else {
                     sb.addSpace();
-                    sb.addKeyword("::");
+                    sb.addKeyword(newsb("::"));
                     sb.addSpace();
                 }
             }
         }
         if(items.isEmpty()) {
-            sb.addValue("[]");
+            sb.addValue(newsb("[]"));
         }
 
         return sb;
@@ -291,13 +291,13 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         if(sortHooks.containsKey(hook)) {
             return newsb()
                 .beginParenthesis()
-                .addValue(s.name())
+                .addValue(newsb(s.name()))
                 .addSpace()
-                .addValue("_")
+                .addValue(newsb("_"))
                 .addSpace()
-                .addKeyword("as")
+                .addKeyword(newsb("as"))
                 .addSpace()
-                .addValue(varName)
+                .addValue(newsb(varName))
                 .endParenthesis();
         }
 

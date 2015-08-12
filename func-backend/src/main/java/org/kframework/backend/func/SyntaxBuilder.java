@@ -2,6 +2,7 @@
 package org.kframework.backend.func;
 
 import java.util.List;
+import java.util.LinkedList;
 import java.util.Deque;
 import java.util.Map;
 import java.util.EnumMap;
@@ -24,7 +25,7 @@ import static org.kframework.backend.func.FuncUtil.*;
  */
 public class SyntaxBuilder implements Cloneable {
     private final List<Syntax> stx;
-    private final Deque<Integer> lambdaDepth = new Deque<>();
+    private final Deque<Integer> lambdaDepth = new LinkedList<>();
     private int parens = 0;
     private int linum = 0;
     private static final Pattern isSpace      = Pattern.compile("\\s+");
@@ -264,9 +265,9 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_INTEGER);
     }
 
-    public SyntaxBuilder addFloat(SyntaxBuilder float) {
+    public SyntaxBuilder addFloat(SyntaxBuilder flt) {
         beginFloat();
-        append(float);
+        append(flt);
         endFloat();
         return this;
     }
@@ -279,19 +280,16 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_FLOAT);
     }
 
-    public SyntaxBuilder addBoolean(SyntaxBuilder bool) {
-        beginBoolean();
-        append(bool);
-        endBoolean();
-        return this;
+    public SyntaxBuilder addBoolean(boolean bool) {
+        return bool ? addBooleanTrue() : addBooleanFalse();
     }
 
-    public SyntaxBuilder beginBoolean() {
-        return append(SyntaxEnum.BEGIN_BOOLEAN);
+    public SyntaxBuilder addBooleanTrue() {
+        return append(SyntaxEnum.BOOLEAN_TRUE);
     }
 
-    public SyntaxBuilder endBoolean() {
-        return append(SyntaxEnum.END_BOOLEAN);
+    public SyntaxBuilder addBooleanFalse() {
+        return append(SyntaxEnum.BOOLEAN_FALSE);
     }
 
     public SyntaxBuilder addString(SyntaxBuilder string) {
@@ -309,21 +307,6 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_STRING);
     }
 
-    public SyntaxBuilder addType(SyntaxBuilder type) {
-        beginType();
-        append(type);
-        endType();
-        return this;
-    }
-
-    public SyntaxBuilder beginType() {
-        return append(SyntaxEnum.BEGIN_TYPE);
-    }
-
-    public SyntaxBuilder endType() {
-        return append(SyntaxEnum.END_TYPE);
-    }
-
 
     public SyntaxBuilder addSpace() {
         return append(SyntaxEnum.SPACE);
@@ -332,7 +315,7 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder addIntroduce(String... vars) {
         append(SyntaxEnum.BEGIN_INTRODUCE);
         for(String v : vars) {
-            addName(v);
+            addName(newsb(v));
             addSpace();
         }
         append(SyntaxEnum.END_INTRODUCE);
@@ -407,9 +390,9 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addImport(String i) {
-        addKeyword("open");
+        addKeyword(newsb("open"));
         addSpace();
-        addValue(i);
+        addValue(newsb(i));
         addNewline();
         return this;
     }
@@ -435,7 +418,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addFunction(String fnName) {
         append(SyntaxEnum.BEGIN_FUNCTION);
-        addName(fnName);
+        addName(newsb(fnName));
         append(SyntaxEnum.END_FUNCTION);
         return this;
     }
@@ -457,7 +440,7 @@ public class SyntaxBuilder implements Cloneable {
         for(String v : vars) {
             append(SyntaxEnum.BEGIN_LAMBDA);
             append(SyntaxEnum.BEGIN_LAMBDA_VAR);
-            addName(v);
+            addName(newsb(v));
             append(SyntaxEnum.END_LAMBDA_VAR);
             append(SyntaxEnum.BEGIN_LAMBDA_BODY);
         }
@@ -465,7 +448,7 @@ public class SyntaxBuilder implements Cloneable {
         return this;
     }
 
-    public SyntaxBuilder endLambda(int numVars) {
+    public SyntaxBuilder endLambda() {
         int lam = lambdaDepth.removeFirst();
         for(int i = 0; lam > i; i++) {
             append(SyntaxEnum.END_LAMBDA_BODY);
@@ -483,7 +466,7 @@ public class SyntaxBuilder implements Cloneable {
         append(a.removeNewlines());
         endParenthesis();
         addSpace();
-        addKeyword("=");
+        addKeyword(newsb("="));
         addSpace();
         beginParenthesis();
         append(b.removeNewlines());
@@ -605,7 +588,7 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder addLetEquationSeparator() {
         // addNewline();
         // addSpace();
-        // addKeyword("and");
+        // addKeyword(newsb("and"));
         // addSpace();
         // return this;
         return this; // likely bug spot
@@ -907,7 +890,7 @@ public class SyntaxBuilder implements Cloneable {
         }
         append(SyntaxEnum.END_TYPE_DEFINITION_VARS);
         append(SyntaxEnum.BEGIN_TYPE_DEFINITION_NAME);
-        addName(name);
+        addName(newsb(name));
         append(SyntaxEnum.END_TYPE_DEFINITION_NAME);
         append(SyntaxEnum.BEGIN_TYPE_DEFINITION_CONS);
         return this;
@@ -936,7 +919,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addConstructorName(String con) {
         beginConstructorName();
-        addName(con);
+        addName(newsb(con));
         endConstructorName();
         return this;
     }
@@ -968,7 +951,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addConstructorArg(String arg) {
         beginConstructorArg();
-        addName(arg);
+        addName(newsb(arg));
         endConstructorArg();
         return this;
     }
@@ -989,13 +972,24 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_CONSTRUCTOR_ARGUMENTS);
     }
 
-    public SyntaxBuilder addType(SyntaxBuilder typename) {
-        return append(typename);
+    public SyntaxBuilder addType(SyntaxBuilder type) {
+        beginType();
+        append(type);
+        endType();
+        return this;
+    }
+
+    public SyntaxBuilder beginType() {
+        return append(SyntaxEnum.BEGIN_TYPE);
+    }
+
+    public SyntaxBuilder endType() {
+        return append(SyntaxEnum.END_TYPE);
     }
 
     public SyntaxBuilder addTypeProduct() {
         addSpace();
-        addKeyword("*");
+        addKeyword(newsb("*"));
         addSpace();
         return this;
     }
@@ -1068,12 +1062,13 @@ public class SyntaxBuilder implements Cloneable {
         END_INTEGER                 (xStop(),  "integer",               ""),
         BEGIN_FLOAT                 (xStart(), "float",                 ""),
         END_FLOAT                   (xStop(),  "float",                 ""),
-        BEGIN_BOOLEAN               (xStart(), "boolean",               ""),
-        END_BOOLEAN                 (xStop(),  "boolean",               ""),
         BEGIN_STRING                (xStart(), "string",                ""),
         END_STRING                  (xStop(),  "string",                ""),
         BEGIN_TYPE                  (xStart(), "type",                  ""),
         END_TYPE                    (xStop(),  "type",                  ""),
+
+        BOOLEAN_TRUE                (xSing(),  "boolean-true",          ""),
+        BOOLEAN_FALSE               (xSing(),  "boolean-false",         ""),
 
         BEGIN_REFERENCE_VARIABLE    (xStart(), "ref",                   ""),
         END_REFERENCE_VARIABLE      (xStop(),  "ref",                   ""),
