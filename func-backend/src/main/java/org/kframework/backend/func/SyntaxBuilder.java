@@ -26,7 +26,7 @@ public class SyntaxBuilder implements Cloneable {
     private int parens = 0;
     private int linum = 0;
     private static final Pattern isSpace      = Pattern.compile("\\s+");
-    private static final Pattern isNewline    = Pattern.compile("\n");
+    private static final Pattern isNewline    = Pattern.compile(newline());
     private static final Pattern isOpenParen  = Pattern.compile("\\(");
     private static final Pattern isCloseParen = Pattern.compile("\\)");
     private static final boolean introduce = false;
@@ -93,9 +93,9 @@ public class SyntaxBuilder implements Cloneable {
             while(m.find()) { parens--; }
         }
 
-        if("\n".equals(s.render())) {
+        if(newline().equals(s.render())) {
             linum++;
-        } else if(s.render().contains("\n")) {
+        } else if(s.render().contains(newline())) {
             Matcher m = isNewline.matcher(s.render());
             while(m.find()) { linum++; }
         }
@@ -213,7 +213,7 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_VALUE);
     }
 
-    public SyntaxBuilder addName(SyntaxBuilder name) {
+    public SyntaxBuilder addName(String name) {
         beginName();
         append(name);
         endName();
@@ -244,9 +244,9 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_PATTERN);
     }
 
-    public SyntaxBuilder addInteger(SyntaxBuilder integer) {
+    public SyntaxBuilder addInteger(int integer) {
         beginInteger();
-        append(integer);
+        append(Integer.toString(integer));
         endInteger();
         return this;
     }
@@ -259,9 +259,9 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_INTEGER);
     }
 
-    public SyntaxBuilder addFloat(SyntaxBuilder float) {
+    public SyntaxBuilder addFloat(float flt) {
         beginFloat();
-        append(float);
+        append(Float.toString(flt));
         endFloat();
         return this;
     }
@@ -274,24 +274,21 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_FLOAT);
     }
 
-    public SyntaxBuilder addBoolean(SyntaxBuilder bool) {
-        beginBoolean();
-        append(bool);
-        endBoolean();
-        return this;
+    public SyntaxBuilder addBoolean(boolean bool) {
+        return bool ? addBooleanTrue() : addBooleanFalse();
     }
 
-    public SyntaxBuilder beginBoolean() {
-        return append(SyntaxEnum.BEGIN_BOOLEAN);
+    public SyntaxBuilder addBooleanTrue() {
+        return append(SyntaxEnum.BOOLEAN_TRUE);
     }
 
-    public SyntaxBuilder endBoolean() {
-        return append(SyntaxEnum.END_BOOLEAN);
+    public SyntaxBuilder addBooleanFalse() {
+        return append(SyntaxEnum.BOOLEAN_FALSE);
     }
 
-    public SyntaxBuilder addString(SyntaxBuilder string) {
+    public SyntaxBuilder addString(String string) {
         beginString();
-        append(string);
+        append(OCamlIncludes.enquoteString(string));
         endString();
         return this;
     }
@@ -303,22 +300,6 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder endString() {
         return append(SyntaxEnum.END_STRING);
     }
-
-    public SyntaxBuilder addType(SyntaxBuilder type) {
-        beginType();
-        append(type);
-        endType();
-        return this;
-    }
-
-    public SyntaxBuilder beginType() {
-        return append(SyntaxEnum.BEGIN_TYPE);
-    }
-
-    public SyntaxBuilder endType() {
-        return append(SyntaxEnum.END_TYPE);
-    }
-
 
     public SyntaxBuilder addSpace() {
         return append(SyntaxEnum.SPACE);
@@ -335,14 +316,14 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addStackTrace() {
-        stx.add(new SyntaxString("\n"));
+        stx.add(new SyntaxString(newline()));
         stx.add(new SyntaxString("(* "));
-        stx.add(new SyntaxString("DEBUG:\n"));
+        stx.add(new SyntaxString("DEBUG:" + newline()));
         stx.add(new SyntaxString(StringUtils.join(Thread.currentThread()
                                                         .getStackTrace(),
-                                                  "\n")));
+                                                  newline())));
         stx.add(new SyntaxString(" *)"));
-        stx.add(new SyntaxString("\n"));
+        stx.add(new SyntaxString(newline()));
         return this;
     }
 
@@ -402,9 +383,9 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addImport(String i) {
-        addKeyword("open");
+        addKeyword(newsb("open"));
         addSpace();
-        addValue(i);
+        addValue(newsb(i));
         addNewline();
         return this;
     }
@@ -476,7 +457,7 @@ public class SyntaxBuilder implements Cloneable {
         append(a.removeNewlines());
         endParenthesis();
         addSpace();
-        addKeyword("=");
+        addKeyword(newsb("="));
         addSpace();
         beginParenthesis();
         append(b.removeNewlines());
@@ -598,7 +579,7 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder addLetEquationSeparator() {
         // addNewline();
         // addSpace();
-        // addKeyword("and");
+        // addKeyword(newsb("and"));
         // addSpace();
         // return this;
         return this; // likely bug spot
@@ -890,6 +871,54 @@ public class SyntaxBuilder implements Cloneable {
 
 
 
+    public SyntaxBuilder addTuple(SyntaxBuilder... values) {
+        beginTuple();
+        for(SyntaxBuilder v : values) {
+            addTupleElem(v);
+        }
+        endTuple();
+        return this;
+    }
+
+    public SyntaxBuilder beginTuple() {
+        return append(SyntaxEnum.BEGIN_TUPLE);
+    }
+
+    public SyntaxBuilder endTuple() {
+        return append(SyntaxEnum.END_TUPLE);
+    }
+
+    public SyntaxBuilder addTupleElem(SyntaxBuilder value) {
+        beginTupleElem();
+        append(string);
+        endTupleElem();
+        return this;
+    }
+
+    public SyntaxBuilder beginTupleElem() {
+        return append(SyntaxEnum.BEGIN_TUPLE_ELEM);
+    }
+
+    public SyntaxBuilder endTupleElem() {
+        return append(SyntaxEnum.END_TUPLE_ELEM);
+    }
+
+
+
+
+    public SyntaxBuilder addSequence(SyntaxBuilder... actions) {
+        append(SyntaxEnum.BEGIN_SEQUENCE_ELEM);
+        for(SyntaxBuilder sb : actions) {
+            append(SyntaxEnum.BEGIN_SEQUENCE_ELEM);
+            append(sb);
+            append(SyntaxEnum.END_SEQUENCE_ELEM);
+        }
+        append(SyntaxEnum.END_SEQUENCE);
+        return this;
+    }
+
+
+
     public SyntaxBuilder beginTypeDefinition(String name, String... vars) {
         append(SyntaxEnum.BEGIN_TYPE_DEFINITION);
         append(SyntaxEnum.BEGIN_TYPE_DEFINITION_VARS);
@@ -982,13 +1011,24 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_CONSTRUCTOR_ARGUMENTS);
     }
 
-    public SyntaxBuilder addType(SyntaxBuilder typename) {
-        return append(typename);
+    public SyntaxBuilder addType(SyntaxBuilder type) {
+        beginType();
+        append(type);
+        endType();
+        return this;
+    }
+
+    public SyntaxBuilder beginType() {
+        return append(SyntaxEnum.BEGIN_TYPE);
+    }
+
+    public SyntaxBuilder endType() {
+        return append(SyntaxEnum.END_TYPE);
     }
 
     public SyntaxBuilder addTypeProduct() {
         addSpace();
-        addKeyword("*");
+        addKeyword(newsb("*"));
         addSpace();
         return this;
     }
@@ -1016,7 +1056,7 @@ public class SyntaxBuilder implements Cloneable {
         public String toString() {
             StringBuilder out = new StringBuilder();
             for(SyntaxEnum se : stxData.keySet()) {
-                out.append(String.format("\n%30s ---> %s\n", se, stxData.get(se)));
+                out.append(String.format("%n%30s ---> %s%n", se, stxData.get(se)));
             }
             return out.toString();
         }
@@ -1031,7 +1071,7 @@ public class SyntaxBuilder implements Cloneable {
 
     private enum SyntaxEnum implements Syntax {
         SPACE                       (xSing(),  "space",                 " "),
-        NEWLINE                     (xSing(),  "newline",               "\n"),
+        NEWLINE                     (xSing(),  "newline",               newline()),
 
         BEGIN_RENDER                (xStart(), "rend",                  ""),
         END_RENDER                  (xStop(),  "rend",                  ""),
@@ -1061,12 +1101,13 @@ public class SyntaxBuilder implements Cloneable {
         END_INTEGER                 (xStop(),  "integer",               ""),
         BEGIN_FLOAT                 (xStart(), "float",                 ""),
         END_FLOAT                   (xStop(),  "float",                 ""),
-        BEGIN_BOOLEAN               (xStart(), "boolean",               ""),
-        END_BOOLEAN                 (xStop(),  "boolean",               ""),
         BEGIN_STRING                (xStart(), "string",                ""),
         END_STRING                  (xStop(),  "string",                ""),
         BEGIN_TYPE                  (xStart(), "type",                  ""),
         END_TYPE                    (xStop(),  "type",                  ""),
+
+        BOOLEAN_TRUE                (xSing(),  "boolean-true",          "true"),
+        BOOLEAN_FALSE               (xSing(),  "boolean-false",         "false"),
 
         BEGIN_REFERENCE_VARIABLE    (xStart(), "ref",                   ""),
         END_REFERENCE_VARIABLE      (xStop(),  "ref",                   ""),
@@ -1083,7 +1124,7 @@ public class SyntaxBuilder implements Cloneable {
         END_MATCH_INPUT             (xStop(),  "match-input",           " with "),
         BEGIN_MATCH_EQUATIONS       (xStart(), "match-equations",       ""),
         END_MATCH_EQUATIONS         (xStop(),  "match-equations",       ""),
-        BEGIN_MATCH_EQUATION        (xStart(), "match-equation",        "\n| "),
+        BEGIN_MATCH_EQUATION        (xStart(), "match-equation",        newline() + "| "),
         END_MATCH_EQUATION          (xStop(),  "match-equation",        ""),
         BEGIN_MATCH_EQUATION_PAT    (xStart(), "match-equation-pat",    ""),
         END_MATCH_EQUATION_PAT      (xStop(),  "match-equation-pat",    " -> "),
@@ -1091,11 +1132,12 @@ public class SyntaxBuilder implements Cloneable {
         END_MATCH_EQUATION_VAL      (xStop(),  "match-equation-val",    ")"),
 
         BEGIN_EXCEPTION_DECLARATION (xStart(), "exception-declaration", "exception "),
-        END_EXCEPTION_DECLARATION   (xStop(),  "exception-declaration", ";;\n"),
+        END_EXCEPTION_DECLARATION   (xStop(),  "exception-declaration", ";;" + newline()),
 
         BEGIN_EXCEPTION_RAISE       (xStart(), "exception-raise",       "(raise "),
         END_EXCEPTION_RAISE         (xStop(),  "exception-raise",       ")"),
 
+        // FIXME(remy): currently outputs garbage
         BEGIN_TRY_EXPRESSION        (xStart(), "try-expression",        "FIXME"),
         END_TRY_EXPRESSION          (xStop(),  "try-expression",        "FIXME"),
         BEGIN_TRY_INPUT             (xStart(), "try-input",             "FIXME"),
@@ -1109,10 +1151,21 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_TRY_EQUATION_VAL      (xStart(), "try-equation-val",      "FIXME"),
         END_TRY_EQUATION_VAL        (xStop(),  "try-equation-val",      "FIXME"),
 
+        // FIXME(remy): semantics are wrong
+        BEGIN_TUPLE                 (xStart(), "tuple",                 "(()"),
+        END_TUPLE                   (xStop(),  "tuple",                 ")"),
+        BEGIN_TUPLE_ELEM            (xStart(), "tuple-elem",            ", "),
+        END_TUPLE_ELEM              (xStop(),  "tuple-elem",            ""),
+
+        BEGIN_SEQUENCE              (xStart(), "sequence",              "(()"),
+        END_SEQUENCE                (xStop(),  "sequence",              ")"),
+        BEGIN_SEQUENCE_ELEM         (xStart(), "sequence-elem",         "; "),
+        END_SEQUENCE_ELEM           (xStop(),  "sequence-elem",         ""),
+
         BEGIN_LET_EXPRESSION        (xStart(), "let-expression",        "(let "),
         END_LET_EXPRESSION          (xStop(),  "let-expression",        ")"),
         BEGIN_LET_DECLARATION       (xStart(), "let-declaration",       "let "),
-        END_LET_DECLARATION         (xStop(),  "let-declaration",       "\n"),
+        END_LET_DECLARATION         (xStop(),  "let-declaration",       newline()),
         BEGIN_LET_DEFINITIONS       (xStart(), "let-definitions",       ""),
         END_LET_DEFINITIONS         (xStop(),  "let-definitions",       "_ = 1"),
         BEGIN_LET_EQUATION          (xStart(), "let-equation",          ""),
@@ -1127,7 +1180,7 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_LETREC_EXPRESSION     (xStart(), "letrec-expression",     "(let rec "),
         END_LETREC_EXPRESSION       (xStop(),  "letrec-expression",     ")"),
         BEGIN_LETREC_DECLARATION    (xStart(), "letrec-declaration",    "let rec "),
-        END_LETREC_DECLARATION      (xStop(),  "letrec-declaration",    "\n"),
+        END_LETREC_DECLARATION      (xStop(),  "letrec-declaration",    newline()),
         BEGIN_LETREC_DEFINITIONS    (xStart(), "letrec-definitions",    ""),
         END_LETREC_DEFINITIONS      (xStop(),  "letrec-definitions",    "throwaway = 1"),
         BEGIN_LETREC_EQUATION       (xStart(), "letrec-equation",       ""),
@@ -1162,12 +1215,12 @@ public class SyntaxBuilder implements Cloneable {
         BEGIN_TYPE_DEFINITION_VARS  (xStart(), "type-definition-vars",  ""),
         END_TYPE_DEFINITION_VARS    (xStop(),  "type-definition-vars",  " "),
         BEGIN_TYPE_DEFINITION_NAME  (xStart(), "type-definition-name",  ""),
-        END_TYPE_DEFINITION_NAME    (xStop(),  "type-definition-name",  " = \n"),
+        END_TYPE_DEFINITION_NAME    (xStop(),  "type-definition-name",  " = " + newline()),
         BEGIN_TYPE_DEFINITION_CONS  (xStart(), "type-definition-cons",  ""),
         END_TYPE_DEFINITION_CONS    (xStop(),  "type-definition-cons",  ""),
 
         BEGIN_CONSTRUCTOR           (xStart(), "constructor",           "| "),
-        END_CONSTRUCTOR             (xStop(),  "constructor",           "\n"),
+        END_CONSTRUCTOR             (xStop(),  "constructor",           newline()),
         BEGIN_CONSTRUCTOR_NAME      (xStart(), "constructor-name",      ""),
         END_CONSTRUCTOR_NAME        (xStop(),  "constructor-name",      ""),
         BEGIN_CONSTRUCTOR_ARGUMENT  (xStart(), "constructor-argument",  ""),
@@ -1221,7 +1274,6 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     private interface Syntax {
-        Pattern isNewline = Pattern.compile("\n");
         String render();
         void setRenderString(String s);
 

@@ -92,7 +92,7 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private void generateOCamlDef(CompiledDefinition def) {
         converter = converterGen.apply(def);
-        String ocaml = converter.genOCaml();
+        String ocaml = converter.getDefinition();
         FileUtil.save(defSourceFile, ocaml);
     }
 

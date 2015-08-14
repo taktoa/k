@@ -2,10 +2,16 @@
 package org.kframework.backend.func;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import java.util.Locale;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
-import org.kframework.kore.Sort;
-import org.kframework.kore.KLabel;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.tuple.Pair;
+import org.kframework.kil.FloatBuiltin;
+import org.kframework.kore.KLabel;
+import org.kframework.kore.Sort;
+import org.kframework.mpfr.BigFloat;
 import org.kframework.utils.errorsystem.KEMException;
 
 import static org.kframework.Collections.*;
@@ -20,12 +26,35 @@ import static org.kframework.utils.StringUtil.*;
  */
 public final class OCamlIncludes {
     public static final Pattern identifierChar = Pattern.compile("[A-Za-z0-9_]");
-    public static final String TRUE = "(Bool true)";
-    public static final String BOOL = encodeStringToIdentifier(Sort("Bool"));
-    public static final String STRING = encodeStringToIdentifier(Sort("String"));
-    public static final String INT = encodeStringToIdentifier(Sort("Int"));
-    private static long counter = 0;
+    public static final String
+        TRUE, FALSE, BOOL,
+        INT, FLOAT, STRING,
+        SET, SET_CONCAT,
+        LIST, LIST_CONCAT;
 
+    static {
+        TRUE        = "(Bool true)";
+        FALSE       = "(Bool true)";
+        BOOL        = encodeStringToIdentifier(Sort("Bool"));
+        STRING      = encodeStringToIdentifier(Sort("String"));
+        INT         = encodeStringToIdentifier(Sort("Int"));
+        FLOAT       = encodeStringToIdentifier(Sort("Float"));
+        SET         = encodeStringToIdentifier(Sort("Set"));
+        SET_CONCAT  = encodeStringToIdentifier(KLabel("_Set_"));
+        LIST        = encodeStringToIdentifier(Sort("List"));
+        LIST_CONCAT = encodeStringToIdentifier(KLabel("_List_"));
+    }
+
+    public static final SyntaxBuilder wildcardSB, bottomSB, choiceSB, resultSB;
+
+    static {
+        wildcardSB = newsbv("_");
+        bottomSB = newsbv("[Bottom]");
+        choiceSB = newsbv("choice");
+        resultSB = newsbv("result");
+    }
+
+    private static long counter = 0;
 
     // public static final SyntaxBuilder definitionsSB = newsb();
 
@@ -174,8 +203,10 @@ public final class OCamlIncludes {
     public static final SyntaxBuilder midludeSB  = newsb(midlude);
     public static final SyntaxBuilder postludeSB = newsb(postlude);
 
+    public static final ImmutableSet<String> hookNamespaces;
     public static final ImmutableMap<String, SyntaxBuilder> hooks;
     public static final ImmutableMap<String, Function<String, SyntaxBuilder>> sortHooks;
+    public static final ImmutableMap<String, Function<Sort, SyntaxBuilder>> sortVarHooks;
     public static final ImmutableMap<String, SyntaxBuilder> predicateRules;
 
     private OCamlIncludes() {}
@@ -284,23 +315,83 @@ public final class OCamlIncludes {
     }
 
     static {
-        ImmutableMap.Builder<String, Function<String, SyntaxBuilder>> bld;
+        ImmutableSet.Builder<String> bld = ImmutableSet.builder();
+        bld.add("BOOL");
+        bld.add("FLOAT");
+        bld.add("INT");
+        bld.add("IO");
+        bld.add("K");
+        bld.add("KEQUAL");
+        bld.add("KREFLECTION");
+        bld.add("LIST");
+        bld.add("MAP");
+        bld.add("MINT");
+        bld.add("SET");
+        bld.add("STRING");
+        hookNamespaces = bld.build();
+    }
+
+    static {
+        ImmutableMap.Builder<String, Function<Sort, SyntaxBuilder>> bld;
         bld = ImmutableMap.builder();
-        bld.put("#BOOL",
-                s -> newsb().addApplication("Bool",   newsbv(s)));
-        bld.put("#INT",
-                s -> newsb().addApplication("Int",    newsb().addApplication("Z.of_string", newsbv(enquote(s)))));
-        bld.put("#STRING",
-                s -> newsb().addApplication("String", newsbv(ocamlStringQuote(s))));
+        bld.put("BOOL.Bool",     s -> newsb("Bool _"));
+        bld.put("INT.Int",       s -> newsb("Int _"));
+        bld.put("FLOAT.Float",   s -> newsb("Float _"));
+        bld.put("STRING.String", s -> newsb("String _"));
+        bld.put("LIST.List",     s -> newsb("List (" + encodeStringToIdentifier(s) + ",_,_)"));
+        bld.put("MAP.Map",       s -> newsb("Map (" + encodeStringToIdentifier(s) + ",_,_)"));
+        bld.put("SET.Set",       s -> newsb("Set (" + encodeStringToIdentifier(s) + ",_,_)"));
+        sortVarHooks = bld.build();
+    }
+
+    static {
+        ImmutableMap.Builder<String, Function<String, SyntaxBuilder>> bld;
+
+        BiConsumer<String, Function<String, SyntaxBuilder>> fun = (str, f) -> {
+            String upper = str.toUpperCase(new Locale("en"));
+            bld.put(String.format("%s.%s", upper, str), f);
+        };
+
+        Function<String, SyntaxBuilder> renderBool = s -> {
+            return newsbApp("Bool", newsbv(s));
+        };
+
+        Function<String, SyntaxBuilder> renderInt = s -> {
+            return newsbApp("Int", newsbApp("Z.of_string", newsbStr(s)));
+        };
+
+        Function<String, SyntaxBuilder> renderFloat = s -> {
+            Pair<BigFloat, Integer> f = FloatBuiltin.parseKFloat(s);
+            BigFloat left = f.getLeft();
+            Integer right = f.getRight();
+            int prec = left.precision();
+            SyntaxBuilder val = newsbApp("FR.from_string_prec_base",
+                                         newsbInt(prec),
+                                         newsbn("GMP_RNDN"),
+                                         newsbInt(10),
+                                         newsbStr(left.toString()));
+            return newsbApp("round_to_range",
+                            newsbApp("Float",
+                                     newsbTup(val,
+                                              newsbInt(right),
+                                              newsbInt(prec))));
+        };
+
+        Function<String, SyntaxBuilder> renderString = s -> {
+            String unquoted = unquoteKString(unquoteKString("\"" + s + "\""));
+            return newsbApp("String", newsbStr(unquoted));
+        };
+
+        bld = ImmutableMap.builder();
+        fun.accept("Bool",   renderBool);
+        fun.accept("Float",  renderFloat);
+        fun.accept("Int",    renderInt);
+        fun.accept("String", renderString);
         sortHooks = bld.build();
     }
 
-    private static String enquote(String s) {
-        return "\"" + s + "\"";
-    }
-
-    private static String ocamlStringQuote(String ks) {
-        return enquoteCString(unquoteKString(unquoteKString(enquote(ks))));
+    private static String unquoteOCaml(String s) {
+        return ;
     }
 
     static {

@@ -11,6 +11,8 @@ import org.kframework.kompile.KompileOptions;
 import org.kframework.kore.K;
 import org.kframework.definition.Rule;
 
+import java.util.Collections;
+
 import static org.kframework.backend.func.FuncUtil.*;
 import static org.kframework.backend.func.OCamlIncludes.*;
 
@@ -21,17 +23,6 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class KToFunc {
     private final PreprocessedKORE preproc;
-
-    private static final SyntaxBuilder imports;
-
-    static {
-        imports = newsb()
-            .addImport("Prelude")
-            .addImport("Constants")
-            .addImport("Prelude.K")
-            .addImport("Gmp")
-            .addImport("Def");
-    }
 
     /**
      * Constructor for KToFunc
@@ -83,7 +74,7 @@ public class KToFunc {
             .beginApplication()
             .addFunction("run")
             .addArgument(newsb(convertRuntime(k)))
-            .addArgument(newsbv(Integer.toString(depth)))
+            .addArgument(newsbInt(depth))
             .endApplication();
         return genRuntime(newsbApp("output_string",
                                    newsbn("out"),
@@ -113,7 +104,7 @@ public class KToFunc {
             .endApplication();
         SyntaxBuilder printOutSB = newsbApp("output_string",
                                             newsbn("file1"),
-                                            newsbv(enquoteString("0\n")));
+                                            newsbv(enquoteString("0" + newline())));
         return genRuntime(newsb()
                           .beginTryExpression(tryValueSB)
                           .addTryEquation(newsbn("Stuck c"), printOutSB)
@@ -136,12 +127,12 @@ public class KToFunc {
             .addFunction("try_match")
             .beginArgument()
             .beginLetExpression()
-            .beginLetEquations()
+            .beginLetDefinitions()
             .addLetEquation(newsbn("res"),
                             newsbApp("run",
                                      convertRuntime(k),
-                                     newsbv(depth)))
-            .endLetEquations()
+                                     newsbInt(depth)))
+            .endLetDefinitions()
             .beginLetScope()
             .addSequence(newsbApp("output_string",
                                   newsbn("file1"),
@@ -158,7 +149,7 @@ public class KToFunc {
                                               newsbApp("print_k", newsbn("c")));
         SyntaxBuilder printSubstSB = newsbApp("output_string",
                                               newsbn("file2"),
-                                              newsbv(enquoteString("0\n")));
+                                              newsbv(enquoteString("0" + newline())));
         return genRuntime(newsb()
                           .beginTryExpression(tryValueSB)
                           .addTryEquation(newsbn("Stuck c"),
@@ -194,11 +185,11 @@ public class KToFunc {
     }
 
     private SyntaxBuilder genConfig() {
-        return newsb().addGlobalLet(newsb().addName("config"), bottomSB);
+        return newsb().addGlobalLet(newsbn("config"), bottomSB);
     }
 
     private SyntaxBuilder genFileDefs(String... paths) {
-        SyntaxBuilder sb;
+        SyntaxBuilder sb = newsb();
         int i = 0;
         for(String path : paths) {
             sb.addGlobalLet(newsb().addName(String.format("file%d", i++)),
@@ -210,21 +201,21 @@ public class KToFunc {
 
     private SyntaxBuilder genTryMatch(Rule r) {
         return newsb()
-            .append("let try_match (c: k) : k Subst.t =")
-            .append("let config = c in")
-            .append("match c with ")
-            .append("\n")
-            .append(convertFunction(Collections.singletonList(convert(preproc, r)),
-                                    "try_match", RuleType.PATTERN))
-            .append("| _ -> raise(Stuck c)")
-            .append("\n");
+            .appendf("let try_match (c: k) : k Subst.t =")
+            .appendf("let config = c in")
+            .appendf("match c with ")
+            .appendf("%n")
+            .appendf("%s", DefinitionToFunc.runtimeFunction(preproc, "try_match", r))
+            .appendf("| _ -> raise(Stuck c)")
+            .appendf("%n");
     }
 
 
     private SyntaxBuilder convertRuntime(K k) {
-        return genVisitor(new VarInfo(),
-                          true,
-                          false,
-                          false).apply(preproc.runtimeProcess(k));
+        return new FuncVisitor(preproc,
+                               new FuncVisitor.VarInfo(),
+                               true,
+                               false,
+                               false).apply(preproc.runtimeProcess(k));
     }
 }

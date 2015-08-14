@@ -43,8 +43,13 @@ import static org.kframework.utils.errorsystem.KEMException.*;
  * @author Remy Goldschmidt
  */
 public final class FuncUtil {
+    private static final String nl = String.format("%n");
+
     private FuncUtil() {}
 
+    public static String newline() {
+        return nl;
+    }
 
     // ------------------------------------------------------------------------
     // ------------------------------- XML debug ------------------------------
@@ -173,44 +178,40 @@ public final class FuncUtil {
         return newsb().appendf(fmt, args);
     }
 
-    public static SyntaxBuilder newsbp(String pattern) {
-        return newsbp(newsb(pattern));
-    }
-
-    public static SyntaxBuilder newsbp(SyntaxBuilder pattern) {
-        return newsb().addPattern(pattern);
-    }
-
-    // public static SyntaxBuilder newsbv(String value) {
-    //     return newsbv(newsb(value));
-    // }
-
-    public static SyntaxBuilder newsbv(SyntaxBuilder value) {
-        return newsb().addValue(value);
-    }
-
-    public static SyntaxBuilder newsbi(int integer) {
-        return newsbi(newsb(Integer.toString(val)));
-    }
-
-    public static SyntaxBuilder newsbi(SyntaxBuilder integer) {
-        return newsb().addInteger(integer);
+    public static SyntaxBuilder newsbv(String value) {
+        return newsb().addValue(newsb(value));
     }
 
     public static SyntaxBuilder newsbk(String keyword) {
-        return newsbk(newsb(keyword));
+        return newsb().addKeyword(newsb(keyword));
     }
 
-    public static SyntaxBuilder newsbk(SyntaxBuilder keyword) {
-        return newsb().addKeyword(keyword);
+    public static SyntaxBuilder newsbn(String name) {
+        return newsb().addName(name);
     }
 
-    public static SyntaxBuilder newsbn(String s) { //FIXME not sure what this should do
-        return newsb().append(s);
+    public static SyntaxBuilder newsbp(String pattern) {
+        return newsb().addPattern(newsb(pattern));
     }
 
-    public static SyntaxBuilder newsbApp(String s, SyntaxBuilder ... t) {
-        return newsb(); //FIXME: this should do something
+    public static SyntaxBuilder newsbInt(int integer) {
+        return newsb().addInteger(integer);
+    }
+
+    public static SyntaxBuilder newsbFlt(float flt) {
+        return newsb().addFloat(flt);
+    }
+
+    public static SyntaxBuilder newsbStr(String string) {
+        return newsb().addString(string);
+    }
+
+    public static SyntaxBuilder newsbBool(boolean bool) {
+        return newsb().addBoolean(bool);
+    }
+
+    public static SyntaxBuilder newsbApp(String f, SyntaxBuilder ... as) {
+        return newsb().addApplication(f, as);
     }
 
 

@@ -18,8 +18,14 @@ import org.kframework.kore.Sort;
 import org.kframework.utils.StringUtil;
 import org.kframework.utils.errorsystem.KEMException;
 
+import com.google.common.collect.HashMultimap;
+import org.kframework.definition.Module;
+
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Collection;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
@@ -40,9 +46,10 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     private boolean inBooleanExp;
 
     public FuncVisitor(PreprocessedKORE ppk,
+                       VarInfo vars,
                        boolean rhs,
-                       SetMultimap<KVariable, String> vars,
-                       boolean useNativeBooleanExp) {
+                       boolean useNativeBooleanExp,
+                       boolean anywhereRule) {
         this.ppk = ppk;
         this.rhs = rhs;
         this.vars = vars;
@@ -70,13 +77,15 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             KToken    ktok1 = (KToken)    kseq1.items().get(0);
             return
                 newsb()
-                .addValue("KToken")
+                .beginValue()
+                .addName("KToken")
                 .beginParenthesis()
                 .append(apply(Sort(ktok1.s())))
                 .addKeyword(",")
                 .addSpace()
                 .append(apply(kseq2.items().get(0)))
-                .endParenthesis();
+                .endParenthesis()
+                .endValue();
         } else if(isFunctionKLabel(kl) || (isAnywhereKLabel(kl) && rhs)) {
             return applyFunction(k);
         } else {
@@ -263,38 +272,53 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     }
 
     private SyntaxBuilder applyVarRhs(KVariable v,
-                                      SetMultimap<KVariable, String> vars) {
-        return newsb(vars.get(v).iterator().next());
+                                      VarInfo vars) {
+        return applyVarRhs(ppk,
+                           vars.vars.get(v).iterator().next(),
+                           vars.listVars.get(vars.vars
+                                                 .get(v)
+                                                 .iterator()
+                                                 .next()));
+    }
+
+    private SyntaxBuilder applyVarRhs(String varOccurrance,
+                                      KLabel listVar) {
+        if(listVar == null) {
+            return newsb(varOccurrance);
+        } else {
+            return newsbf("(List (%s, %s, %s))",
+                          encodeStringToIdentifier(ppk.mainModule
+                                                      .sortFor()
+                                                      .apply(listVar)),
+                          encodeStringToIdentifier(listVar),
+                          varOccurrance);
+        }
     }
 
     private SyntaxBuilder applyVarLhs(KVariable k,
-                                      SetMultimap<KVariable, String> vars) {
+                                      VarInfo vars) {
+        Module mm = ppk.mainModule;
         String varName = encodeStringToVariable(k.name());
-
-        vars.put(k, varName);
-
+        vars.vars.put(k, varName);
         Sort s = Sort(k.att()
                        .<String>getOptional(Attribute.SORT_KEY)
                        .orElse(""));
-
-        String hook = ppk.attrSorts
-                         .get(Attribute.HOOK_KEY)
-                         .getOrDefault(s, "");
-
-        if(sortHooks.containsKey(hook)) {
-            return newsb()
-                .beginParenthesis()
-                .addValue(s.name())
-                .addSpace()
-                .addValue("_")
-                .addSpace()
-                .addKeyword("as")
-                .addSpace()
-                .addValue(varName)
-                .endParenthesis();
+        SyntaxBuilder res;
+        if(mm.sortAttributesFor().contains(s)) {
+            String hook = mm.sortAttributesFor()
+                            .apply(s)
+                            .<String>getOptional("hook")
+                            .orElse("");
+            if(sortVarHooks.containsKey(hook)) {
+                res = newsbf("(%s as %s)",
+                             sortVarHooks.get(hook).apply(s),
+                             varName);
+            } else {
+                res = newsb(varName);
+            }
         }
 
-        return newsb(varName);
+        return res;
     }
 
     private void checkKSequence(KSequence k) {
@@ -374,5 +398,50 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
     private boolean isAnywhereKLabel(KLabel k) {
         return ppk.anywhereSet.contains(k);
+    }
+
+    public static SyntaxBuilder convert(PreprocessedKORE ppk,
+                                        FuncVisitor.VarInfo vars) {
+        SyntaxBuilder sb = newsb();
+        for(Map.Entry<KVariable, Collection<String>> entry : vars.vars
+                                                                 .asMap()
+                                                                 .entrySet()) {
+            Collection<String> nonLinearVars = entry.getValue();
+            if(nonLinearVars.size() < 2) { continue; }
+            Iterator<String> iter = nonLinearVars.iterator();
+            String last = iter.next();
+            while (iter.hasNext()) {
+                //handle nonlinear variables in pattern
+                String next = iter.next();
+                boolean il = isList(entry.getKey(), ppk, vars, true, false);
+                sb.appendf("((%s %s %s) = 0) && ",
+                           il ? "compare" : "compare_kitem",
+                           applyVarRhs(ppk, last, sb, vars.listVars.get(last)),
+                           applyVarRhs(ppk, next, sb, vars.listVars.get(next)));
+                last = next;
+            }
+        }
+        sb.append("true");
+        return sb;
+    }
+
+    public static class VarInfo {
+        private final SetMultimap<KVariable, String> vars;
+        private final Map<String, KLabel> listVars;
+
+        VarInfo() {
+            this(HashMultimap.create(), newHashMap());
+        }
+
+        VarInfo(VarInfo vars) {
+            this(HashMultimap.create(vars.vars),
+                 newHashMap().putAll(vars.listVars));
+        }
+
+        VarInfo(SetMultimap<KVariable, String> vars,
+                Map<String, KLabel> listVars) {
+            this.vars = vars;
+            this.listVars = listVars;
+        }
     }
 }

@@ -71,6 +71,9 @@ import static scala.compat.java8.JFunction.*;
  * @author Remy Goldschmidt
  */
 public final class PreprocessedKORE {
+    public static final boolean fastCompilation = true;
+
+
     /** Set of KLabels that are functions */
     public Set<KLabel> functionSet;
     /** Set of KLabels that are subject to [anywhere] rules */
@@ -127,6 +130,10 @@ public final class PreprocessedKORE {
      */
     public Map<KLabel, Set<Production>> productionsFor;
 
+    /** Collections for a given KLabel
+     */
+    public Map<KLabel, KLabel> collectionFor;
+
     /** The same as mainModule.freshFunctionFor,
      *  but converted to use Java collections
      */
@@ -135,6 +142,7 @@ public final class PreprocessedKORE {
     /** A map from rules to a cleaned-up subset of their attributes */
     public Map<Rule, Set<String>> indexedRules;
 
+    public final Module mainModule;
 
     private Set<String> initialized;
 
@@ -143,7 +151,6 @@ public final class PreprocessedKORE {
     private final Module     executionModule;
     private final Definition kompiledDefinition;
 
-    private final Module mainModule;
     private final Set<Rule> rules;
     private final Map<Sort, Att> sortAttributesFor;
     private final Map<KLabel, Att> attributesFor;
@@ -218,6 +225,9 @@ public final class PreprocessedKORE {
         liftToKSequenceObj = new LiftToKSequence();
         deconstructNumsObj = new DeconstructIntegerAndFloatLiterals();
         simplifyConditionsObj   = new SimplifyConditions();
+
+        // Set collectionFor
+        collectionFor = ConvertDataStructureToLookup.collectionFor(mainModule);
 
         ModuleTransformer
             convertLookupsMT, liftToKSequenceMT,
@@ -333,10 +343,9 @@ public final class PreprocessedKORE {
         functionRules = HashMultimap.create();
 
         for(Rule r : rules) {
-            Optional<KLabel> mkl = getKLabelIfFunctionRule(r);
-            if(mkl.isPresent()) {
-                functionRules.put(mkl.get(), r);
-            }
+            getKLabelIfFunctionRule(r).ifPresent(x -> {
+                    functionRules.put(x, r);
+                });
         }
 
         initialized.add("functionRules");
@@ -349,10 +358,9 @@ public final class PreprocessedKORE {
         anywhereRules = HashMultimap.create();
 
         for(Rule r : rules) {
-            Optional<KLabel> mkl = getKLabelIfAnywhereRule(r);
-            if(mkl.isPresent()) {
-                anywhereRules.put(mkl.get(), r);
-            }
+            getKLabelIfAnywhereRule(r).ifPresent(x -> {
+                    anywhereRules.put(x, r);
+                });
         }
 
         initialized.add("anywhereRules");
