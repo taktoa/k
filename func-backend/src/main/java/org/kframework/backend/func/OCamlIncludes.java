@@ -345,7 +345,8 @@ public final class OCamlIncludes {
     }
 
     static {
-        ImmutableMap.Builder<String, Function<String, SyntaxBuilder>> bld;
+        final ImmutableMap.Builder<String, Function<String, SyntaxBuilder>> bld;
+        bld = ImmutableMap.builder();
 
         BiConsumer<String, Function<String, SyntaxBuilder>> fun = (str, f) -> {
             String upper = str.toUpperCase(new Locale("en"));
@@ -382,16 +383,11 @@ public final class OCamlIncludes {
             return newsbApp("String", newsbStr(unquoted));
         };
 
-        bld = ImmutableMap.builder();
         fun.accept("Bool",   renderBool);
         fun.accept("Float",  renderFloat);
         fun.accept("Int",    renderInt);
         fun.accept("String", renderString);
         sortHooks = bld.build();
-    }
-
-    private static String unquoteOCaml(String s) {
-        return ;
     }
 
     static {

@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.function.Supplier;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
@@ -41,9 +43,11 @@ import static org.kframework.backend.func.FuncUtil.*;
 public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     private final PreprocessedKORE ppk;
     private final boolean rhs;
-    private final SetMultimap<KVariable, String> vars;
+    private final VarInfo vars;
     private final boolean useNativeBooleanExp;
     private boolean inBooleanExp;
+    private boolean topAnywherePre;
+    private boolean topAnywherePost;
 
     public FuncVisitor(PreprocessedKORE ppk,
                        VarInfo vars,
@@ -55,6 +59,8 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         this.vars = vars;
         this.useNativeBooleanExp = useNativeBooleanExp;
         this.inBooleanExp = useNativeBooleanExp;
+        this.topAnywherePre = anywhereRule;
+        this.topAnywherePost = anywhereRule;
     }
 
     @Override
@@ -121,9 +127,9 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     @Override
     public SyntaxBuilder apply(KVariable k) {
         if(rhs) {
-            return applyVarRhs(k, vars);
+            return applyVarRhs(ppk, k, vars);
         } else {
-            return applyVarLhs(k, vars);
+            return applyVarLhs(ppk, k, vars);
         }
     }
 
@@ -170,12 +176,14 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
         if(sortHooks.containsKey(hook) && k.klist().items().size() == 1) {
             KSequence item = (KSequence) k.klist().items().get(0);
-            if(item.items().size() == 1 && vars.containsKey(item.items().get(0))) {
+            if(   item.items().size() == 1
+               && vars.getVars().containsKey(item.items().get(0))) {
                 Optional<String> varSort = item.items()
                     .get(0)
                     .att()
                     .<String>getOptional(Attribute.SORT_KEY);
-                if(varSort.isPresent() && varSort.get().equals(s.name())) {
+                if(   varSort.isPresent()
+                   && varSort.get().equals(s.name())) {
                     return Optional.of(apply(BooleanUtils.TRUE));
                 }
             }
@@ -271,18 +279,20 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         }
     }
 
-    private SyntaxBuilder applyVarRhs(KVariable v,
-                                      VarInfo vars) {
+    private static SyntaxBuilder applyVarRhs(PreprocessedKORE ppk,
+                                             KVariable v,
+                                             VarInfo vars) {
         return applyVarRhs(ppk,
-                           vars.vars.get(v).iterator().next(),
-                           vars.listVars.get(vars.vars
-                                                 .get(v)
-                                                 .iterator()
-                                                 .next()));
+                           vars.getVars().get(v).iterator().next(),
+                           vars.getListVars().get(vars.getVars()
+                                                      .get(v)
+                                                      .iterator()
+                                                      .next()));
     }
 
-    private SyntaxBuilder applyVarRhs(String varOccurrance,
-                                      KLabel listVar) {
+    private static SyntaxBuilder applyVarRhs(PreprocessedKORE ppk,
+                                             String varOccurrance,
+                                             KLabel listVar) {
         if(listVar == null) {
             return newsb(varOccurrance);
         } else {
@@ -295,26 +305,27 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         }
     }
 
-    private SyntaxBuilder applyVarLhs(KVariable k,
-                                      VarInfo vars) {
+    private static SyntaxBuilder applyVarLhs(PreprocessedKORE ppk,
+                                             KVariable k,
+                                             VarInfo vars) {
         Module mm = ppk.mainModule;
         String varName = encodeStringToVariable(k.name());
-        vars.vars.put(k, varName);
+        vars.getVars().put(k, varName);
         Sort s = Sort(k.att()
                        .<String>getOptional(Attribute.SORT_KEY)
                        .orElse(""));
-        SyntaxBuilder res;
+        SyntaxBuilder res = newsb();
         if(mm.sortAttributesFor().contains(s)) {
             String hook = mm.sortAttributesFor()
                             .apply(s)
                             .<String>getOptional("hook")
                             .orElse("");
             if(sortVarHooks.containsKey(hook)) {
-                res = newsbf("(%s as %s)",
+                res.appendf("(%s as %s)",
                              sortVarHooks.get(hook).apply(s),
                              varName);
             } else {
-                res = newsb(varName);
+                res.append(varName);
             }
         }
 
@@ -332,12 +343,15 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         }
     }
 
-    public String getSortOfVar(K k) {
-        return k.att()
-                .<String>getOptional(Attribute.SORT_KEY)
-                .orElse("K");
+    public static String getSortOfVar(KVariable k, FuncVisitor.VarInfo vars) {
+        if(vars.getVars().containsKey(k)) {
+            String varName = vars.getVars().get(k).iterator().next();
+            if(vars.getListVars().containsKey(varName)) {
+                return vars.getListVars().get(varName).name();
+            }
+        }
+        return k.att().<String>getOptional(Attribute.SORT_KEY).orElse("K");
     }
-
 
     private boolean isNativeAnd(String hook) {
         boolean res = useNativeBooleanExp;
@@ -358,24 +372,53 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     }
 
     private boolean isList(K item, boolean klist) {
-        boolean isKSequence = item instanceof KSequence;
-        boolean isKVariable = item instanceof KVariable;
-        boolean isKApply    = item instanceof KApply;
-        boolean sortIsK     = getSortOfVar(item).equals("K");
+        return !klist && isList(item, ppk, vars, rhs, topAnywherePost);
+    }
 
-        if(klist)                  { return false; }
-        if(isKSequence)            { return true; }
-        if(isKVariable && sortIsK) { return true; }
+    /**
+     * Determine whether the given item is a list, subject to the
+     * extra information given in the remaining parameters.
+     * @param item  The item to test for list-ness
+     * @param vars  Information about variables
+     * @param rhs   Are we on the right hand side of a KRewrite?
+     * @param any   Is the current rule an [anywhere] rule?
+     * @return      Whether or not item represents a list
+     */
+    public static boolean isList(K item,
+                                 PreprocessedKORE ppk,
+                                 FuncVisitor.VarInfo vars,
+                                 boolean rhs,
+                                 boolean any) {
+        // I'm using Supplier<Boolean> to retain the lazy
+        // semantics of && and || in Java without having
+        // a terrifyingly long boolean expression to read
 
-        if(isKApply) {
+        // There is some overhead with making these objects
+        // but it shouldn't be too terrible
+
+        Supplier<Boolean> itemKVar =
+            () -> getSortOfVar((KVariable) item, vars).equals("K");
+
+        Supplier<Boolean> itemKSeq = () -> true;
+
+        Supplier<Boolean> itemKApp = () -> {
             KLabel kl = ((KApply) item).klabel();
-            if(isFunctionKLabel(kl))    { return true; }
-            if(! rhs)                   { return false; }
-            if(kl instanceof KVariable) { return true; }
-            if(isAnywhereKLabel(kl))    { return true; }
-        }
+            return ppk.functionSet.contains(kl)
+                || (rhs && ((ppk.anywhereSet.contains(kl) && !any)
+                            || kl instanceof KVariable));
+        };
 
-        return false;
+        Supplier<Boolean> valA =
+            () -> (item instanceof KVariable && itemKVar.get())
+               || (item instanceof KSequence && itemKSeq.get())
+               || (item instanceof KApply    && itemKApp.get());
+
+        Supplier<Boolean> valB =
+            () -> rhs
+               || !(item instanceof KApply)
+               || !ppk.collectionFor.containsKey(((KApply) item).klabel());
+
+        return valA.get() && valB.get();
     }
 
     private boolean isVariableKApply(KApply k) {
@@ -403,7 +446,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     public static SyntaxBuilder convert(PreprocessedKORE ppk,
                                         FuncVisitor.VarInfo vars) {
         SyntaxBuilder sb = newsb();
-        for(Map.Entry<KVariable, Collection<String>> entry : vars.vars
+        for(Map.Entry<KVariable, Collection<String>> entry : vars.getVars()
                                                                  .asMap()
                                                                  .entrySet()) {
             Collection<String> nonLinearVars = entry.getValue();
@@ -416,8 +459,10 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
                 boolean il = isList(entry.getKey(), ppk, vars, true, false);
                 sb.appendf("((%s %s %s) = 0) && ",
                            il ? "compare" : "compare_kitem",
-                           applyVarRhs(ppk, last, sb, vars.listVars.get(last)),
-                           applyVarRhs(ppk, next, sb, vars.listVars.get(next)));
+                           applyVarRhs(ppk, last,
+                                       vars.getListVars().get(last)),
+                           applyVarRhs(ppk, next,
+                                       vars.getListVars().get(next)));
                 last = next;
             }
         }
@@ -430,18 +475,27 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         private final Map<String, KLabel> listVars;
 
         VarInfo() {
-            this(HashMultimap.create(), newHashMap());
+            this(HashMultimap.create(),
+                 new HashMap<>());
         }
 
         VarInfo(VarInfo vars) {
             this(HashMultimap.create(vars.vars),
-                 newHashMap().putAll(vars.listVars));
+                 new HashMap<>(vars.listVars));
         }
 
         VarInfo(SetMultimap<KVariable, String> vars,
                 Map<String, KLabel> listVars) {
             this.vars = vars;
             this.listVars = listVars;
+        }
+
+        public SetMultimap<KVariable, String> getVars() {
+            return vars;
+        }
+
+        public Map<String, KLabel> getListVars() {
+            return listVars;
         }
     }
 }

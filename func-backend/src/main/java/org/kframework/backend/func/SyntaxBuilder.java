@@ -65,7 +65,7 @@ public class SyntaxBuilder implements Cloneable {
         return newxml().beginXML("body")
                        .append(this.pretty()
                                    .stream()
-                                   .collect(joining()))
+                                   .collect(joiningC()))
                        .endXML("body");
     }
 
@@ -183,6 +183,10 @@ public class SyntaxBuilder implements Cloneable {
         return append(SyntaxEnum.END_RENDER);
     }
 
+    public SyntaxBuilder addKeyword(String keyword) {
+        return addKeyword(newsb(keyword));
+    }
+
     public SyntaxBuilder addKeyword(SyntaxBuilder keyword) {
         beginKeyword();
         append(keyword);
@@ -196,6 +200,13 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder endKeyword() {
         return append(SyntaxEnum.END_KEYWORD);
+    }
+
+    public SyntaxBuilder addValue(String value) {
+        beginValue();
+        append(value);
+        endValue();
+        return addValue(newsb(value));
     }
 
     public SyntaxBuilder addValue(SyntaxBuilder value) {
@@ -890,7 +901,7 @@ public class SyntaxBuilder implements Cloneable {
 
     public SyntaxBuilder addTupleElem(SyntaxBuilder value) {
         beginTupleElem();
-        append(string);
+        append(value);
         endTupleElem();
         return this;
     }
@@ -1289,7 +1300,7 @@ public class SyntaxBuilder implements Cloneable {
             while(sl > idx && StringUtils.isNotEmpty(split[idx])) { idx++; }
             List<String> res = newArrayListWithCapacity(sl - idx + 2);
             for(int i = idx; sl > i; i++) { res.add(split[i]); }
-            setRenderString(res.stream().collect(joining(" ")));
+            setRenderString(res.stream().collect(joiningC(" ")));
         }
 
         public default void stripSpaceAfter() {
@@ -1300,13 +1311,13 @@ public class SyntaxBuilder implements Cloneable {
             while(idx > 0 && "".equals(split[idx])) { idx--; }
             List<String> res = newArrayListWithCapacity(idx + 2);
             for(int i = 0; idx > i; i++) { res.add(split[i]); }
-            setRenderString(res.stream().collect(joining(" ")));
+            setRenderString(res.stream().collect(joiningC(" ")));
         }
 
         public default void removeNewlines() {
             setRenderString(asList(isNewline.split(render()))
                             .stream()
-                            .collect(joining(" ")));
+                            .collect(joiningC(" ")));
         }
 
         public default String getEscapedString() {

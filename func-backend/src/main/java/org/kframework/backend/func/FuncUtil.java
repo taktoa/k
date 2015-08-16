@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.Map;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -21,6 +22,8 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.HashSet;
 import java.util.HashMap;
+
+import java.util.function.Function;
 
 import org.apache.commons.lang3.StringEscapeUtils;
 import org.apache.commons.io.FileUtils;
@@ -210,8 +213,16 @@ public final class FuncUtil {
         return newsb().addBoolean(bool);
     }
 
-    public static SyntaxBuilder newsbApp(String f, SyntaxBuilder ... as) {
+    public static SyntaxBuilder newsbApp(String f, SyntaxBuilder... as) {
         return newsb().addApplication(f, as);
+    }
+
+    public static SyntaxBuilder newsbSeq(SyntaxBuilder... items) {
+        return newsb().addSequence(items);
+    }
+
+    public static SyntaxBuilder newsbTup(SyntaxBuilder... items) {
+        return newsb().addTuple(items);
     }
 
 
@@ -277,30 +288,36 @@ public final class FuncUtil {
 
 
     /** Eliminates the Collectors.toList pattern */
-    public static <T> Collector<T, ?, List<T>> toList() {
+    public static <T> Collector<T, ?, List<T>> toListC() {
         return Collectors.toList();
     }
 
     /** Eliminates the Collectors.toSet pattern */
-    public static <T> Collector<T, ?, Set<T>> toSet() {
+    public static <T> Collector<T, ?, Set<T>> toSetC() {
         return Collectors.toSet();
     }
 
     /** Eliminates the Collectors.joining pattern */
-    public static Collector<CharSequence, ?, String> joining() {
+    public static Collector<CharSequence, ?, String> joiningC() {
         return Collectors.joining();
     }
 
     /** Eliminates the Collectors.joining pattern */
-    public static Collector<CharSequence, ?, String> joining(String del) {
+    public static Collector<CharSequence, ?, String> joiningC(String del) {
         return Collectors.joining(del);
     }
 
     /** Eliminates the Collectors.joining pattern */
-    public static Collector<CharSequence, ?, String> joining(String del,
-                                                             String pfx,
-                                                             String sfx) {
+    public static Collector<CharSequence, ?, String> joiningC(String del,
+                                                              String pfx,
+                                                              String sfx) {
         return Collectors.joining(del, pfx, sfx);
+    }
+
+    /** Eliminates the Collectors.groupingBy pattern */
+    public static <T,K> Collector<T,?,Map<K,List<T>>>
+    groupingByC(Function<? super T, ? extends K> classifier) {
+        return Collectors.groupingBy(classifier);
     }
 
 
@@ -357,6 +374,14 @@ public final class FuncUtil {
      */
     public static <T> List<T> asList(T... elements) {
         return Arrays.asList(elements);
+    }
+
+
+    /**
+     * Eliminates the Collections.singletonList pattern
+     */
+    public static <T> List<T> singletonList(T elem) {
+        return Collections.singletonList(elem);
     }
 
     /**

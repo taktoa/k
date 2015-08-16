@@ -59,9 +59,10 @@ public class XMLBuilder {
     }
 
     private String renderXMLAttrs(XMLAttr... attrs) {
-        return asList(attrs).stream()
+        return asList(attrs)
+            .stream()
             .map(x -> " " + x.render())
-            .collect(joining());
+            .collect(joiningC());
     }
 
     @Override

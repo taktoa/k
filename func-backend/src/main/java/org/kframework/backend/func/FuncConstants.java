@@ -137,7 +137,7 @@ public final class FuncConstants {
         SyntaxBuilder eqns  = newsb();
         for(KLabel label : ppk.collectionFor.values()
                                             .stream()
-                                            .collect(toSet())) {
+                                            .collect(toSetC())) {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
                                   newsbv(KLabel(mm
                                                 .attributesFor()
@@ -155,7 +155,7 @@ public final class FuncConstants {
         SyntaxBuilder eqns  = newsb();
         for(KLabel label : ppk.collectionFor.values()
                                             .stream()
-                                            .collect(toSet())) {
+                                            .collect(toSetC())) {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
                                   newsbv(KLabel(mm
                                                 .attributesFor()

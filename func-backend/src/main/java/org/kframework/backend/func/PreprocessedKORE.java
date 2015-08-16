@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.function.UnaryOperator;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -51,6 +50,7 @@ import org.kframework.kore.compile.VisitKORE;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
+import static org.kframework.backend.func.FuncUtil.*;
 import static scala.compat.java8.JFunction.*;
 
 // TODO(remy):
@@ -191,9 +191,9 @@ public final class PreprocessedKORE {
 
         initialized = Sets.newHashSet();
 
-        definedSorts      = stream(mainModule.definedSorts()).collect(Collectors.toSet());
-        definedKLabels    = stream(mainModule.definedKLabels()).collect(Collectors.toSet());
-        rules             = stream(mainModule.rules()).collect(Collectors.toSet());
+        definedSorts      = stream(mainModule.definedSorts()).collect(toSetC());
+        definedKLabels    = stream(mainModule.definedKLabels()).collect(toSetC());
+        rules             = stream(mainModule.rules()).collect(toSetC());
         attributesFor     = scalaMapAsJava(mainModule.attributesFor());
         sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
         freshFunctionFor  = scalaMapAsJava(mainModule.freshFunctionFor());
@@ -252,6 +252,22 @@ public final class PreprocessedKORE {
             .andThen(liftToKSequenceMT)
             .andThen(simplifyConditionsMT)
             .apply(input);
+    }
+
+    public Rule convertRuntime(Rule r) {
+        ConvertDataStructureToLookup       convertLookupsObj;
+        LiftToKSequence                    liftToKSequenceObj;
+        DeconstructIntegerAndFloatLiterals deconstructNumsObj;
+
+        convertLookupsObj  = new ConvertDataStructureToLookup(mainModule, true);
+        liftToKSequenceObj = new LiftToKSequence();
+        deconstructNumsObj = new DeconstructIntegerAndFloatLiterals();
+
+        return (Rule) func(deconstructNumsObj::convert)
+            .andThen(func(convertLookupsObj::convert))
+            .andThen(func(expandMacrosObj::expand))
+            .andThen(func(liftToKSequenceObj::lift))
+            .apply(r);
     }
 
     // Runs all of the final initialization functions
@@ -330,7 +346,7 @@ public final class PreprocessedKORE {
         tempPF = scalaMapAsJava(mainModule.productionsFor());
 
         for(KLabel k : tempPF.keySet()) {
-            productionsFor.put(k, stream(tempPF.get(k)).collect(Collectors.toSet()));
+            productionsFor.put(k, stream(tempPF.get(k)).collect(toSetC()));
         }
 
         initialized.add("productionsFor");
@@ -471,8 +487,8 @@ public final class PreprocessedKORE {
                        .stream()
                        .map(l -> l.stream()
                                   .map(i -> mapping.inverse().get(i))
-                                  .collect(Collectors.toList()))
-                       .collect(Collectors.toList());
+                                  .collect(toListC()))
+                       .collect(toListC());
     }
 
     // Initializes indexedRules
@@ -504,7 +520,7 @@ public final class PreprocessedKORE {
         return functionRules.get(kl)
                             .stream()
                             .sorted(PreprocessedKORE::sortFunctionRules)
-                            .collect(Collectors.toList());
+                            .collect(toListC());
     }
 
     // Helper function for initializeFunctionRules
