@@ -85,7 +85,7 @@ public final class KRunOptions {
 
         @DynamicParameter(names={"--config-parser", "-p"}, description="Command used to parse " +
                 "configuration variables. Default is \"kast --parser ground -e\". See description of " +
-                "--parser. For example, -cpPGM=\"kast\" specifies that the configuration variable $PGM " +
+                "--parser. For example, -pPGM=\"kast\" specifies that the configuration variable $PGM " +
                 "should be parsed with the command \"kast\".")
         private Map<String, String> configVarParsers = new HashMap<>();
 
@@ -124,6 +124,9 @@ public final class KRunOptions {
                     throw KEMException.criticalError("Cannot specify both -cPGM and a program to parse.");
                 }
                 result.put("PGM", Pair.of(pgm(), parser(mainModuleName)));
+            }
+            if (configVars.containsKey("STDIN") || configVars.containsKey("IO")) {
+                throw KEMException.criticalError("Cannot specify -cSTDIN or -cIO which are reserved for the builtin K-IO module.");
             }
             return result;
         }
@@ -240,7 +243,7 @@ public final class KRunOptions {
     @Parameter(names="--pattern", description="Specify a term and/or side condition that the result of execution or search must match in order to succeed. Return the resulting matches as a list of substitutions. In conjunction with it you can specify other 2 options that are optional: bound (the number of desired solutions) and depth (the maximum depth of the search).")
     public String pattern;
 
-    @Parameter(names="--exit-code", description="Specify a term containing a named integer variable which will be used as the exit status of krun.")
+    @Parameter(names="--exit-code", description="Specify a matching pattern containing an integer variable which will be used as the exit status of krun.")
     public String exitCodePattern;
 
     public static final String DEFAULT_PATTERN = "<generatedTop> B:Bag </generatedTop> [anywhere]";

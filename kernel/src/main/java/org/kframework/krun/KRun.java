@@ -10,7 +10,6 @@ import org.kframework.definition.Module;
 import org.kframework.definition.Rule;
 import org.kframework.kil.Attributes;
 import org.kframework.kompile.CompiledDefinition;
-import org.kframework.kompile.Kompile;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
 import org.kframework.kore.KToken;
@@ -27,6 +26,7 @@ import org.kframework.utils.errorsystem.KException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.errorsystem.ParseFailedException;
 import org.kframework.utils.file.FileUtil;
+import org.kframework.utils.file.TTYInfo;
 import org.kframework.utils.koreparser.KoreParser;
 import scala.Tuple2;
 
@@ -51,10 +51,12 @@ public class KRun implements Transformation<Void, Void> {
 
     private final KExceptionManager kem;
     private final FileUtil files;
+    private final boolean ttyStdin;
 
-    public KRun(KExceptionManager kem, FileUtil files) {
+    public KRun(KExceptionManager kem, FileUtil files, boolean ttyStdin) {
         this.kem = kem;
         this.files = files;
+        this.ttyStdin = ttyStdin;
     }
 
     public int run(CompiledDefinition compiledDef, KRunOptions options, Function<Module, Rewriter> rewriterGenerator, ExecutionMode executionMode) {
@@ -128,8 +130,9 @@ public class KRun implements Transformation<Void, Void> {
         if (pattern != null && (options.experimental.prove != null || options.experimental.ltlmc())) {
             throw KEMException.criticalError("Pattern matching is not supported by model checking or proving");
         }
-        return new Kompile(compiledDef.kompileOptions, files, kem).compileRule(compiledDef, pattern, source);
+        return compiledDef.compilePatternIfAbsent(files, kem, pattern, source);
     }
+
 
     public static void prettyPrint(CompiledDefinition compiledDef, OutputModes output, Consumer<String> print, K result) {
         switch (output) {
@@ -149,7 +152,6 @@ public class KRun implements Transformation<Void, Void> {
     }
 
 
-
     private K parseConfigVars(KRunOptions options, CompiledDefinition compiledDef) {
         HashMap<KToken, K> output = new HashMap<>();
         for (Map.Entry<String, Pair<String, String>> entry
@@ -162,6 +164,14 @@ public class KRun implements Transformation<Void, Void> {
             K configVar = externalParse(parser, value, sort, Source.apply("<command line: -c" + name + ">"), compiledDef);
             output.put(KToken("$" + name, Sorts.KConfigVar()), configVar);
         }
+        if (options.io()) {
+            output.put(KToken("$STDIN", Sorts.KConfigVar()), KToken("\"\"", Sorts.String()));
+            output.put(KToken("$IO", Sorts.KConfigVar()), KToken("\"on\"", Sorts.String()));
+        } else {
+            String stdin = InitialConfigurationProvider.getStdinBuffer(ttyStdin);
+            output.put(KToken("$STDIN", Sorts.KConfigVar()), KToken("\"" + stdin + "\"", Sorts.String()));
+            output.put(KToken("$IO", Sorts.KConfigVar()), KToken("\"off\"", Sorts.String()));
+        }
         return plugConfigVars(compiledDef, output);
     }
 
@@ -172,7 +182,7 @@ public class KRun implements Transformation<Void, Void> {
     private static String unparseTerm(K input, Module test) {
         return KOREToTreeNodes.toString(
                 new AddBrackets(test).addBrackets((ProductionReference)
-                        KOREToTreeNodes.apply(KOREToTreeNodes.up(input), test)));
+                        KOREToTreeNodes.apply(KOREToTreeNodes.up(test, input), test)));
     }
 
     @Override

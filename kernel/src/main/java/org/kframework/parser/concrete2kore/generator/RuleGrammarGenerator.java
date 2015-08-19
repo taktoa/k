@@ -179,6 +179,11 @@ public class RuleGrammarGenerator {
                     Production p2 = Production(Sort("Cell"), Seq(NonTerminal(p.sort())));
                     return Stream.of(p1, p2);
                 }
+                if(s instanceof Production && (s.att().contains("cellFragment"))) {
+                    Production p = (Production)s;
+                    Production p1 = Production(Sort("Cell"), Seq(NonTerminal(p.sort())));
+                    return Stream.of(p,p1);
+                }
                 return Stream.of(s);
             }).collect(Collectors.toSet());
         } else
@@ -209,8 +214,7 @@ public class RuleGrammarGenerator {
                                     });
                             // add follow restrictions for the characters that might produce ambiguities
                             if (!follow.isEmpty()) {
-                                String restriction = follow.stream().map(StringUtil::escapeAutomatonRegex).reduce((s1, s2) -> "(" + s1 + ")|(" + s2 + ")").get();
-                                return Terminal.apply(t.value(), restriction);
+                                return Terminal.apply(t.value(), follow.stream().collect(toList()));
                             }
                         }
                         return pi;

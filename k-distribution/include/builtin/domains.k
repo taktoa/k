@@ -46,6 +46,8 @@ module MAP
   /*@ Get a Set consisting of all keys in the Map:*/
   syntax Set ::= keys(Map)                      [function, hook(MAP.keys)]
 
+  syntax Bool ::= K "in_keys" "(" Map ")"       [function, hook(MAP.in_keys)]
+
   /*@ Get a List consisting of all values in the Map: */
   syntax List ::= values(Map)                   [function, hook(MAP.values)]
 
@@ -517,26 +519,137 @@ module K-IO
                 | "#stdout" [function]
                 | "#stderr" [function]
 
-  syntax Stream ::= #parseInput(String, String)
+  rule #stdin => 0
+  rule #stdout => 1
+  rule #stderr => 2
+
   syntax Stream ::= #buffer(K)
+
+// ------------------------------
+// System
+
+  syntax KItem ::= "#system" "(" String ")" [function, klabel(#system), hook(IO.system), impure]
+                 | "#systemResult" "(" Int /* exit code */ "," String /* stdout */ "," String /* stderr */ ")"
+
+endmodule
+
+module STDIN-STREAM
+  imports K-IO
+
   syntax Stream ::= #istream(Int)
-                  | #ostream(Int)
+  syntax Stream ::= #parseInput(String, String)
+
+  configuration <stdin> ListItem(#buffer($STDIN:String)) ListItem($IO:String) ListItem(#istream(#stdin)) </stdin>
+
+  // read one character at a time until we read whitespace
+  rule [stdinGetc]:
+       <stdin>
+       ListItem(#parseInput(_:String, Delimiters:String))
+       ListItem(#buffer(S:String => S +String chrChar(#getc(N))))
+       ListItem("on")
+       ListItem(#istream(N:Int))
+       </stdin>
+    requires findChar(S, Delimiters, 0) ==Int -1 // [stdin]
+
+  // when we reach whitespace, if it parses create a ListItem
+  rule [stdinParseString]:
+       <stdin>
+       `ListItem(#parseInput("String", Delimiters:String)) => ListItem(S)`
+       ListItem(#buffer(S:String => ""))
+       _:List
+       </stdin>
+    requires findChar(S, Delimiters, 0) =/=Int -1 // [stdin]
+
+  // a hack: handle the case when we read integers without the help of the IO server
+  rule [stdinParseInt]:
+       <stdin>
+       `ListItem(#parseInput("Int", Delimiters:String))
+       => ListItem(String2Int(substrString(S, 0, findChar(S, Delimiters, 0))))`
+       ListItem(#buffer(S:String => substrString(S,findChar(S, Delimiters, 0) +Int 1, lengthString(S))))
+       _:List
+       </stdin>
+    requires findChar(S, Delimiters, 0) =/=Int -1
+       andBool lengthString(S) >Int 1 // [stdin]
+
+  rule [stdinParseArbitrarySort]:
+       <stdin>
+       `ListItem(#parseInput(Sort:String, Delimiters:String))
+       => ListItem(#parse(substrString(S, 0, findChar(S, Delimiters, 0)), Sort))`
+       ListItem(#buffer(S:String => substrString(S,findChar(S, Delimiters, 0) +Int 1, lengthString(S))))
+       _:List
+       </stdin>
+    requires findChar(S, Delimiters, 0) =/=Int -1
+       andBool Sort =/=String "String"
+       andBool Sort =/=String "Int"
+       andBool lengthString(S) >Int 1 // [stdin]
+
+  rule [stdinTrim]:
+       <stdin>
+       ListItem(#parseInput(Sort:String, Delimiters:String))
+       ListItem(#buffer(S:String => substrString(S, 1, lengthString(S))))
+       _:List
+       </stdin>
+    requires findChar(S, Delimiters, 0) =/=Int -1
+       andBool Sort =/=String "String"
+       andBool lengthString(S) <=Int 1 // [stdin]
+
+  /*
   syntax Stream ::= "#noIO"
 
-  //TODO(dwightguth): add back support for stream cells
-/*
-  rule ListItem(#ostream(_))
+  rule ListItem(#buffer(_))
+       `ListItem(#noIO) ListItem(#istream(_:Int)) => .List` [stdin]
+  */
+
+endmodule
+
+module STDOUT-STREAM
+  imports K-IO
+
+  syntax Stream ::= #ostream(Int)
+
+  configuration <stdout> ListItem(#ostream(#stdout)) ListItem($IO:String) ListItem(#buffer("")) </stdout>
+//configuration <stderr> ListItem(#ostream(#stderr)) ListItem($IO:String) ListItem(#buffer("")) </stderr>
+
+  rule [stdoutBufferFloat]:
+       <stdout>
+       ListItem(#ostream(_))
+       ListItem(_)
        ListItem(#buffer(Buffer:String => Buffer +String Float2String(F)))
        `ListItem(F:Float) => .List`
-       _:List [stdout, stderr]
-  rule ListItem(#ostream(_))
+       _:List
+       </stdout>
+       // [stdout, stderr]
+  rule [stdoutBufferInt]:
+       <stdout>
+       ListItem(#ostream(_))
+       ListItem(_)
        ListItem(#buffer(Buffer:String => Buffer +String Int2String(I)))
        `ListItem(I:Int) => .List`
-       _:List [stdout, stderr]
-  rule ListItem(#ostream(_))
+       _:List
+       </stdout>
+       // [stdout, stderr]
+  rule [stdoutBufferString]:
+       <stdout>
+       ListItem(#ostream(_))
+       ListItem(_)
        ListItem(#buffer(Buffer:String => Buffer +String S))
        `ListItem(S:String) => .List`
-       _:List [stdout, stderr]
+       _:List
+       </stdout>
+       // [stdout, stderr]
+
+  // Send first char from the buffer to the server
+  rule [stdoutWrite]:
+       <stdout>
+       ListItem(#ostream(`.K => #write(N, S)` ~> N:Int))
+       ListItem("on")
+       ListItem(#buffer(S:String => ""))
+       _:List
+       </stdout>
+    requires S =/=String "" // [stdout, stderr]
+
+  /*
+  syntax Stream ::= "#noIO"
 
   rule ListItem(#buffer(Buffer:String => Buffer +String Float2String(F)))
        `ListItem(F:Float) => .List`
@@ -548,62 +661,203 @@ module K-IO
        `ListItem(S:String) => .List`
        _:List [stdout, stderr]
 
-
-  // Send first char from the buffer to the server
-  rule ListItem(#ostream(`.K => #write(N, S)` ~> N:Int))
-       ListItem(#buffer(S:String => ""))
-       _:List
-    requires S =/=String "" [stdout, stderr]
-
-  // read one character at a time until we read whitespace
-  rule ListItem(#parseInput(_:String, Delimiters:String))
-       ListItem(#buffer(S:String => S +String chrChar(#getc(N))))
-       ListItem(#istream(N:Int))
-    requires findChar(S, Delimiters, 0) ==Int -1 [stdin]
-
-  // when we reach whitespace, if it parses create a ListItem
-  rule `ListItem(#parseInput("String", Delimiters:String)) => ListItem(S)`
-       ListItem(#buffer(S:String => ""))
-       _:List
-    requires findChar(S, Delimiters, 0) =/=Int -1 [stdin]
-
-  // a hack: handle the case when we read integers without the help of the IO server
-  rule `ListItem(#parseInput("Int", Delimiters:String))
-       => ListItem(String2Int(substrString(S, 0, findChar(S, Delimiters, 0))))`
-       ListItem(#buffer(S:String => substrString(S,findChar(S, Delimiters, 0) +Int 1, lengthString(S))))
-    requires findChar(S, Delimiters, 0) =/=Int -1
-       andBool lengthString(S) >Int 1 [stdin]
-
-  rule `ListItem(#parseInput(Sort:String, Delimiters:String))
-       => ListItem(#parse(substrString(S, 0, findChar(S, Delimiters, 0)), Sort))`
-       ListItem(#buffer(S:String => substrString(S,findChar(S, Delimiters, 0) +Int 1, lengthString(S))))
-       _:List
-    requires findChar(S, Delimiters, 0) =/=Int -1
-       andBool Sort =/=String "String"
-       andBool lengthString(S) >Int 1 [stdin]
-
-  rule ListItem(#parseInput(Sort:String, Delimiters:String))
-       ListItem(#buffer(S:String => substrString(S, 1, lengthString(S))))
-       _:List
-    requires findChar(S, Delimiters, 0) =/=Int -1
-       andBool Sort =/=String "String"
-       andBool lengthString(S) <=Int 1 [stdin]
-
-  rule ListItem(#buffer(_))
-       `ListItem(#noIO) ListItem(#istream(_:Int)) => .List` [stdin]
-
   rule `ListItem(#ostream(_:Int)) ListItem(#noIO) => .List`
        ListItem(#buffer(_))
        _:List [stdout, stderr]
-*/
-  rule #stdin => 0
-  rule #stdout => 1
-  rule #stderr => 2
+  */
 
-// ------------------------------
-// System
+endmodule
 
-  syntax KItem ::= "#system" "(" String ")" [function, klabel(#system), hook(IO.system), impure]
-                 | "#systemResult" "(" Int /* exit code */ "," String /* stdout */ "," String /* stderr */ ")"
+module MINT
+  imports INT
+  imports K-EQUAL
+  imports LIST
 
+  syntax MInt [hook(MINT.MInt)]
+
+  /*@\section{Description} The MInt implements machine integers of arbitrary
+   * bit width represented in 2's complement. */
+
+  /*@ Machine integer of bit width and value. */
+  syntax MInt ::= mi(Int, Int)    [function, hook(MINT.constructor)]
+
+  /*@ Function returning the bit width of this machine integer. */
+  syntax Int ::= bitwidthMInt(MInt)   [function, hook(MINT.bitwidth)]
+
+  /*@
+   * Functions returning the signed and unsigned interpretations of this
+   * machine integers.
+   *   svalue  returns an integer between -2^(bitwidth - 1) and
+   *           2^(bitwidth - 1) - 1
+   *   uvalue  returns an integer between 0 and 2^bitwidth - 1
+   */
+  syntax Int ::= svalueMInt(MInt)     [function, hook(MINT.svalue)]
+               | uvalueMInt(MInt)     [function, hook(MINT.uvalue), smtlib(bv2int)]
+
+  /*@ Checks whether a machine integer is zero */
+  syntax Bool ::= zeroMInt(MInt)    [function, hook(MINT.zero)]
+
+  /*@
+   * Functions for signed and unsigned minimum and maximum values of a machine
+   * integer on a given bit width.
+   */
+  syntax Int ::= sminMInt(Int)    [function]
+               | smaxMInt(Int)    [function]
+               | uminMInt(Int)    [function]
+               | umaxMInt(Int)    [function]
+  rule sminMInt(N:Int) => 0 -Int `1 <<Int `N -Int 1``
+  rule smaxMInt(N:Int) => `1 <<Int `N -Int 1`` -Int 1
+  rule uminMInt(_:Int) => 0
+  rule umaxMInt(N:Int) => `1 <<Int N` -Int 1
+
+  /*@
+   * Functions checking whether a given integer can be represented on as signed
+   * or unsigned on a given bit width without overflow.
+   */
+  syntax Bool ::= soverflowMInt(Int, Int)   [function]
+                | uoverflowMInt(Int, Int)   [function]
+  rule
+    soverflowMInt(N:Int, I:Int)
+  =>
+    I <Int sminMInt(N) orBool I >Int smaxMInt(N)
+  rule
+    uoverflowMInt(N:Int, I:Int)
+  =>
+    I <Int uminMInt(N) orBool I >Int umaxMInt(N)
+
+  /*@
+   * Projection functions for results of operations with overflow.
+   * miInt(saddMInt(...))         returns the result of the operation (ignoring
+   *                              overflow)
+   * overflowMInt(saddMInt(...))  returns true if overflow is detected during
+   *                              the execution of the operation
+   */
+  syntax MInt ::= miMInt(List)          [function]
+  rule miMInt(ListItem(MI:MInt) ListItem(_:Bool)) => MI
+  syntax Bool ::= overflowMInt(List)    [function]
+  rule overflowMInt(ListItem(_:MInt) ListItem(B:Bool)) => B
+
+  /*@
+   * Arithmetic and comparison operations
+   *   op   does not interprets the operands as either signed or unsigned
+   *   sop  interprets the operands as signed
+   *   uop  interprets the operands as unsigned
+   */
+  /*@
+   * Addition, subtraction, and multiplication are the same for signed and
+   * unsigned integers represented in 2's complement
+   */
+  syntax MInt ::= addMInt(MInt, MInt)   [function, hook(MINT.add), smtlib(bvadd)]
+                | subMInt(MInt, MInt)   [function, hook(MINT.sub), smtlib(bvsub)]
+                | mulMInt(MInt, MInt)   [function, hook(MINT.mul), smtlib(bvmul)]
+
+  /*@
+   * Division and reminder
+   * sdiv/srem  operation interprets operands as signed; undefined if the second
+   *            argument is 0; returns a pair of result and overflow flag
+   *            represented as a list of 2 elements (overflow happens when the
+   *            first operand is the minimum value and the second operand is -1)
+   * udiv/urem  operation interprets operands as unsigned; undefined if the
+   *            second argument is 0
+   */
+  syntax List ::= sdivMInt(MInt, MInt)    [function, hook(MINT.sdiv)]
+                | sremMInt(MInt, MInt)    [function, hook(MINT.srem)]
+  syntax MInt ::= udivMInt(MInt, MInt)    [function, hook(MINT.udiv), smtlib(bvudiv)]
+                | uremMInt(MInt, MInt)    [function, hook(MINT.urem), smtlib(bvurem)]
+
+  /*@
+   * Addition, subtraction and multiplication with overflow detection; each
+   * operation returns a pair of result and overflow flag represented as a list
+   * of 2 elements
+   */
+  syntax List ::= saddMInt(MInt, MInt)    [function, hook(MINT.sadd)]
+                | uaddMInt(MInt, MInt)    [function, hook(MINT.uadd)]
+                | ssubMInt(MInt, MInt)    [function, hook(MINT.ssub)]
+                | usubMInt(MInt, MInt)    [function, hook(MINT.usub)]
+                | smulMInt(MInt, MInt)    [function, hook(MINT.smul)]
+                | umulMInt(MInt, MInt)    [function, hook(MINT.umul)]
+
+  /*@
+   * Shift operations; the second operand must be non-negative
+   *
+   * ashrMInt   arithmetic shift: filling with leftmost bit (sign extension)
+   * lshrMInt   logical shift: filling with zeros
+   */
+  syntax MInt ::= shlMInt(MInt, Int)    [function, hook(MINT.shl), smtlib(bvshl)]
+                | ashrMInt(MInt, Int)   [function, hook(MINT.ashr)]
+                | lshrMInt(MInt, Int)   [function, hook(MINT.lshr), smtlib(bvlshr)]
+
+  /*@ Bitwise operations */
+  syntax MInt ::= andMInt(MInt, MInt)   [function, hook(MINT.and), smtlib(bvand)]
+                | orMInt(MInt, MInt)    [function, hook(MINT.or), smtlib(bvor)]
+                | xorMInt(MInt, MInt)   [function, hook(MINT.xor), smtlib(bvxor)]
+
+  syntax MInt ::= negMInt(MInt)   [function]
+  rule negMInt(MI:MInt) => xorMInt(MI, mi(bitwidthMInt(MI), 0))
+
+  /*@ Comparison operations */
+  syntax Bool ::= sltMInt(MInt, MInt)   [function, hook(MINT.slt), smtlib(bvslt)]
+                | ultMInt(MInt, MInt)   [function, hook(MINT.ult), smtlib(bvult)]
+                | sleMInt(MInt, MInt)   [function, hook(MINT.sle), smtlib(bvsle)]
+                | uleMInt(MInt, MInt)   [function, hook(MINT.ule), smtlib(bvule)]
+                | sgtMInt(MInt, MInt)   [function, hook(MINT.sgt), smtlib(bvsgt)]
+                | ugtMInt(MInt, MInt)   [function, hook(MINT.ugt), smtlib(bvugt)]
+                | sgeMInt(MInt, MInt)   [function, hook(MINT.sge), smtlib(bvsge)]
+                | ugeMInt(MInt, MInt)   [function, hook(MINT.uge), smtlib(bvuge)]
+                | eqMInt(MInt, MInt)    [function, hook(MINT.eq), smtlib(=)]
+                | neMInt(MInt, MInt)    [function, hook(MINT.ne), smtlib(distinct)]
+
+  syntax MInt ::= sMaxMInt(MInt, MInt) [function, smtlib((ite (bvslt #1 #2) #2 #1))]
+                | sMinMInt(MInt, MInt) [function, smtlib((ite (bvslt #1 #2) #1 #2))]
+
+  /*@
+   * Returns a machine integer with the underlying bits; the bits of the first
+   * machine integer concatenated with the bits of the second machine integer.
+   * The bits of the first machine integer are on the more significant
+   * positions. The resulting bit width is the sum of two inputs' bit widths.
+   */
+  syntax MInt ::= concatenateMInt(MInt, MInt)   [function, hook(MINT.concatenate), smtlib((concat #2 #1))]
+
+  /*@
+   * Returns a machine integer with the underlying bits of the given
+   * machine integer in the given range. The bit on position 0 is the most
+   * significant bit.
+   */
+  syntax MInt ::= extractMInt(MInt, Int, Int)   [function, hook(MINT.extract), smtlib(extract)]
+
+  /*@
+   * digitsOfMInt(mInt, digitBitWidth, count)
+   *
+   * Returns a list of the first digits representing the given machine integer,
+   * each digit a machine integer on the given bitwidth. Useful for serializing
+   * a integer to a sequence of bytes.
+   */
+  syntax List ::= digitsOfMInt(MInt, Int, Int)   [function, hook(MINT.toDigits)]
+
+  /*@
+   * Returns a machine integer representing the given list of digits. Each digit
+   * is represented as a machine integers. The list must be non-empty. Useful
+   * for deserializing an integer from a sequence of bytes.
+   */
+  syntax MInt ::= mIntOfDigits(List)   [function, hook(MINT.fromDigits)]
+
+  // TODO(AndreiS): change
+  rule zeroMInt(MI:MInt) => eqMInt(MI, xorMInt(MI, MI))
+
+  /*@
+   * Conversion to and from a list of digits
+   */
+  rule
+    digitsOfMInt(MI:MInt, N:Int, M:Int)
+  =>
+    digitsOfMInt(MI, N, M -Int 1)
+    ListItem(extractMInt(MI, N *Int `M -Int 1`, N *Int M))
+  when M >Int 0
+  rule digitsOfMInt(_:MInt, _:Int, 0) => .List
+
+  rule
+    mIntOfDigits(ListItem(MI1:MInt) ListItem(MI2:MInt) L:List)
+  =>
+    concatenateMInt(MI1, mIntOfDigits(ListItem(MI2) L))
+  rule mIntOfDigits(ListItem(MI:MInt)) => MI
 endmodule
