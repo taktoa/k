@@ -34,21 +34,28 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     private final Function<CompiledDefinition, DefinitionToFunc> converterGen;
     private final ProcessBuilder processBuilder;
 
-    private static final String ocamlPackages = "zarith";
+    private static final String ocamlPackages = "gmp";
 
     private static final String
+        definitionFileName,    constantsFileName,
+        preludeFileName,       preludeIncludeName,
         kompileOutputFileName, kompileErrorFileName,
-        kompileDirectoryName, defSourceFileName;
+        kompileDirectoryName;
 
     private final File
+        definitionFile,    constantsFile,
+        preludeFile,       preludeInclude,
         kompileOutputFile, kompileErrorFile,
-        kompileDirectory, defSourceFile;
+        kompileDirectory;
 
     static {
+        definitionFileName     = "def.ml";
+        constantsFileName      = "constants.ml";
+        preludeFileName        = "prelude.ml";
+        preludeIncludeName     = "include/ocaml/prelude.ml";
         kompileOutputFileName  = "kompile.out";
         kompileErrorFileName   = "kompile.err";
         kompileDirectoryName   = ".";
-        defSourceFileName      = "def.ml";
     }
 
     // If you don't use ocamlfind, you will want to change this
@@ -61,7 +68,11 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
         ocamlPackages,
         "-c",
         "-g",
-        defSourceFileName
+        "-w",
+        "-26-11",
+        constantsFileName,
+        preludeFileName,
+        definitionFileName
     };
 
     @Inject
@@ -78,10 +89,13 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
             return new DefinitionToFunc(kem, ppk);
         };
 
+        this.definitionFile    = files.resolveKompiled(definitionFileName);
+        this.constantsFile     = files.resolveKompiled(constantsFileName);
+        this.preludeFile       = files.resolveKompiled(preludeFileName);
+        this.preludeInclude    = files.resolveKBase(preludeIncludeName);
         this.kompileOutputFile = files.resolveTemp(kompileOutputFileName);
         this.kompileErrorFile  = files.resolveTemp(kompileErrorFileName);
         this.kompileDirectory  = files.resolveKompiled(kompileDirectoryName);
-        this.defSourceFile     = files.resolveKompiled(defSourceFileName);
     }
 
     @Override
@@ -92,8 +106,13 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private void generateOCamlDef(CompiledDefinition def) {
         converter = converterGen.apply(def);
-        String ocaml = converter.getDefinition();
-        FileUtil.save(defSourceFile, ocaml);
+        try {
+            FileUtil.save(constantsFile,  converter.getConstants());
+            FileUtil.save(definitionFile, converter.getDefinition());
+            FileUtils.copyFile(preludeInclude, preludeFile);
+        } catch (IOException e) {
+            defGenerateIOError(e);
+        }
     }
 
     private void compileOCamlDef() {
@@ -131,6 +150,11 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
         return ocamlCmd;
     }
 
+    private void defGenerateIOError(IOException e) {
+        throw kemCriticalErrorF(e, "Error saving OCaml files: %s",
+                                e.getMessage());
+    }
+
     private void defCompileFailedError(int exit) {
         throw kemCriticalErrorF("OCaml compiler returned nonzero exit code: %s\n" +
                                 "Examine output to see errors.", exit);
@@ -142,6 +166,7 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     }
 
     private void defCompileIOError(IOException e) {
-        throw kemCriticalErrorF(e, "Error starting OCaml compiler process: %s", e.getMessage());
+        throw kemCriticalErrorF(e, "Error starting OCaml compiler process: %s",
+                                e.getMessage());
     }
 }

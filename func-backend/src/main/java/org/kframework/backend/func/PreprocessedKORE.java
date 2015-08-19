@@ -71,7 +71,7 @@ import static scala.compat.java8.JFunction.*;
  * @author Remy Goldschmidt
  */
 public final class PreprocessedKORE {
-    public static final boolean fastCompilation = true;
+    public static final boolean fastCompilation = false;
 
 
     /** Set of KLabels that are functions */

@@ -43,7 +43,7 @@ public final class FuncConstants {
             .beginLetDefinitions()
             .beginLetEquation()
             .addLetEquationName(newsb().addPattern(pattern))
-            .endLetEquationValue()
+            .beginLetEquationValue()
             .beginMatchExpression(value)
             .append(equations)
             .endMatchExpression()
@@ -138,12 +138,12 @@ public final class FuncConstants {
         for(KLabel label : ppk.collectionFor.values()
                                             .stream()
                                             .collect(toSetC())) {
+            KLabel val = KLabel(mm.attributesFor()
+                                  .apply(label)
+                                  .<String>get(Attribute.UNIT_KEY)
+                                  .get());
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
-                                  newsbv(KLabel(mm
-                                                .attributesFor()
-                                                .apply(label)
-                                                .<String>get(Attribute.UNIT_KEY)
-                                                .get()).toString()));
+                                  newsbv(encodeStringToIdentifier(val)));
         }
         return genMatchFunction(name, value, eqns);
     }
@@ -156,12 +156,12 @@ public final class FuncConstants {
         for(KLabel label : ppk.collectionFor.values()
                                             .stream()
                                             .collect(toSetC())) {
+            KLabel val = KLabel(mm.attributesFor()
+                                  .apply(label)
+                                  .<String>get("element")
+                                  .get());
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
-                                  newsbv(KLabel(mm
-                                                .attributesFor()
-                                                .apply(label)
-                                                .<String>get("element")
-                                                .get()).toString()));
+                                  newsbv(encodeStringToIdentifier(val)));
         }
         return genMatchFunction(name, value, eqns);
     }

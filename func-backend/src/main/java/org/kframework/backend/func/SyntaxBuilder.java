@@ -964,7 +964,9 @@ public class SyntaxBuilder implements Cloneable {
     public SyntaxBuilder addConstructor(String name, String... args) {
         beginConstructor();
         addConstructorName(name);
-        addConstructorArgs(args);
+        if(args.length > 0) {
+            addConstructorArgs(args);
+        }
         endConstructor();
         return this;
     }
