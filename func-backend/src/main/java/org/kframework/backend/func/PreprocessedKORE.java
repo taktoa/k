@@ -142,7 +142,8 @@ public final class PreprocessedKORE {
     /** A map from rules to a cleaned-up subset of their attributes */
     public Map<Rule, Set<String>> indexedRules;
 
-    public final Module mainModule;
+    public Module mainModule;
+    public final Map<KLabel, Att> attributesFor;
 
     private Set<String> initialized;
 
@@ -153,7 +154,6 @@ public final class PreprocessedKORE {
 
     private final Set<Rule> rules;
     private final Map<Sort, Att> sortAttributesFor;
-    private final Map<KLabel, Att> attributesFor;
 
 
     private static final String convertLookupsStr
@@ -187,7 +187,7 @@ public final class PreprocessedKORE {
                                                  globalOptions,
                                                  kompileOptions);
 
-        mainModule = mainModulePipeline(executionModule);
+        initializeMainModule();
 
         initialized = Sets.newHashSet();
 
@@ -208,8 +208,8 @@ public final class PreprocessedKORE {
         return new LiftToKSequence().lift(expandMacrosObj.expand(k));
     }
 
-    // Returns a transformation pipeline for the main module
-    private Module mainModulePipeline(Module input) {
+    // Initialize the mainModule as well as related variables
+    private void initializeMainModule() {
         BiFunction<UnaryOperator<Sentence>, String, ModuleTransformer> fromST;
         fromST = (conv, str) -> {
             return ModuleTransformer.fromSentenceTransformer(conv, str);
@@ -225,9 +225,6 @@ public final class PreprocessedKORE {
         liftToKSequenceObj = new LiftToKSequence();
         deconstructNumsObj = new DeconstructIntegerAndFloatLiterals();
         simplifyConditionsObj   = new SimplifyConditions();
-
-        // Set collectionFor
-        collectionFor = ConvertDataStructureToLookup.collectionFor(mainModule);
 
         ModuleTransformer
             convertLookupsMT, liftToKSequenceMT,
@@ -245,13 +242,16 @@ public final class PreprocessedKORE {
         expandMacrosMT       = fromST.apply(expandMacrosObj::expand,
                                             expandMacrosStr);
 
-        return deconstructNumsMT
+        mainModule =
+            deconstructNumsMT
             .andThen(convertLookupsMT)
             .andThen(expandMacrosMT)
-//            .andThen(generatePredicatesMT) //FIXME how should this variable be defined/initialized?
             .andThen(liftToKSequenceMT)
             .andThen(simplifyConditionsMT)
-            .apply(input);
+            .apply(executionModule);
+
+        // Set collectionFor
+        collectionFor = ConvertDataStructureToLookup.collectionFor(mainModule);
     }
 
     public Rule convertRuntime(Rule r) {

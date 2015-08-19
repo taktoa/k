@@ -134,6 +134,7 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class DefinitionToFunc {
     public static final boolean ocamlopt = false;
+    public static final boolean commentsEnabled = false;
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     private final KExceptionManager kem;
@@ -327,7 +328,7 @@ public class DefinitionToFunc {
 
         sb.appendf("| _ -> [c])%n");
         sb.appendf("| _ -> [c]%n");
-        sb.appendf("let rec lookups_step (c: k) (config: k) (guards: Guard.t) : k = match c with %n");
+        sb.appendf("let rec lookups_step (c: k) (config: k) (guards: Guard.t) : k = (match c with %n");
         List<Rule> sortedRules =
             stream(mm.rules())
             .sorted((r1, r2) ->
@@ -354,8 +355,8 @@ public class DefinitionToFunc {
                                                       RuleType.REGULAR,
                                                       0);
         sb.append(lookup.getRight());
-        sb.appendf("| _ -> raise (Stuck c)%n");
-        sb.appendf("let step (c: k) : k = let config = c in match c with %n");
+        sb.appendf("| _ -> raise (Stuck c))%n");
+        sb.appendf("let step (c: k) : k = let config = c in (match c with %n");
         if(groupedByLookup.containsKey(false)) {
             for(Rule r : groupedByLookup.get(false)) {
                 sb.append(convert(ppk, r, RuleType.REGULAR));
@@ -364,7 +365,7 @@ public class DefinitionToFunc {
                 }
             }
         }
-        sb.appendf("| _ -> lookups_step c c Guard.empty%n");
+        sb.appendf("| _ -> lookups_step c c Guard.empty%n)");
         sb.append(OCamlIncludes.postludeSB);
         return sb;
     }
@@ -771,12 +772,16 @@ public class DefinitionToFunc {
     }
 
     private static SyntaxBuilder convertComment(Rule r) {
-        return newsb()
-            .addComment(String.format("rule %s requires %s ensures %s | %s",
-                                      ToKast.apply(r.body()),
-                                      ToKast.apply(r.requires()),
-                                      ToKast.apply(r.ensures()),
-                                      r.att()));
+        if(commentsEnabled) {
+            return newsb()
+                .addComment(String.format("rule %s requires %s ensures %s | %s",
+                                          ToKast.apply(r.body()),
+                                          ToKast.apply(r.requires()),
+                                          ToKast.apply(r.ensures()),
+                                          r.att()));
+        } else {
+            return newsb();
+        }
     }
 
     private static SyntaxBuilder convertLHS(PreprocessedKORE ppk,

@@ -1,10 +1,19 @@
 // Copyright (c) 2015 K Team. All Rights Reserved.
 package org.kframework.backend.func;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+
+import org.kframework.attributes.Att;
+import org.kframework.definition.Module;
+
 import org.kframework.builtin.BooleanUtils;
 import org.kframework.builtin.Sorts;
+
 import org.kframework.kil.Attribute;
+
+import org.kframework.kore.AbstractKORETransformer;
+import org.kframework.kore.Assoc;
 import org.kframework.kore.InjectedKLabel;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
@@ -13,19 +22,17 @@ import org.kframework.kore.KRewrite;
 import org.kframework.kore.KSequence;
 import org.kframework.kore.KToken;
 import org.kframework.kore.KVariable;
-import org.kframework.kore.AbstractKORETransformer;
 import org.kframework.kore.Sort;
-import org.kframework.utils.StringUtil;
-import org.kframework.utils.errorsystem.KEMException;
+import org.kframework.kore.compile.LiftToKSequence;
 
-import com.google.common.collect.HashMultimap;
-import org.kframework.definition.Module;
+import org.kframework.utils.StringUtil;
 
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.function.Supplier;
 
@@ -126,11 +133,19 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
     @Override
     public SyntaxBuilder apply(KVariable k) {
-        if(rhs) {
-            return applyVarRhs(ppk, k, vars);
+        SyntaxBuilder sb = newsb();
+
+        if (rhs) {
+            sb.append(applyVarRhs(ppk, k, vars));
         } else {
-            return applyVarLhs(ppk, k, vars);
+            sb.append(applyVarLhs(ppk, k, vars));
         }
+
+        if (useNativeBooleanExp && inBooleanExp) {
+            sb = newsbApp("isTrue", newsb().addList(sb));
+        }
+
+        return sb;
     }
 
     @Override
@@ -207,12 +222,26 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
                          .getOrDefault(k.klabel(), "");
 
         if(isNativeAnd(hook)) {
-            res = applyBoolDyad(k, stack ? "(%s) && (%s)" : "[Bool (%s) && (%s)]");
+            res = applyBoolDyad(k,  stack ? "(%s) && (%s)"
+                                          : "[Bool (%s) && (%s)]");
         } else if(isNativeOr(hook)) {
-            res = applyBoolDyad(k, stack ? "(%s) || (%s)" : "[Bool (%s) || (%s)]");
+            res = applyBoolDyad(k,  stack ? "(%s) || (%s)"
+                                          : "[Bool (%s) || (%s)]");
         } else if(isNativeNot(hook)) {
-            res = applyBoolMonad(k, stack ? "(not (%s))"  : "[Bool (not (%s))]");
+            res = applyBoolMonad(k, stack ? "(not (%s))"
+                                          : "[Bool (not (%s))]");
         } else {
+            if(ppk.collectionFor.containsKey(k.klabel()) && !rhs) {
+                KLabel collectionLabel = ppk.collectionFor.get(k.klabel());
+                Att attr = ppk.attributesFor.get(collectionLabel);
+                if(    isAssociative(attr)
+                   && !isCommutative(attr)
+                   && !isIdempotent(attr)) {
+
+                    return applyCollection(k, collectionLabel, attr);
+                }
+            }
+
             if(ppk.attrLabels
                   .get(Attribute.PREDICATE_KEY)
                   .keySet()
@@ -236,26 +265,98 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
         return res;
     }
 
+    public SyntaxBuilder applyCollection(KApply k,
+                                         KLabel collectionLabel,
+                                         Att attr) {
+        SyntaxBuilder sb = newsb();
+        // list
+        sb.append("(List (");
+        sb.append(encodeStringToIdentifier(ppk.mainModule
+                                              .sortFor()
+                                              .apply(collectionLabel)));
+        sb.append(", ");
+        sb.append(encodeStringToIdentifier(collectionLabel));
+        sb.append(", ");
+        K lowered = new LiftToKSequence().lower(k);
+        List<K> components = Assoc.flatten(collectionLabel,
+                                           singletonList(lowered),
+                                           ppk.mainModule);
+        LiftToKSequence lift = new LiftToKSequence();
+        boolean frame = false;
+        for(K component : components) {
+            if(component instanceof KVariable) {
+                // don't want to encode this variable as a List kitem,
+                // so we skip the apply method.
+                KVariable var = (KVariable) component;
+                String varName = encodeStringToVariable(var.name());
+                vars.vars.put(var, varName);
+                vars.listVars.put(varName, collectionLabel);
+                sb.append(varName);
+                frame = true;
+            } else if(component instanceof KApply) {
+                KApply kapp = (KApply) component;
+
+                KLabel kl       = kapp.klabel();
+                KLabel elem     = KLabel(attr.<String>get("element").get());
+                KLabel wrapElem = KLabel(attr.<String>get("wrapElement").get());
+
+                boolean isElement = kl.equals(elem);
+                boolean needsWrapper = !isElement && kl.equals(wrapElem);
+
+                if(isElement || needsWrapper) {
+                    if(kapp.klist().size() != 1 && !needsWrapper) {
+                        String unexpectedArity =
+                            "Unexpected arity of list element: %s";
+                        throw kemInternalErrorF(kapp,
+                                                unexpectedArity,
+                                                kapp.klist().size());
+                    }
+                    if(needsWrapper) {
+                        apply(lift.lift(kapp));
+                    } else {
+                        apply(lift.lift(kapp.klist().items().get(0)));
+                    }
+                    sb.addSpace();
+                    sb.addKeyword("::");
+                    sb.addSpace();
+                } else {
+                    String unexpectedTerm =
+                        "Unexpected term in list, not a list element.";
+                    throw kemInternalErrorF(kapp, unexpectedTerm);
+                }
+            } else {
+                assert false;
+            }
+        }
+        if(!frame) {
+            sb.addValue("[]");
+        }
+        sb.append("))");
+        return sb;
+    }
+
     public SyntaxBuilder apply(List<K> items, boolean klist) {
-        SyntaxBuilder sb = new SyntaxBuilder();
+        SyntaxBuilder sb = newsb();
         for(int i = 0; i < items.size(); i++) {
             K item = items.get(i);
+            boolean listPred =
+                klist || !isList(item, ppk, vars, rhs, topAnywherePre);
             sb.append(apply(item));
             if(i == items.size() - 1) {
-                if(!isList(item, klist)) {
+                if(listPred) {
                     sb.addSpace();
                     sb.addKeyword("::");
                     sb.addSpace();
                     sb.addValue("[]");
                 }
             } else {
-                if(isList(item, klist)) {
+                if(listPred) {
                     sb.addSpace();
-                    sb.addKeyword("@");
+                    sb.addKeyword("::");
                     sb.addSpace();
                 } else {
                     sb.addSpace();
-                    sb.addKeyword("::");
+                    sb.addKeyword("@");
                     sb.addSpace();
                 }
             }
@@ -327,6 +428,8 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             } else {
                 res.append(varName);
             }
+        } else {
+            res.append(varName);
         }
 
         return res;
@@ -355,24 +458,36 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
 
     private boolean isNativeAnd(String hook) {
         boolean res = useNativeBooleanExp;
-        res        &=    "#BOOL:_andThenBool_".equals(hook)
-                      || "#BOOL:_andBool_".equals(hook);
+        res        &=    "BOOL.andThen".equals(hook)
+                      || "BOOL.and".equals(hook);
         return res;
     }
 
     private boolean isNativeOr(String hook) {
         boolean res = useNativeBooleanExp;
-        res        &=    "#BOOL:_orBool_".equals(hook)
-                      || "#BOOL:_orElseBool_".equals(hook);
+        res        &=    "BOOL.or".equals(hook)
+                      || "BOOL.orElse".equals(hook);
         return res;
     }
 
     private boolean isNativeNot(String hook) {
-        return useNativeBooleanExp && "#BOOL:notBool_".equals(hook);
+        return useNativeBooleanExp && "BOOL.not".equals(hook);
     }
 
     private boolean isList(K item, boolean klist) {
         return !klist && isList(item, ppk, vars, rhs, topAnywherePost);
+    }
+
+    private boolean isAssociative(Att attr) {
+        return attr.contains(Attribute.ASSOCIATIVE_KEY);
+    }
+
+    private boolean isCommutative(Att attr) {
+        return attr.contains(Attribute.COMMUTATIVE_KEY);
+    }
+
+    private boolean isIdempotent(Att attr) {
+        return attr.contains(Attribute.IDEMPOTENT_KEY);
     }
 
     /**

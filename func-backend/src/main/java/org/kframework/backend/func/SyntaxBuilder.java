@@ -203,9 +203,6 @@ public class SyntaxBuilder implements Cloneable {
     }
 
     public SyntaxBuilder addValue(String value) {
-        beginValue();
-        append(value);
-        endValue();
         return addValue(newsb(value));
     }
 
@@ -918,13 +915,25 @@ public class SyntaxBuilder implements Cloneable {
 
 
     public SyntaxBuilder addSequence(SyntaxBuilder... actions) {
-        append(SyntaxEnum.BEGIN_SEQUENCE_ELEM);
+        append(SyntaxEnum.BEGIN_SEQUENCE);
         for(SyntaxBuilder sb : actions) {
             append(SyntaxEnum.BEGIN_SEQUENCE_ELEM);
             append(sb);
             append(SyntaxEnum.END_SEQUENCE_ELEM);
         }
         append(SyntaxEnum.END_SEQUENCE);
+        return this;
+    }
+
+
+    public SyntaxBuilder addList(SyntaxBuilder... values) {
+        append(SyntaxEnum.BEGIN_LIST);
+        for(SyntaxBuilder sb : values) {
+            append(SyntaxEnum.BEGIN_LIST_ELEM);
+            append(sb);
+            append(SyntaxEnum.END_LIST_ELEM);
+        }
+        append(SyntaxEnum.END_LIST);
         return this;
     }
 
@@ -1172,6 +1181,11 @@ public class SyntaxBuilder implements Cloneable {
         END_SEQUENCE                (xStop(),  "sequence",              ")"),
         BEGIN_SEQUENCE_ELEM         (xStart(), "sequence-elem",         "; "),
         END_SEQUENCE_ELEM           (xStop(),  "sequence-elem",         ""),
+
+        BEGIN_LIST                  (xStart(), "list",                  "("),
+        END_LIST                    (xStop(),  "list",                  "[])"),
+        BEGIN_LIST_ELEM             (xStart(), "list-elem",             ""),
+        END_LIST_ELEM               (xStop(),  "list-elem",             " :: "),
 
         BEGIN_LET_EXPRESSION        (xStart(), "let-expression",        "(let "),
         END_LET_EXPRESSION          (xStop(),  "let-expression",        ")"),
