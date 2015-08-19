@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit;
 import scala.Tuple2;
 
 import org.kframework.Rewriter;
+import org.kframework.RewriterResult;
 import org.kframework.attributes.Source;
 import org.kframework.definition.Module;
 import org.kframework.definition.Rule;
@@ -129,8 +130,10 @@ public class FuncRewriter implements Function<Module, Rewriter> {
 
         return new Rewriter() {
             @Override
-            public K execute(K k, Optional<Integer> depth) {
-                return executeOCaml(k, depth.orElse(-1)).getE();
+            public RewriterResult execute(K k, Optional<Integer> depth) {
+                int d = depth.orElse(-1);
+                return new RewriterResult(Optional.<Integer>empty(),
+                                          executeOCaml(k, d).getE());
             }
 
             @Override
@@ -143,6 +146,14 @@ public class FuncRewriter implements Function<Module, Rewriter> {
                 executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
                 RunResults r = executeAndMatchOCaml(k, depth.orElse(-1), rule);
                 return Tuple2.apply(r.getE(), r.getM());
+            }
+
+            @Override
+            public List<Map<KVariable, K>> search(K initialConfiguration,
+                                                  Optional<Integer> depth,
+                                                  Optional<Integer> bound,
+                                                  Rule pattern) {
+                throw new UnsupportedOperationException();
             }
         };
     }
