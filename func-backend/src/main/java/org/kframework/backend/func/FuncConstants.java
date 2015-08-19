@@ -29,10 +29,13 @@ public final class FuncConstants {
             .append(genKLabelType(ppk))
             .append(genPrintSortFunc(ppk))
             .append(genPrintKLabelFunc(ppk))
+            .append(genParseSortFunc(ppk))
+            .append(genParseKLabelFunc(ppk))
             .append(genCollectionForFunc(ppk))
             .append(genUnitForFunc(ppk))
             .append(genElementForFunc(ppk))
-            .append(genOtherConstants());
+            .append(genOtherConstants())
+            .append(preludeSB);
     }
 
     private static SyntaxBuilder genMatchFunction(SyntaxBuilder pattern,
@@ -56,18 +59,14 @@ public final class FuncConstants {
     private static SyntaxBuilder genSortType(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
         sb.beginTypeDefinition("sort");
-        if(ppk.fastCompilation) {
-            sb.addConstructor("Sort", "string");
-        } else {
-            for(Sort s : ppk.definedSorts) {
-                sb.addConstructor(encodeStringToIdentifier(s));
-            }
-            if(!ppk.definedSorts.contains(Sorts.String())) {
-                sb.addConstructor("SortString");
-            }
-            if(!ppk.definedSorts.contains(Sorts.Float())) {
-                sb.addConstructor("SortFloat");
-            }
+        for(Sort s : ppk.definedSorts) {
+            sb.addConstructor(encodeStringToIdentifier(s));
+        }
+        if(!ppk.definedSorts.contains(Sorts.String())) {
+            sb.addConstructor("SortString");
+        }
+        if(!ppk.definedSorts.contains(Sorts.Float())) {
+            sb.addConstructor("SortFloat");
         }
         sb.endTypeDefinition();
         return sb;
@@ -76,12 +75,8 @@ public final class FuncConstants {
     private static SyntaxBuilder genKLabelType(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
         sb.beginTypeDefinition("klabel");
-        if(ppk.fastCompilation) {
-            sb.addConstructor("KLabel", "string");
-        } else {
-            for(KLabel label : ppk.definedKLabels) {
-                sb.addConstructor(encodeStringToIdentifier(label));
-            }
+        for(KLabel label : ppk.definedKLabels) {
+            sb.addConstructor(encodeStringToIdentifier(label));
         }
         sb.endTypeDefinition();
         return sb;
@@ -95,11 +90,6 @@ public final class FuncConstants {
             eqns.addMatchEquation(newsbn(encodeStringToIdentifier(s)),
                                   newsbStr(s.name()));
         }
-        if(ppk.fastCompilation) {
-            eqns.addMatchEquation(newsbn("Sort s"),
-                                  newsbApp("raise",
-                                           newsbv("Invalid_argument s")));
-        }
         return genMatchFunction(name, value, eqns);
     }
 
@@ -111,11 +101,32 @@ public final class FuncConstants {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
                                   newsbStr(ToKast.apply(label)));
         }
-        if(ppk.fastCompilation) {
-            eqns.addMatchEquation(newsbn("KLabel s"),
-                                  newsbApp("raise",
-                                           newsbv("Invalid_argument s")));
+        return genMatchFunction(name, value, eqns);
+    }
+
+    private static SyntaxBuilder genParseSortFunc(PreprocessedKORE ppk) {
+        SyntaxBuilder name  = newsb("parse_sort (c: string) : sort");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(Sort s : ppk.definedSorts) {
+            eqns.addMatchEquation(newsbStr(s.name()),
+                                  newsbn(encodeStringToIdentifier(s)));
         }
+        eqns.addMatchEquation(newsbp("_"),
+                              newsbv("invalid_arg (\"parse_sort: \" ^ c)"));
+        return genMatchFunction(name, value, eqns);
+    }
+
+    private static SyntaxBuilder genParseKLabelFunc(PreprocessedKORE ppk) {
+        SyntaxBuilder name  = newsb("parse_klabel (c: string) : klabel");
+        SyntaxBuilder value = newsbn("c");
+        SyntaxBuilder eqns  = newsb();
+        for(KLabel label : ppk.definedKLabels) {
+            eqns.addMatchEquation(newsbStr(label.name()),
+                                  newsbp(encodeStringToIdentifier(label)));
+        }
+        eqns.addMatchEquation(newsbp("_"),
+                              newsbv("invalid_arg (\"parse_klabel: \" ^ c)"));
         return genMatchFunction(name, value, eqns);
     }
 
@@ -127,6 +138,8 @@ public final class FuncConstants {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(entry.getKey())),
                                   newsbv(encodeStringToIdentifier(entry.getValue())));
         }
+        eqns.addMatchEquation(newsbp("_"),
+                              newsbv("invalid_arg \"collection_for\""));
         return genMatchFunction(name, value, eqns);
     }
 
@@ -145,6 +158,8 @@ public final class FuncConstants {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
                                   newsbv(encodeStringToIdentifier(val)));
         }
+        eqns.addMatchEquation(newsbp("_"),
+                              newsbv("invalid_arg \"unit_for\""));
         return genMatchFunction(name, value, eqns);
     }
 
@@ -163,6 +178,8 @@ public final class FuncConstants {
             eqns.addMatchEquation(newsbp(encodeStringToIdentifier(label)),
                                   newsbv(encodeStringToIdentifier(val)));
         }
+        eqns.addMatchEquation(newsbp("_"),
+                              newsbv("invalid_arg \"el_for\""));
         return genMatchFunction(name, value, eqns);
     }
 

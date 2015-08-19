@@ -87,121 +87,124 @@ public final class OCamlIncludes {
         "           | Bool of bool\n" +
         "           | Bottom\n";
 
-    public static final String prelude =
-        "module type S =\n" +
-        "sig\n" +
-        "  type 'a m\n" +
-        "  type s\n" +
-        "  type " + kType +
-        "  val compare : t -> t -> int\n" +
-        "end \n" +
-        "\n" +
-        "\n" +
-        "module rec K : (S with type 'a m = 'a Map.Make(K).t and type s = Set.Make(K).t)  = \n" +
-        "struct\n" +
-        "  module KMap = Map.Make(K)\n" +
-        "  module KSet = Set.Make(K)\n" +
-        "  type 'a m = 'a KMap.t\n" +
-        "  and s = KSet.t\n" +
-        "  and " + kType +
-        "  let rec compare c1 c2 = match (c1, c2) with\n" +
-        "    | [], [] -> 0\n" +
-        "    | (hd1 :: tl1), (hd2 :: tl2) -> let v = compare_kitem hd1 hd2 in if v = 0 then compare tl1 tl2 else v\n" +
-        "    | (hd1 :: tl1), _ -> -1\n" +
-        "    | _ -> 1\n" +
-        "  and compare_kitem c1 c2 = match (c1, c2) with\n" +
-        "    | (KApply(kl1, k1)), (KApply(kl2, k2)) -> let v = compare_klabel kl1 kl2 in if v = 0 then compare_klist k1 k2 else v\n" +
-        "    | (KToken(s1, st1)), (KToken(s2, st2)) -> let v = compare_sort s1 s2 in if v = 0 then Pervasives.compare st1 st2 else v\n" +
-        "    | (InjectedKLabel kl1), (InjectedKLabel kl2) -> compare_klabel kl1 kl2\n" +
-        "    | (Map m1), (Map m2) -> (KMap.compare) compare m1 m2\n" +
-        "    | (List l1), (List l2) -> compare_klist l1 l2\n" +
-        "    | (Set s1), (Set s2) -> (KSet.compare) s1 s2\n" +
-        "    | (Int i1), (Int i2) -> Z.compare i1 i2\n" +
-        "    | (String s1), (String s2) -> Pervasives.compare s1 s2\n" +
-        "    | (Bool b1), (Bool b2) -> if b1 = b2 then 0 else if b1 then -1 else 1\n" +
-        "    | Bottom, Bottom -> 0\n" +
-        "    | KApply(_, _), _ -> -1\n" +
-        "    | _, KApply(_, _) -> 1\n" +
-        "    | KToken(_, _), _ -> -1\n" +
-        "    | _, KToken(_, _) -> 1\n" +
-        "    | InjectedKLabel(_), _ -> -1\n" +
-        "    | _, InjectedKLabel(_) -> 1\n" +
-        "    | Map(_), _ -> -1\n" +
-        "    | _, Map(_) -> 1\n" +
-        "    | List(_), _ -> -1\n" +
-        "    | _, List(_) -> 1\n" +
-        "    | Set(_), _ -> -1\n" +
-        "    | _, Set(_) -> 1\n" +
-        "    | Int(_), _ -> -1\n" +
-        "    | _, Int(_) -> 1\n" +
-        "    | String(_), _ -> -1\n" +
-        "    | _, String(_) -> 1\n" +
-        "    | Bool(_), _ -> -1\n" +
-        "    | _, Bool(_) -> 1\n" +
-        "  and compare_klist c1 c2 = match (c1, c2) with\n" +
-        "    | [], [] -> 0\n" +
-        "    | (hd1 :: tl1), (hd2 :: tl2) -> let v = compare hd1 hd2 in if v = 0 then compare_klist tl1 tl2 else v\n" +
-        "    | (hd1 :: tl1), _ -> -1\n" +
-        "    | _ -> 1\n" +
-        "  and compare_klabel kl1 kl2 = (order_klabel kl2) - (order_klabel kl1)\n" +
-        "  and compare_sort s1 s2 = (order_sort s2) - (order_sort s1)\n" +
-        "end\n" +
-        "\n" +
-        "  module KMap = Map.Make(K)\n" +
-        "  module KSet = Set.Make(K)\n" +
-        "\n" +
-        "open K\n" +
-        "type k = K.t" +
-        "\n" +
-        "exception Stuck of k\n" +
-        "module GuardElt = struct\n" +
-        "  type t = Guard of int\n" +
-        "  let compare c1 c2 = match c1 with Guard(i1) -> match c2 with Guard(i2) -> i2 - i1\n" +
-        "end\n" +
-        "module Guard = Set.Make(GuardElt)\n" +
-        "let freshCounter : Z.t ref = ref Z.zero\n";
+    public static final SyntaxBuilder preludeSB;
+    public static final SyntaxBuilder midludeSB;
+    public static final SyntaxBuilder postludeSB;
 
-    private static final String midlude =
-        "let eq k1 k2 = k1 = k2\n" +
-        "let isTrue(c: k) : bool = match c with\n" +
-        "| ([" + TRUE + "]) -> true\n" +
-        "| _ -> false\n" +
-        "let rec list_range (c: k list * int * int) : k list = match c with\n" +
-        "| (_, 0, 0) -> []\n" +
-        "| (head :: tail, 0, len) -> head :: list_range(tail, 0, len - 1)\n" +
-        "| (_ :: tail, n, len) -> list_range(tail, n - 1, len)\n" +
-        "| ([], _, _) -> raise(Failure \"list_range\")\n" +
-        "let rec print_klist(c: k list) : string = match c with\n" +
-        "| [] -> \".KList\"\n" +
-        "| e::[] -> print_k(e)\n" +
-        "| e1::e2::l -> print_k(e1) ^ \", \" ^ print_klist(e2::l)\n" +
-        "and print_k(c: k) : string = match c with\n" +
-        "| [] -> \".K\"\n" +
-        "| e::[] -> print_kitem(e)\n" +
-        "| e1::e2::l -> print_kitem(e1) ^ \" ~> \" ^ print_k(e2::l)\n" +
-        "and print_kitem(c: kitem) : string = match c with\n" +
-        "| KApply(klabel, klist) -> print_klabel(klabel) ^ \"(\" ^ print_klist(klist) ^ \")\"\n" +
-        "| KToken(sort, s) -> \"#token(\\\"\" ^ (String.escaped s) ^ \"\\\", \\\"\" ^ print_sort(sort) ^ \"\\\")\"\n" +
-        "| InjectedKLabel(klabel) -> \"#klabel(\" ^ print_klabel(klabel) ^ \")\"\n" +
-        "| Bool(b) -> print_kitem(KToken(" + BOOL + ", string_of_bool(b)))\n" +
-        "| String(s) -> print_kitem(KToken(" + STRING + ", \"\\\"\" ^ (String.escaped s) ^ \"\\\"\"))\n" +
-        "| Int(i) -> print_kitem(KToken(" + INT + ", Z.to_string(i)))\n" +
-        "| Bottom -> \"`#Bottom`(.KList)\"\n" +
-        "| List(l) -> List.fold_left (fun s k -> \"`_List_`(`ListItem`(\" ^ print_k(k) ^ \"),\" ^ s ^ \")\") \"`.List`(.KList)\" l\n" +
-        "| Set(s) -> KSet.fold (fun k s -> \"`_Set_`(`SetItem`(\" ^ print_k(k) ^ \"), \" ^ s ^ \")\") s \"`.Set`(.KList)\"\n" +
-        "| Map(m) -> KMap.fold (fun k v s -> \"`_Map_`(`_|->_`(\" ^ print_k(k) ^ \", \" ^ print_k(v) ^ \"), \" ^ s ^ \")\") m \"`.Map`(.KList)\"\n" +
-        "let print_set f s = print_string (print_kitem(Set s))\n" +
-        "let print_map f m = print_string (print_kitem(Map m))\n";
+    static {
+        SyntaxBuilder sb = newsb();
+        sb.appendf("%s%n", "module type S =");
+        sb.appendf("%s%n", "sig");
+        sb.appendf("%s%n", "  type 'a m");
+        sb.appendf("%s%n", "  type s");
+        sb.appendf("%s%n", "  type " + kType);
+        sb.appendf("%s%n", "  val compare : t -> t -> int");
+        sb.appendf("%s%n", "  val compare_kitem : kitem -> kitem -> int");
+        sb.appendf("%s%n", "  val compare_klist : t list -> t list -> int");
+        sb.appendf("%s%n", "end ");
+        sb.appendf("%s%n", "");
+        sb.appendf("%s%n", "");
+        sb.appendf("%s%n", "module rec K : (S with type 'a m = 'a Map.Make(K).t and type s = Set.Make(K).t)  = ");
+        sb.appendf("%s%n", "struct");
+        sb.appendf("%s%n", "  module KMap = Map.Make(K)");
+        sb.appendf("%s%n", "  module KSet = Set.Make(K)");
+        sb.appendf("%s%n", "  type 'a m = 'a KMap.t");
+        sb.appendf("%s%n", "  and s = KSet.t");
+        sb.appendf("%s%n", "  and " + kType);
+        sb.appendf("%s%n", "  let rec compare c1 c2 = match (c1, c2) with");
+        sb.appendf("%s%n", "    | [], [] -> 0");
+        sb.appendf("%s%n", "    | (hd1 :: tl1), (hd2 :: tl2) -> let v = compare_kitem hd1 hd2 in if v = 0 then compare tl1 tl2 else v");
+        sb.appendf("%s%n", "    | (hd1 :: tl1), _ -> -1");
+        sb.appendf("%s%n", "    | _ -> 1");
+        sb.appendf("%s%n", "  and compare_kitem c1 c2 = match (c1, c2) with");
+        sb.appendf("%s%n", "    | (KApply(kl1, k1)), (KApply(kl2, k2)) -> let v = compare_klabel kl1 kl2 in if v = 0 then compare_klist k1 k2 else v");
+        sb.appendf("%s%n", "    | (KToken(s1, st1)), (KToken(s2, st2)) -> let v = compare_sort s1 s2 in if v = 0 then Pervasives.compare st1 st2 else v");
+        sb.appendf("%s%n", "    | (InjectedKLabel kl1), (InjectedKLabel kl2) -> compare_klabel kl1 kl2");
+        sb.appendf("%s%n", "    | (Map m1), (Map m2) -> (KMap.compare) compare m1 m2");
+        sb.appendf("%s%n", "    | (List l1), (List l2) -> compare_klist l1 l2");
+        sb.appendf("%s%n", "    | (Set s1), (Set s2) -> (KSet.compare) s1 s2");
+        sb.appendf("%s%n", "    | (Int i1), (Int i2) -> Z.compare i1 i2");
+        sb.appendf("%s%n", "    | (String s1), (String s2) -> Pervasives.compare s1 s2");
+        sb.appendf("%s%n", "    | (Bool b1), (Bool b2) -> if b1 = b2 then 0 else if b1 then -1 else 1");
+        sb.appendf("%s%n", "    | Bottom, Bottom -> 0");
+        sb.appendf("%s%n", "    | KApply(_, _), _ -> -1");
+        sb.appendf("%s%n", "    | _, KApply(_, _) -> 1");
+        sb.appendf("%s%n", "    | KToken(_, _), _ -> -1");
+        sb.appendf("%s%n", "    | _, KToken(_, _) -> 1");
+        sb.appendf("%s%n", "    | InjectedKLabel(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, InjectedKLabel(_) -> 1");
+        sb.appendf("%s%n", "    | Map(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, Map(_) -> 1");
+        sb.appendf("%s%n", "    | List(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, List(_) -> 1");
+        sb.appendf("%s%n", "    | Set(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, Set(_) -> 1");
+        sb.appendf("%s%n", "    | Int(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, Int(_) -> 1");
+        sb.appendf("%s%n", "    | String(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, String(_) -> 1");
+        sb.appendf("%s%n", "    | Bool(_), _ -> -1");
+        sb.appendf("%s%n", "    | _, Bool(_) -> 1");
+        sb.appendf("%s%n", "end");
+        sb.appendf("%s%n", "");
+        sb.appendf("%s%n", "  module KMap = Map.Make(K)");
+        sb.appendf("%s%n", "  module KSet = Set.Make(K)");
+        sb.appendf("%s%n", "");
+        sb.appendf("%s%n", "open K");
+        sb.appendf("%s%n", "type k = K.t");
+        sb.appendf("%s%n", "exception Stuck of k");
+        sb.appendf("%s%n", "module GuardElt = struct");
+        sb.appendf("%s%n", "  type t = Guard of int");
+        sb.appendf("%s%n", "  let compare c1 c2 = match c1 with Guard(i1) -> match c2 with Guard(i2) -> i2 - i1");
+        sb.appendf("%s%n", "end");
+        sb.appendf("%s%n", "module Guard = Set.Make(GuardElt)");
+        sb.appendf("%s%n", "let freshCounter : Z.t ref = ref Z.zero");
+        preludeSB = newsb().append(sb);
+    }
 
-    private static final String postlude =
-        "let run c n=\n" +
-        "  try let rec go c n = if n = 0 then c else go (step c) (n - 1)\n" +
-        "      in go c n\n" +
-        "  with Stuck c' -> c'\n";
+    static {
+        SyntaxBuilder sb = newsb();
+        sb.appendf("%s%n", "let eq k1 k2 = k1 = k2");
+        sb.appendf("%s%n", "let isTrue(c: k) : bool = match c with");
+        sb.appendf("%s%n", "| ([" + TRUE + "]) -> true");
+        sb.appendf("%s%n", "| _ -> false");
+        sb.appendf("%s%n", "let rec list_range (c: k list * int * int) : k list = match c with");
+        sb.appendf("%s%n", "| (_, 0, 0) -> []");
+        sb.appendf("%s%n", "| (head :: tail, 0, len) -> head :: list_range(tail, 0, len - 1)");
+        sb.appendf("%s%n", "| (_ :: tail, n, len) -> list_range(tail, n - 1, len)");
+        sb.appendf("%s%n", "| ([], _, _) -> raise(Failure \"list_range\")");
+        sb.appendf("%s%n", "let rec print_klist(c: k list) : string = match c with");
+        sb.appendf("%s%n", "| [] -> \".KList\"");
+        sb.appendf("%s%n", "| e::[] -> print_k(e)");
+        sb.appendf("%s%n", "| e1::e2::l -> print_k(e1) ^ \", \" ^ print_klist(e2::l)");
+        sb.appendf("%s%n", "and print_k(c: k) : string = match c with");
+        sb.appendf("%s%n", "| [] -> \".K\"");
+        sb.appendf("%s%n", "| e::[] -> print_kitem(e)");
+        sb.appendf("%s%n", "| e1::e2::l -> print_kitem(e1) ^ \" ~> \" ^ print_k(e2::l)");
+        sb.appendf("%s%n", "and print_kitem(c: kitem) : string = match c with");
+        sb.appendf("%s%n", "| KApply(klabel, klist) -> print_klabel(klabel) ^ \"(\" ^ print_klist(klist) ^ \")\"");
+        sb.appendf("%s%n", "| KToken(sort, s) -> \"#token(\\\"\" ^ (String.escaped s) ^ \"\\\", \\\"\" ^ print_sort(sort) ^ \"\\\")\"");
+        sb.appendf("%s%n", "| InjectedKLabel(klabel) -> \"#klabel(\" ^ print_klabel(klabel) ^ \")\"");
+        sb.appendf("%s%n", "| Bool(b) -> print_kitem(KToken(" + BOOL + ", string_of_bool(b)))");
+        sb.appendf("%s%n", "| String(s) -> print_kitem(KToken(" + STRING + ", \"\\\"\" ^ (String.escaped s) ^ \"\\\"\"))");
+        sb.appendf("%s%n", "| Int(i) -> print_kitem(KToken(" + INT + ", Z.to_string(i)))");
+        sb.appendf("%s%n", "| Bottom -> \"`#Bottom`(.KList)\"");
+        sb.appendf("%s%n", "| List(l) -> List.fold_left (fun s k -> \"`_List_`(`ListItem`(\" ^ print_k(k) ^ \"),\" ^ s ^ \")\") \"`.List`(.KList)\" l");
+        sb.appendf("%s%n", "| Set(s) -> KSet.fold (fun k s -> \"`_Set_`(`SetItem`(\" ^ print_k(k) ^ \"), \" ^ s ^ \")\") s \"`.Set`(.KList)\"");
+        sb.appendf("%s%n", "| Map(m) -> KMap.fold (fun k v s -> \"`_Map_`(`_|->_`(\" ^ print_k(k) ^ \", \" ^ print_k(v) ^ \"), \" ^ s ^ \")\") m \"`.Map`(.KList)\"");
+        sb.appendf("%s%n", "let print_set f s = print_string (print_kitem(Set s))");
+        sb.appendf("%s%n", "let print_map f m = print_string (print_kitem(Map m))");
+        midludeSB = sb;
+    }
 
-    public static final SyntaxBuilder preludeSB  = newsb(prelude);
-    public static final SyntaxBuilder midludeSB  = newsb(midlude);
-    public static final SyntaxBuilder postludeSB = newsb(postlude);
+    static {
+        SyntaxBuilder sb = newsb();
+        sb.appendf("%s%n", "let run c n=");
+        sb.appendf("%s%n", "  try let rec go c n = if n = 0 then c else go (step c) (n - 1)");
+        sb.appendf("%s%n", "      in go c n");
+        sb.appendf("%s%n", "  with Stuck c' -> c'");
+        postludeSB = sb;
+    }
 
     public static final ImmutableSet<String> hookNamespaces;
     public static final ImmutableMap<String, SyntaxBuilder> hooks;
