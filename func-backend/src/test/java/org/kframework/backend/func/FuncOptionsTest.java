@@ -56,6 +56,13 @@ public class FuncOptionsTest {
     }
 
     @Test
+    public void testProfileRules() {
+        Function<FuncOptions, Boolean> getter = x -> x.getProfileRules();
+        testJC(getter, false, "");
+        testJC(getter, true,  "--profile-rules");
+    }
+
+    @Test
     public void testPackages() {
         Function<FuncOptions, List<String>> getter = x -> x.getPackages();
         String opt = "--packages";

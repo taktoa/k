@@ -39,6 +39,10 @@ public class FuncOptions implements Serializable {
                              + ".ml files.")
     private boolean genMLOnly = false;
 
+    @Parameter(names         = { "--profile-rules" },
+               description   = "Enable profiling in generated ML.")
+    private boolean profileRules = false;
+
     @Parameter(names         = { "--packages" },
                listConverter = StringListConverter.class,
                description   = "<string> is a whitespace-separated list of "
@@ -91,6 +95,11 @@ public class FuncOptions implements Serializable {
     /** Should we only generate the ML files? */
     public boolean getGenMLOnly() {
         return genMLOnly;
+    }
+
+    /** Should we profile rules in the generated ML? */
+    public boolean getProfileRules() {
+        return profileRules;
     }
 
     /** Packages to add to the ocamlfind invocation. */
