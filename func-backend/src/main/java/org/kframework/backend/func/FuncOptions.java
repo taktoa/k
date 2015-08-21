@@ -8,11 +8,14 @@ import org.kframework.utils.options.StringListConverter;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.kframework.backend.func.FuncUtil.*;
 
 /**
  * Command-line options for the K Framework functional backend.
+ * If you change anything in this class, you should adjust
+ * FuncOptionsTest.java to compensate.
  *
  * @author Remy Goldschmidt
  */
@@ -29,7 +32,7 @@ public class FuncOptions implements Serializable {
                description   = "<level> is an integer ranging from 0 to 3 "
                              + "representing the optimization level with "
                              + "which to kompile.")
-    private Integer optLevel = 1;
+    private String optLevel = "1";
 
     @Parameter(names         = { "--gen-ml-only" },
                description   = "Do not compile definition; only generate "
@@ -64,7 +67,6 @@ public class FuncOptions implements Serializable {
 
     /** The optimization level, represented as an enum. */
     public enum OptLevel {
-        INVALID,
         FAST,
         SLOW;
     }
@@ -76,13 +78,13 @@ public class FuncOptions implements Serializable {
 
 
     /** Optimization level at which to kompile. */
-    public OptLevel getOptLevel() {
+    public Optional<OptLevel> getOptLevel() {
         switch(optLevel) {
-        case 0:  return OptLevel.SLOW;
-        case 1:  return OptLevel.FAST;
-        case 2:  return OptLevel.FAST;
-        case 3:  return OptLevel.FAST;
-        default: return OptLevel.INVALID;
+        case "0": return Optional.of(OptLevel.SLOW);
+        case "1": return Optional.of(OptLevel.FAST);
+        case "2": return Optional.of(OptLevel.FAST);
+        case "3": return Optional.of(OptLevel.FAST);
+        default:  return Optional.empty();
         }
     }
 
