@@ -1,10 +1,8 @@
 // Copyright (c) 2015 K Team. All Rights Reserved.
 package org.kframework.backend.func;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
-import com.google.common.collect.Lists;
+import edu.uci.ics.jung.graph.DirectedGraph;
+import edu.uci.ics.jung.graph.DirectedSparseGraph;
 
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
@@ -36,12 +34,17 @@ import org.kframework.utils.file.FileUtil;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.Queue;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Comparator;
@@ -49,16 +52,18 @@ import java.util.Comparator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ComparisonChain;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import org.apache.commons.lang3.mutable.MutableBoolean;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
+
 import org.kframework.attributes.Att;
 import org.kframework.attributes.Location;
 import org.kframework.attributes.Source;
@@ -100,6 +105,7 @@ import org.kframework.utils.algorithms.SCCTarjan;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
+
 import scala.Function1;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -153,8 +159,8 @@ public class DefinitionToFunc {
     /**
      * Constructor for DefinitionToFunc
      */
-    public DefinitionToFunc(KExceptionManager kem,
-                            PreprocessedKORE preproc) {
+    public DefinitionToFunc(PreprocessedKORE preproc,
+                            KExceptionManager kem) {
         this.kem = kem;
         this.ocamlDefinition = genDefinition(preproc);
         this.ocamlConstants  = FuncConstants.genConstants(preproc);
@@ -181,10 +187,6 @@ public class DefinitionToFunc {
         outprintfln(";; Number of parens: %d", ocamlDefinition.getNumParens());
         outprintfln(";; Number of lines:  %d", ocamlDefinition.getNumLines());
 
-
-        outprintfln("functionSet: %s", ppk.functionSet);
-        outprintfln("anywhereSet: %s", ppk.anywhereSet);
-
         XMLBuilder outXML = ocamlDefinition.getXML();
 
         outprintfln("");
@@ -204,170 +206,285 @@ public class DefinitionToFunc {
         outprintfln("");
     }
 
+    // DOES NOT COMPILE
     public SyntaxBuilder genDefinition(PreprocessedKORE ppk) {
         SyntaxBuilder sb = newsb();
-        Module mm = ppk.mainModule;
+        sb.addImport("Prelude");
+        sb.addImport("Constants");
+        sb.addImport("Constants.K");
 
-        sb.append(genImports());
-        SetMultimap<KLabel, Rule> functionRules = HashMultimap.create();
-        ListMultimap<KLabel, Rule> anywhereRules = ArrayListMultimap.create();
-        for(Rule r : iterable(mm.rules())) {
-            K left = RewriteToTop.toLeft(r.body());
-            if(left instanceof KSequence) {
-                KSequence kseq = (KSequence) left;
-                if(kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
-                    KApply kapp = (KApply) kseq.items().get(0);
-                    if(mm.attributesFor().apply(kapp.klabel()).contains(Attribute.FUNCTION_KEY)) {
-                        functionRules.put(kapp.klabel(), r);
+        SetMultimap<KLabel, Rule> rules = HashMultimap.create();
+        rules.putAll(ppk.functionRules);
+        rules.putAll(ppk.anywhereRules);
+
+        FunctionOrder functionOrder = FunctionOrder.generateOrder(ppk);
+
+        //compute fixed point. The only hook that actually requires this argument is KREFLECTION.fresh, so we will automatically
+        //add the real definition of this function before we declare any function that requires it.
+        sb.append("let freshFunction (sort: string) (config: k) (counter: Z.t) : k = [Bottom]");
+
+        Predicate<KLabel> isImpure = kl -> ppk.attributesFor
+                                              .get(kl)
+                                              .contains(Attribute.IMPURE_KEY);
+
+        Set<KLabel> impurities =
+            ppk.functionSet
+               .stream()
+               .filter(isImpure)
+               .collect(toSetC());
+
+        impurities.addAll(ancestors(impurities,
+                                    functionOrder.getDependencies()));
+
+        Predicate<KLabel> isConstant = kl -> {
+            if(impurities.contains(kl)) { return false; }
+
+            return ppk.productionsFor
+                      .get(kl)
+                      .stream()
+                      .filter(p -> p.arity() == 0)
+                      .findAny()
+                      .isPresent();
+        };
+
+        Set<KLabel> constantLabels = filterCollS(isConstant, ppk.functionSet);
+
+        Function<KLabel, Att> attFor = ppk.attributesFor::get;
+
+        for(List<KLabel> component : functionOrder.getOrder()) {
+            String conn;
+            if(component.size() == 1) {
+                MutableBoolean isRecursive = new MutableBoolean(false);
+                for(Rule r : rules.get(component.get(0))) {
+                    class ComputeRecursion extends VisitKORE {
+                        @Override
+                        public Void apply(KApply k) {
+                            if(k.klabel().equals(component.get(0))) {
+                                isRecursive.setTrue();
+                            }
+                            return super.apply(k);
+                        }
+                    }
+                    new ComputeRecursion().apply(RewriteToTop.toRight(r.body()));
+                    new ComputeRecursion().apply(r.requires());
+                    if(hasLookups(r)) {
+                        isRecursive.setTrue();
                     }
                 }
+                if(isRecursive.getValue()) {
+                    conn = "let rec ";
+                } else {
+                    conn = "let ";
+                }
+            } else {
+                conn = "let rec ";
             }
-        }
+            for(KLabel functionLabel : component) {
+                String hook = attFor.apply(functionLabel)
+                                    .<String>getOptional(Attribute.HOOK_KEY)
+                                    .orElse(".");
+                if(hook.equals("KREFLECTION.fresh")) {
+                    sb.append("let freshFunction (sort: string) (config: k) (counter: Z.t) : k = match sort with \n");
+                    for(Sort sort : ppk.freshFunctionFor.keySet()) {
+                        sb.append("| \"");
+                        sb.append(sort.name());
+                        sb.append("\" -> (");
+                        KLabel freshFunction = ppk.freshFunctionFor.get(sort);
+                        sb.append(encodeStringToFunction(freshFunction));
+                        sb.append(" ([Int counter]) config (-1))\n");
+                    }
+                }
+                if(ppk.functionSet.contains(functionLabel)) {
+                    sb.append(conn);
+                    String functionName = encodeStringToFunction(functionLabel);
+                    sb.append(functionName);
+                    int arity = getArity(ppk, functionLabel);
+                    sb.append(printFunctionParams(arity));
+                    sb.append(" (config: k) (guard: int) : k = let lbl = \n");
+                    sb.append(encodeStringToIdentifier(functionLabel));
+                    sb.append(" and sort = \n");
+                    sb.append(encodeStringToIdentifier(ppk.sortFor.get(functionLabel)));
+                    sb.append(" in ");
+                    sb.append("match c with \n");
+                    String namespace = hook.substring(0, hook.indexOf('.'));
+                    String function = hook.substring(namespace.length() + 1);
+                    if(      OCamlIncludes.hookNamespaces.contains(namespace)
+                       || ppk.options.getHookNamespaces().contains(namespace)) {
+                        sb.append("| _ -> try ");
+                        sb.append(namespace);
+                        sb.append(".hook_");
+                        sb.append(function);
+                        sb.append(" c lbl sort config freshFunction");
+                        if(attFor.apply(functionLabel)
+                                 .contains("canTakeSteps")) {
+                            sb.append(" eval");
+                        }
+                        sb.append("\nwith Not_implemented -> match c with \n");
+                    } else if(!hook.equals(".")) {
+                        kem.registerCompilerWarning("missing entry for hook " + hook);
+                    }
 
-        String conn = "let rec ";
-        for(KLabel functionLabel : ppk.functionSet) {
-            sb.append(conn);
-            String functionName = encodeStringToFunction(functionLabel.name());
-            sb.appendf("%s (c: k list) (config: k) (guards: Guard.t) : k = ",
-                       functionName);
-            sb.appendf("let lbl = %s and sort = %s",
-                       encodeStringToIdentifier(functionLabel),
-                       encodeStringToIdentifier(mm.sortFor()
-                                                  .apply(functionLabel)));
-            String sortHook = "";
-            if(mm.attributesFor()
-                 .apply(functionLabel)
-                 .contains(Attribute.PREDICATE_KEY)) {
-                Sort sort = Sort(mm.attributesFor()
-                                   .apply(functionLabel)
-                                   .<String>get(Attribute.PREDICATE_KEY)
-                                   .get());
-                sb.appendf(" and pred_sort = %s",
-                           encodeStringToIdentifier(sort));
-                if(mm.sortAttributesFor().contains(sort)) {
-                    sortHook = mm.sortAttributesFor()
-                                 .apply(sort)
-                                 .<String>getOptional("hook")
-                                 .orElse("");
+                    if(attFor.apply(functionLabel)
+                             .contains(Attribute.PREDICATE_KEY)) {
+                        Sort pSort = Sort(attFor.apply(functionLabel)
+                                                .<String>get(Attribute.PREDICATE_KEY)
+                                                .get());
+                        ppk.definedSorts
+                            .stream()
+                            .filter(s -> ppk.subsorts.greaterThanEq(pSort, s))
+                            .distinct()
+                            .filter(ppk.sortAttributesFor.keySet()::contains)
+                            .forEach(sort -> {
+                            String sortHook = ppk.sortAttributesFor
+                                                 .get(sort)
+                                                 .<String>getOptional("hook")
+                                                 .orElse("");
+                            if(predicateRules.containsKey(sortHook)) {
+                                sb.append("| ");
+                                sb.append(predicateRules.get(sortHook)
+                                                        .apply(sort));
+                                sb.append("\n");
+                            }
+                        });
+                    }
+
+                    sb.append(convertFunction(ppk,
+                                              ppk.functionRules
+                                                 .get(functionLabel)
+                                                 .stream()
+                                                 .sorted(DefinitionToFunc::sortFunctionRules)
+                                                 .collect(toListC()),
+                                              functionName,
+                                              RuleType.FUNCTION));
+                    sb.append("| _ -> raise (Stuck [denormalize (KApply(lbl, (denormalize");
+                    sb.append(Integer.toString(arity));
+                    sb.append(" c)))])\n");
+                    if(constantLabels.contains(functionLabel)) {
+                        sb.append(conn.equals("let rec ") ? "and " : conn);
+                        sb.append("const");
+                        sb.append(encodeStringToAlphanumeric(functionLabel.name()));
+                        sb.append(" : k Lazy.t = lazy (");
+                        sb.append(encodeStringToFunction(functionLabel));
+                        sb.append(" () [Bottom] (-1))\n");
+                    }
+                    conn = "and ";
+                } else if(ppk.anywhereRules.keySet().contains(functionLabel)) {
+                    sb.append(conn);
+                    String functionName = encodeStringToFunction(functionLabel);
+                    sb.append(functionName);
+                    int arity = getArity(ppk, functionLabel);
+                    sb.append(printFunctionParams(arity));
+                    sb.append(" (config: k) (guard: int) : k = let lbl = \n");
+                    sb.append(encodeStringToIdentifier(functionLabel));
+                    sb.append(" in match c with \n");
+                    sb.append(convertFunction(ppk,
+                                              ppk.anywhereRules
+                                                 .get(functionLabel)
+                                                 .stream()
+                                                 .collect(toListC()),
+                                              functionName,
+                                              RuleType.ANYWHERE));
+                    sb.append("| ");
+                    for(int i = 0; i < arity; i++) {
+                        sb.append("k");
+                        sb.append(Integer.toString(i));
+                        if(i != arity - 1) {
+                            sb.append(",");
+                        }
+                    }
+                    sb.append(" -> [KApply");
+                    sb.append(Integer.toString(arity));
+                    sb.append("(lbl, ");
+                    for(int i = 0; i < arity; i++) {
+                        sb.append("k");
+                        sb.append(Integer.toString(i));
+                        if(i != arity - 1) {
+                            sb.append(",");
+                        }
+                    }
+                    sb.append(")]\n");
+                    conn = "and ";
+                } else if(functionLabel.name().isEmpty()) {
+                    //placeholder for eval function;
+                    sb.append(conn);
+                    sb.append("eval (c: normal_kitem) (config: k) : k = match c with KApply(lbl, kl) -> (match lbl with \n");
+                    for(KLabel label : Sets.union(ppk.functionSet,
+                                                  ppk.anywhereRules.keySet())) {
+                        sb.append("|");
+                        sb.append(encodeStringToIdentifier(label));
+                        sb.append(" -> ");
+                        sb.append(encodeStringToFunction(label));
+                        int arity = getArity(ppk, label);
+                        sb.append(" (normalize");
+                        sb.append(Integer.toString(arity));
+                        sb.append(" kl) config (-1)\n");
+                    }
+                    sb.append("| _ -> [denormalize c])\n");
+                    sb.append("| _ -> [denormalize c]\n");
                 }
             }
-
-            sb.append(" in match c with ");
-            sb.append(newline());
-
-            String hook = mm.attributesFor()
-                            .apply(functionLabel)
-                            .<String>getOptional(Attribute.HOOK_KEY)
-                            .orElse(".");
-            String namespace = hook.substring(0, hook.indexOf('.'));
-            String function = hook.substring(namespace.length() + 1);
-
-            if(hookNamespaces.contains(namespace)) {
-                sb.append("| _ -> try ");
-                sb.appendf("%s.hook_%s", namespace, function);
-                sb.appendf(" c lbl sort config freshFunction%n");
-                sb.appendf("with Not_implemented -> match c with %n");
-            } else if(!".".equals(hook)) {
-                kem.registerCompilerWarning("missing entry for hook " + hook);
-            }
-
-            if(predicateRules.containsKey(sortHook)) {
-                sb.append("| ");
-                sb.append(predicateRules.get(sortHook));
-                sb.appendf("%n");
-            }
-
-            sb.append(convertFunction(ppk,
-                                      functionRules
-                                      .get(functionLabel)
-                                      .stream()
-                                      .sorted(DefinitionToFunc::sortFunctionRules)
-                                      .collect(toListC()),
-                                      functionName,
-                                      RuleType.FUNCTION));
-            sb.appendf("| _ -> raise (Stuck [KApply(lbl, c)])%n");
-            conn = "and ";
         }
+        sb.append("let rec lookups_step (c: k) (config: k) (guard: int) : k = match c with \n");
 
+        Comparator<Rule> sorter = (r1, r2) ->
+            PredicateChain.start(r1, r2)
+                          .comparePredT(r -> r.att().contains("structural"))
+                          .comparePredF(r -> r.att().contains("owise"))
+                          .comparePredF(r -> indexesPoorly(ppk, r))
+                          .result();
 
-        for(KLabel functionLabel : ppk.anywhereSet) {
-            sb.append(conn);
-            String functionName = encodeStringToFunction(functionLabel.name());
-            sb.appendf(" (c: k list) (config: k) (guards: Guard.t) : k = let lbl = %n");
-            sb.append(encodeStringToIdentifier(functionLabel));
-            sb.appendf(" in match c with %n");
-            sb.append(convertFunction(ppk,
-                                      anywhereRules.get(functionLabel),
-                                      functionName,
-                                      RuleType.ANYWHERE));
-            sb.appendf("| _ -> [KApply(lbl, c)]%n");
-            conn = "and ";
-        }
-
-
-        sb.appendf("and freshFunction (sort: string) (config: k) (counter: Z.t) : k = match sort with %n");
-        for(Sort sort : iterable(mm.freshFunctionFor().keys())) {
-            sb.append("| \"");
-            sb.append(sort.name());
-            sb.append("\" -> (");
-            KLabel freshFunction = mm.freshFunctionFor().apply(sort);
-            sb.append(encodeStringToFunction(freshFunction.name()));
-            sb.appendf(" ([Int counter] :: []) config Guard.empty)%n");
-        }
-
-
-        sb.appendf("and eval (c: kitem) (config: k) : k = match c with KApply(lbl, kl) -> (match lbl with %n");
-        for(KLabel label : Sets.union(ppk.functionSet, ppk.anywhereSet)) {
-            sb.append("|");
-            sb.append(encodeStringToIdentifier(label));
-            sb.append(" -> ");
-            sb.append(encodeStringToFunction(label.name()));
-            sb.appendf(" kl config Guard.empty%n");
-        }
-
-
-        sb.appendf("| _ -> [c])%n");
-        sb.appendf("| _ -> [c]%n");
-        sb.appendf("let rec lookups_step (c: k) (config: k) (guards: Guard.t) : k = (match c with %n");
         List<Rule> sortedRules =
-            stream(mm.rules())
-            .sorted((r1, r2) ->
-                    ComparisonChain
-                    .start()
-                    .compareTrueFirst(r1.att().contains("structural"),
-                                      r2.att().contains("structural"))
-                    .compareFalseFirst(r1.att().contains("owise"),
-                                       r2.att().contains("owise"))
-                    .compareFalseFirst(indexesPoorly(ppk, r1),
-                                       indexesPoorly(ppk, r2))
-                    .result())
-            .filter(r -> !functionRules.values().contains(r)
-                    && !r.att().contains(Attribute.MACRO_KEY)
-                    && !r.att().contains(Attribute.ANYWHERE_KEY))
-            .collect(toListC());
+            ppk.rules
+               .stream()
+               .sorted(sorter)
+               .filter(r -> ! ppk.functionRules.values().contains(r))
+               .filter(r -> ! r.att().contains(Attribute.MACRO_KEY))
+               .filter(r -> ! r.att().contains(Attribute.ANYWHERE_KEY))
+               .collect(toListC());
         Map<Boolean, List<Rule>> groupedByLookup =
-            sortedRules
-            .stream()
-            .collect(groupingByC(DefinitionToFunc::hasLookups));
-        Pair<Integer, SyntaxBuilder> lookup = convert(ppk,
-                                                      groupedByLookup.get(true),
-                                                      "lookups_step",
-                                                      RuleType.REGULAR,
-                                                      0);
-        sb.append(lookup.getRight());
-        sb.appendf("| _ -> raise (Stuck c))%n");
-        sb.appendf("let step (c: k) : k = let config = c in (match c with %n");
+            sortedRules.stream()
+                       .collect(groupingByC(DefinitionToFunc::hasLookups));
+
+        Pair<Integer, SyntaxBuilder> pair = convert(ppk,
+                                                    groupedByLookup.get(true),
+                                                    "lookups_step",
+                                                    RuleType.REGULAR,
+                                                    0);
+        int ruleNum = pair.getLeft();
+        sb.append(pair.getRight());
+        sb.append("| _ -> raise (Stuck c)\n");
+        sb.append("let step (c: k) : k = let config = c in match c with \n");
         if(groupedByLookup.containsKey(false)) {
             for(Rule r : groupedByLookup.get(false)) {
-                sb.append(convert(ppk, r, RuleType.REGULAR));
-                if(ppk.fastCompilation) {
-                    sb.appendf("| _ -> match c with %n");
+                Pair<Integer, SyntaxBuilder> pair2 = convert(ppk, r,
+                                                             RuleType.REGULAR,
+                                                             ruleNum);
+                ruleNum = pair2.getLeft();
+                sb.append(pair2.getRight());
+            }
+        }
+        sb.append("| _ -> lookups_step c c (-1)\n");
+        sb.append(OCamlIncludes.postludeSB);
+        return sb;
+    }
+
+    private static <V> Set<V> ancestors(Collection<? extends V> startNodes,
+                                        DirectedGraph<V, ?> graph) {
+        Queue<V> queue = new LinkedList<V>();
+        Set<V> visited = new LinkedHashSet<V>();
+        queue.addAll(startNodes);
+        visited.addAll(startNodes);
+        while(!queue.isEmpty()) {
+            V v = queue.poll();
+            Collection<V> neighbors = graph.getPredecessors(v);
+            for(V n : neighbors) {
+                if(!visited.contains(n)) {
+                    queue.offer(n);
+                    visited.add(n);
                 }
             }
         }
-        sb.appendf("| _ -> lookups_step c c Guard.empty%n)");
-        sb.append(OCamlIncludes.postludeSB);
-        return sb;
+        return visited;
     }
 
     public static SyntaxBuilder runtimeFunction(PreprocessedKORE ppk,
@@ -377,10 +494,41 @@ public class DefinitionToFunc {
                                singletonList(ppk.convertRuntime(r)),
                                name,
                                RuleType.PATTERN);
-
     }
 
+    private static int getArity(PreprocessedKORE ppk,
+                                KLabel functionLabel) {
+        Set<Integer> arities = ppk.productionsFor
+                                  .get(functionLabel)
+                                  .stream()
+                                  .map(Production::arity)
+                                  .collect(toSetC());
+        if(arities.size() > 1) {
+            throw kemCompilerErrorF("KLabel %s has multiple productions with " +
+                                    "differing arities: %s",
+                                    functionLabel,
+                                    ppk.productionsFor.get(functionLabel));
+        }
+        assert arities.size() == 1;
+        return arities.iterator().next();
+    }
 
+    private SyntaxBuilder printFunctionParams(long arity) {
+        SyntaxBuilder sb = newsb();
+        if(arity == 0) {
+            sb.append(" (c: unit)");
+        } else {
+            sb.append(" (c: ");
+            String conn2 = "";
+            for (int i = 0; i < arity; i++) {
+                sb.append(conn2);
+                sb.append("k");
+                conn2 = " * ";
+            }
+            sb.append(")");
+        }
+        return sb;
+    }
 
     private static SyntaxBuilder convertFunction(PreprocessedKORE ppk,
                                                  List<Rule> rules,
@@ -389,18 +537,15 @@ public class DefinitionToFunc {
         SyntaxBuilder sb = newsb();
         int ruleNum = 0;
         for(Rule r : rules) {
+            Pair<Integer, SyntaxBuilder> pair;
             if(hasLookups(r)) {
-                Pair<Integer, SyntaxBuilder> pair;
-                pair = convert(ppk, Collections.singletonList(r),
+                pair = convert(ppk, singletonList(r),
                                functionName, type, ruleNum);
-                ruleNum = pair.getLeft();
-                sb.append(pair.getRight());
             } else {
-                sb.append(convert(ppk, r, type));
+                pair = convert(ppk, r, type, ruleNum);
             }
-            if(ppk.fastCompilation) {
-                sb.appendf("| _ -> match c with %n");
-            }
+            ruleNum = pair.getLeft();
+            sb.append(pair.getRight());
         }
         return sb;
     }
@@ -423,45 +568,174 @@ public class DefinitionToFunc {
                                a2.att().contains("owise"));
     }
 
-    private static List<List<KLabel>> sortFunctions(SetMultimap<KLabel, Rule> functionRules) {
-        BiMap<KLabel, Integer> mapping = HashBiMap.create();
-        int counter = 0;
-        HashSet<KLabel> functions = new HashSet<KLabel>(functionRules.keySet());
-        for(KLabel lbl : functions) {
-            mapping.put(lbl, counter++);
-        }
-        List<Integer>[] predecessors = new List[functions.size()];
-        for(int i = 0; i < predecessors.length; i++) {
-            predecessors[i] = new ArrayList<>();
+    // FIXME(remy): Move to PreprocessedKORE
+    private static final class FunctionOrder {
+        private final SetMultimap<KLabel, Rule> functionRules;
+        private final Map<KLabel, Att> attributesFor;
+        private final Map<Sort, KLabel> freshFunctionFor;
+        private final Set<KLabel> faLabels;
+
+        private final Map<KLabel, Boolean> canTakeSteps;
+        private final BiMap<KLabel, Integer> mapping;
+        private final List<Pair<KLabel, KLabel>> traversal;
+        private final List<Integer>[] predecessors;
+
+        private final DirectedGraph<KLabel, Object> dependencies;
+        private final List<List<KLabel>> order;
+
+
+        public static FunctionOrder generateOrder(PreprocessedKORE ppk) {
+            return new FunctionOrder(ppk);
         }
 
-        class GetPredecessors extends VisitKORE {
+        public DirectedGraph<KLabel, Object> getDependencies() {
+            return dependencies;
+        }
+
+        public List<List<KLabel>> getOrder() {
+            return order;
+        }
+
+        private FunctionOrder(PreprocessedKORE ppk) {
+            this.functionRules    = ppk.functionRules;
+            this.attributesFor    = ppk.attributesFor;
+            this.freshFunctionFor = ppk.freshFunctionFor;
+            this.faLabels         = Sets.union(ppk.functionSet,
+                                               ppk.anywhereRules.keySet());
+
+            this.canTakeSteps     = initCanTakeSteps();
+            this.mapping          = initMapping();
+            this.traversal        = initTraversal();
+            this.predecessors     = initPredecessors();
+
+            this.dependencies     = initDependencies();
+            this.order            = initOrder();
+        }
+
+        private Map<KLabel, Boolean> initCanTakeSteps() {
+            Map<KLabel, Boolean> res = newHashMap();
+            for(KLabel kl : faLabels) {
+                res.put(kl, attributesFor.get(kl).contains("canTakeSteps"));
+            }
+            return res;
+        }
+
+        private BiMap<KLabel, Integer> initMapping() {
+            BiMap<KLabel, Integer> res = HashBiMap.create();
+            int counter = 0;
+            for(KLabel lbl : faLabels) { res.put(lbl, counter++); }
+            // use blank klabel to simulate dependencies on eval
+            res.put(KLabel(""), counter++);
+            return res;
+        }
+
+        private List<Pair<KLabel, KLabel>> initTraversal() {
+            List<Pair<KLabel, KLabel>> res = newArrayList();
+            functionRules
+                .entries()
+                .stream()
+                .map(e -> traverse(e.getKey(),
+                                   e.getValue().body(),
+                                   e.getValue().requires()))
+                .map(res::addAll);
+            return res;
+        }
+
+        private List<Integer>[] initPredecessors() {
+            List<Integer>[] res = new List[faLabels.size() + 1];
+            for(List<Integer> l : res) { l = newArrayList(); }
+
+            traversal
+                .stream()
+                .map(p -> Pair.of(mapping.get(p.getLeft()),
+                                  mapping.get(p.getRight())))
+                .forEach(p -> res[p.getLeft()].add(p.getRight()));
+
+            int dummy = mapping.get(KLabel(""));
+            Set<KLabel> ks = canTakeSteps.keySet();
+
+            ks.stream()
+              .filter(canTakeSteps::get)
+              .map(mapping::get)
+              .forEach(i -> res[i].add(dummy));
+
+            ks.stream()
+              .map(mapping::get)
+              .forEach(i -> res[dummy].add(i));
+
+            return res;
+        }
+
+        private DirectedGraph<KLabel, Object> initDependencies() {
+            DirectedGraph<KLabel, Object> res = new DirectedSparseGraph<>();
+
+            traversal.stream().forEach(p -> res.addEdge(new Object(),
+                                                        p.getLeft(),
+                                                        p.getRight()));
+
+            KLabel dummy = KLabel("");
+            Set<KLabel> ks = canTakeSteps.keySet();
+
+            ks.stream()
+              .filter(canTakeSteps::get)
+              .forEach(kl -> res.addEdge(new Object(), kl, dummy));
+
+            ks.stream().forEach(kl -> res.addEdge(new Object(), dummy, kl));
+
+            return res;
+        }
+
+        private List<List<KLabel>> initOrder() {
+            BiMap<Integer, KLabel> inv = mapping.inverse();
+            return mapCollL(c -> mapCollL(inv::get, c),
+                            new SCCTarjan().scc(predecessors));
+        }
+
+        private List<Pair<KLabel, KLabel>> traverse(KLabel kl,
+                                                    K... ks) {
+            TraverseKORE tk = new TraverseKORE(kl);
+            for(K k : ks) { tk.apply(k); }
+            return tk.getAccum();
+        }
+
+        private class TraverseKORE extends VisitKORE {
             private final KLabel current;
+            private final String hook;
+            private final List<Pair<KLabel, KLabel>> accum;
 
-            public GetPredecessors(KLabel current) {
+            public TraverseKORE(KLabel current) {
                 this.current = current;
+                this.hook    = attributesFor
+                              .get(current)
+                              .<String>getOptional(Attribute.HOOK_KEY)
+                              .orElse(".");
+                this.accum   = newArrayList();
+            }
+
+            public List<Pair<KLabel, KLabel>> getAccum() {
+                return accum;
             }
 
             @Override
             public Void apply(KApply k) {
-                if(functions.contains(k.klabel())) {
-                    predecessors[mapping.get(current)].add(mapping.get(k.klabel()));
+                if(faLabels.contains(k.klabel())) {
+                    accum.add(Pair.of(current, k.klabel()));
+                    if("KREFLECTION.fresh".equals(hook)) {
+                        for(KLabel fresh : freshFunctionFor.values()) {
+                            accum.add(Pair.of(current, fresh));
+                        }
+                    }
                 }
+
+                if(k.klabel() instanceof KVariable) {
+                    // this function requires a call to eval,
+                    // so we need to add the dummy dependency
+                    accum.add(Pair.of(current, KLabel("")));
+                }
+
                 return super.apply(k);
             }
         }
-
-        for(Map.Entry<KLabel, Rule> entry : functionRules.entries()) {
-            GetPredecessors visitor = new GetPredecessors(entry.getKey());
-            visitor.apply(entry.getValue().body());
-            visitor.apply(entry.getValue().requires());
-        }
-
-        List<List<Integer>> components = new SCCTarjan().scc(predecessors);
-
-        return components.stream().map(l -> l.stream()
-                .map(i -> mapping.inverse().get(i)).collect(toListC()))
-                .collect(toListC());
     }
 
     private static enum RuleType {
@@ -476,6 +750,7 @@ public class DefinitionToFunc {
                             e.getValue());
     }
 
+    // UNCHECKED
     private static Pair<Integer, SyntaxBuilder> convert(PreprocessedKORE ppk,
                                                         List<Rule> rules,
                                                         String functionName,
@@ -570,7 +845,8 @@ public class DefinitionToFunc {
                 sb.append(convertRHS(ppk,
                                      ruleType,
                                      RewriteToTop.toRight(r.body()),
-                                     globalVars));
+                                     globalVars,
+                                     rn));
                 sb.append(pair.getSuffix());
                 sb.addNewline();
                 rn++;
@@ -618,7 +894,8 @@ public class DefinitionToFunc {
                         sb.append(convertRHS(ppk,
                                              ruleType,
                                              RewriteToTop.toRight(r.body()),
-                                             vars));
+                                             vars,
+                                             rn));
                         sb.append(pair.getSuffix());
                         sb.addNewline();
                         rn++;
@@ -659,7 +936,8 @@ public class DefinitionToFunc {
             sb.append(convertRHS(ppk,
                                  ruleType,
                                  RewriteToTop.toRight(r.body()),
-                                 globalVars));
+                                 globalVars,
+                                 rn));
             sb.append(pair.getSuffix());
             sb.addNewline();
             rn++;
@@ -667,6 +945,7 @@ public class DefinitionToFunc {
         return Pair.of(rn, sb);
     }
 
+    // UNCHECKED
     private static boolean indexesPoorly(PreprocessedKORE ppk,
                                          Rule r) {
         Module mm = ppk.mainModule;
@@ -706,6 +985,7 @@ public class DefinitionToFunc {
         return h.b;
     }
 
+    // UNCHECKED
     private static KApply getLookup(Rule r, int idx) {
         class Holder {
             int i = 0;
@@ -726,9 +1006,12 @@ public class DefinitionToFunc {
         return h.lookup;
     }
 
-    private static SyntaxBuilder convert(PreprocessedKORE ppk,
-                                         Rule r,
-                                         RuleType type) {
+    // UNCHECKED
+    private static Pair<Integer, SyntaxBuilder> convert(PreprocessedKORE ppk,
+                                                        Rule r,
+                                                        RuleType type,
+                                                        int ruleNum) {
+        int rn = ruleNum;
         try {
             SyntaxBuilder sb = newsb();
             sb.append(convertComment(r));
@@ -751,10 +1034,10 @@ public class DefinitionToFunc {
                 suffix.append(pair.getSuffix());
             }
             sb.append(" -> ");
-            sb.append(convertRHS(ppk, type, right, vars));
+            sb.append(convertRHS(ppk, type, right, vars, rn));
             sb.append(suffix);
             sb.addNewline();
-            return sb;
+            return Pair.of(rn + 1, sb);
         } catch (KEMException e) {
             String src = r.att()
                           .getOptional(Source.class)
@@ -784,6 +1067,7 @@ public class DefinitionToFunc {
         }
     }
 
+    // UNCHECKED
     private static SyntaxBuilder convertLHS(PreprocessedKORE ppk,
                                             RuleType type,
                                             K left,
@@ -800,8 +1084,11 @@ public class DefinitionToFunc {
     private static SyntaxBuilder convertRHS(PreprocessedKORE ppk,
                                             RuleType type,
                                             K right,
-                                            FuncVisitor.VarInfo vars) {
+                                            FuncVisitor.VarInfo vars,
+                                            int ruleNum) {
         SyntaxBuilder sb = newsb();
+
+        boolean isReg = type == RuleType.REGULAR;
         boolean isPat = type == RuleType.PATTERN;
         boolean isAny = type == RuleType.ANYWHERE;
 
@@ -812,25 +1099,34 @@ public class DefinitionToFunc {
                 sb.addArgument(newsbStr(var.name()));
                 String fmt = FuncVisitor.isList(var, ppk, vars,
                                                 true, false) ? "%s" : "[%s]";
-                sb.addArgument(newsbv(String.format(fmt, vars.getVars()
-                                                             .get(var)
-                                                             .iterator()
-                                                             .next())));
+                sb.addArgument(newsbv(fmt(fmt, vars.getVars()
+                                                   .get(var)
+                                                   .iterator()
+                                                   .next())));
             }
             sb.addArgument(newsbv("Subst.empty"));
-            for(KVariable var : vars.getVars().keySet()) {
+            for(KVariable ignored : vars.getVars().keySet()) {
                 sb.endApplication();
             }
         } else {
             sb.append(genVisitor(ppk, vars, true, false, isAny).apply(right));
         }
 
-        if(isAny) {
-            sb = newsb().addMatchSB(sb,
-                                    asList(newsbp("[item]")),
-                                    asList(newsbApp("eval",
-                                                    newsbn("item"),
-                                                    newsbn("config"))));
+        // if(isAny) {
+        //     sb = newsb().addMatchSB(sb,
+        //                             asList(newsbp("[item]")),
+        //                             asList(newsbApp("eval",
+        //                                             newsbApp("normalize",
+        //                                                      newsbn("item")),
+        //                                             newsbn("config"))));
+        // }
+
+        if(isReg && ppk.options.getProfileRules()) {
+            sb = newsbSeq(newsbApp("print_string",
+                                   newsbStr(fmt("succeeded %s rule %d \\n",
+                                                type.name().toLowerCase(),
+                                                ruleNum))),
+                          sb);
         }
 
         return sb;
@@ -861,6 +1157,7 @@ public class DefinitionToFunc {
                        .stream()
                        .map(l -> l.suffix)
                        .collect(joiningC()));
+        // FIXME(remy): reduce("", String::concat) may be faster than joining()
         return newSBPair(prefix, suffix);
     }
 
@@ -878,6 +1175,7 @@ public class DefinitionToFunc {
         }
     }
 
+    // UNCHECKED
     private static List<Lookup> convertLookups(PreprocessedKORE ppk,
                                                FuncVisitor.VarInfo vars,
                                                K requires,
@@ -900,6 +1198,7 @@ public class DefinitionToFunc {
         return results;
     }
 
+    // UNCHECKED
     private static Optional<Lookup> convertLookupsApply(PreprocessedKORE ppk,
                                                         FuncVisitor.VarInfo vars,
                                                         KApply k,
@@ -937,6 +1236,7 @@ public class DefinitionToFunc {
         return Optional.empty();
     }
 
+    // UNCHECKED
     private static Optional<Lookup> convertLookupsChoose(KApply k,
                                                          PreprocessedKORE ppk,
                                                          FuncVisitor.VarInfo vars,

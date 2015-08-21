@@ -34,6 +34,7 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
 
     private final Function<CompiledDefinition, DefinitionToFunc> converterGen;
     private final ProcessBuilder processBuilder;
+    private final FuncOptions options;
 
     private static final String ocamlPackages = "gmp,zarith";
 
@@ -88,15 +89,19 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     public FuncBackend(KExceptionManager kem,
                        FileUtil files,
                        GlobalOptions globalOptions,
-                       KompileOptions kompileOptions) {
+                       KompileOptions kompileOptions,
+                       FuncOptions options) {
         this.processBuilder = files.getProcessBuilder();
 
         this.converterGen = def -> {
             PreprocessedKORE ppk = new PreprocessedKORE(def, kem, files,
                                                         globalOptions,
-                                                        kompileOptions);
-            return new DefinitionToFunc(kem, ppk);
+                                                        kompileOptions,
+                                                        options);
+            return new DefinitionToFunc(ppk, kem);
         };
+
+        this.options = options;
 
         this.definitionFile    = files.resolveKompiled(definitionFileName);
         this.constantsFile     = files.resolveKompiled(constantsFileName);

@@ -40,7 +40,8 @@ public class KToFunc {
                    GlobalOptions globalOptions,
                    KompileOptions kompileOptions) {
         this(new PreprocessedKORE(compDef, kem, files,
-                                  globalOptions, kompileOptions));
+                                  globalOptions, kompileOptions,
+                                  null));
     }
 
     /**

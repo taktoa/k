@@ -121,8 +121,8 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             String hook = ppk.attrSorts
                              .get(Attribute.HOOK_KEY)
                              .getOrDefault(k.sort(), "");
-            if(sortHooks.containsKey(hook)) {
-                return sortHooks.get(hook).apply(k.s());
+            if(ppk.sortHooks.containsKey(hook)) {
+                return ppk.sortHooks.get(hook).apply(k.s());
             } else {
                 return newsbf("KToken (%s, %s)",
                               apply(k.sort()),
@@ -189,7 +189,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
     public Optional<SyntaxBuilder> applyPredicateFunction(KApply k) {
         Sort s = Sort(ppk.attrLabels.get(Attribute.PREDICATE_KEY).get(k.klabel()));
         String hook = ppk.attrSorts.get(Attribute.HOOK_KEY).getOrDefault(s, "");
-        if(sortHooks.containsKey(hook) && k.klist().items().size() == 1) {
+        if(ppk.sortHooks.containsKey(hook) && k.klist().items().size() == 1) {
             KSequence item = (KSequence) k.klist().items().get(0);
             if(   item.items().size() == 1
                && vars.getVars().containsKey(item.items().get(0))) {
@@ -257,7 +257,7 @@ public class FuncVisitor extends AbstractKORETransformer<SyntaxBuilder> {
             String fmt = stack ? "(isTrue (%s(%s) Guard.empty))"
                                : "(%s(%s) Guard.empty)";
             res = newsb().appendf(fmt,
-                                  encodeStringToFunction(k.klabel().name()),
+                                  encodeStringToFunction(k.klabel()),
                                   apply(k.klist().items(), true));
         }
 

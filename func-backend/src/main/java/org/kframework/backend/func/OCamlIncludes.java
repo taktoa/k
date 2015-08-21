@@ -207,116 +207,22 @@ public final class OCamlIncludes {
     }
 
     public static final ImmutableSet<String> hookNamespaces;
-    public static final ImmutableMap<String, SyntaxBuilder> hooks;
-    public static final ImmutableMap<String, Function<String, SyntaxBuilder>> sortHooks;
+    public static final ImmutableMap<String, Function<String, SyntaxBuilder>> defSortHooks;
+    public static final ImmutableMap<String, Function<String, SyntaxBuilder>> userSortHooks;
     public static final ImmutableMap<String, Function<Sort, SyntaxBuilder>> sortVarHooks;
-    public static final ImmutableMap<String, SyntaxBuilder> predicateRules;
+    public static final ImmutableMap<String, Function<Sort, SyntaxBuilder>> predicateRules;
 
     private OCamlIncludes() {}
 
-    static {
-        ImmutableMap.Builder<String, SyntaxBuilder> bld;
-        bld = ImmutableMap.builder();
-
-        putb(bld, "Map:_|->_",               toSBs("k1 :: k2 :: []",                              "[Map (KMap.singleton k1 k2)]"));
-        putb(bld, "Map:.Map",                toSBs("[]",                                          "[Map KMap.empty]"));
-        putb(bld, "Map:__",                  toSBs("([Map k1]) :: ([Map k2]) :: []",              "[Map (KMap.merge (fun k a b -> match a, b with None, None -> None | None, Some v | Some v, None -> Some v | Some v1, Some v2 when v1 = v2 -> Some v1) k1 k2)]"));
-        putb(bld, "Map:lookup",              toSBs("[Map k1] :: k2 :: []",                        "(try KMap.find k2 k1 with Not_found -> [Bottom])"));
-        putb(bld, "Map:update",              toSBs("[Map k1] :: k :: v :: []",                    "[Map (KMap.add k v k1)]"));
-        putb(bld, "Map:remove",              toSBs("[Map k1] :: k2 :: []",                        "[Map (KMap.remove k2 k1)]"));
-        putb(bld, "Map:keys",                toSBs("[Map k1] :: []",                              "[Set (KMap.fold (fun k v -> KSet.add k) k1 KSet.empty)]"));
-        putb(bld, "Map:values",              toSBs("[Map k1] :: []",                              "[Set (KMap.fold (fun key -> KSet.add) k1 KSet.empty)]"));
-        putb(bld, "Map:choice",              toSBs("[Map k1] :: []",                              "match KMap.choose k1 with (k, _) -> k"));
-        putb(bld, "Map:updateAll",           toSBs("([Map k1]) :: ([Map k2]) :: []",              "[Map (KMap.merge (fun k a b -> match a, b with None, None -> None | None, Some v | Some v, None | Some _, Some v -> Some v) k1 k2)]"));
-        putb(bld, "Set:in",                  toSBs("k1 :: [Set k2] :: []",                        "[Bool (KSet.mem k1 k2)]"));
-        putb(bld, "Set:.Set",                toSBs("[]",                                          "[Set KSet.empty]"));
-        putb(bld, "Set:SetItem",             toSBs("k :: []",                                     "[Set (KSet.singleton k)]"));
-        putb(bld, "Set:__",                  toSBs("[Set s1] :: [Set s2] :: []",                  "[Set (KSet.union s1 s2)]"));
-        putb(bld, "Set:difference",          toSBs("[Set k1] :: [Set k2] :: []",                  "[Set (KSet.diff k1 k2)]"));
-        putb(bld, "Set:inclusion",           toSBs("[Set k1] :: [Set k2] :: []",                  "[Bool (KSet.subset k1 k2)]"));
-        putb(bld, "Set:intersection",        toSBs("[Set k1] :: [Set k2] :: []",                  "[Set (KSet.inter k1 k2)]"));
-        putb(bld, "Set:choice",              toSBs("[Set k1] :: []",                              "KSet.choose k1"));
-        putb(bld, "List:.List",              toSBs("[]",                                          "[List []]"));
-        putb(bld, "List:ListItem",           toSBs("k :: []",                                     "[List [k]]"));
-        putb(bld, "List:__",                 toSBs("[List l1] :: [List l2] :: []",                "[List (l1 @ l2)]"));
-        putb(bld, "List:in",                 toSBs("k1 :: [List k2] :: []",                       "[Bool (List.mem k1 k2)]"));
-        putb(bld, "List:get",                toSBs("[List l1] :: [Int i] :: []",                  "let i = Z.to_int i in (try if i >= 0 then List.nth l1 i else List.nth l1 ((List.length l1) + i) with Failure \"nth\" -> [Bottom])"));
-        putb(bld, "List:range",              toSBs("[List l1] :: [Int i1] :: [Int i2] :: []",     "(try [List (list_range (l1, (Z.to_int i1), (List.length(l1) - (Z.to_int i2) - (Z.to_int i1))))] with Failure \"list_range\" -> [Bottom])"));
-        putb(bld, "#K-EQUAL:_==K_",          toSBs("k1 :: k2 :: []",                              "[Bool (eq k1 k2)]"));
-        putb(bld, "#BOOL:_andBool_",         toSBs("[Bool b1] :: [Bool b2] :: []",                "[Bool (b1 && b2)]"));
-        putb(bld, "#BOOL:_andThenBool_",     toSBs("[Bool b1] :: [Bool b2] :: []",                "[Bool (b1 && b2)]"));
-        putb(bld, "#BOOL:_orBool_",          toSBs("[Bool b1] :: [Bool b2] :: []",                "[Bool (b1 || b2)]"));
-        putb(bld, "#BOOL:_orElseBool_",      toSBs("[Bool b1] :: [Bool b2] :: []",                "[Bool (b1 || b2)]"));
-        putb(bld, "#BOOL:notBool_",          toSBs("[Bool b1] :: []",                             "[Bool (not b1)]"));
-        putb(bld, "#STRING:_+String_",       toSBs("[String s1] :: [String s2] :: []",            "[String (s1 ^ s2)]"));
-        putb(bld, "#STRING:_<String_",       toSBs("[String s1] :: [String s2] :: []",            "[Bool ((String.compare s1 s2) < 0)]"));
-        putb(bld, "#STRING:_<=String_",      toSBs("[String s1] :: [String s2] :: []",            "[Bool ((String.compare s1 s2) <= 0)]"));
-        putb(bld, "#STRING:_>String_",       toSBs("[String s1] :: [String s2] :: []",            "[Bool ((String.compare s1 s2) > 0)]"));
-        putb(bld, "#STRING:_>=String_",      toSBs("[String s1] :: [String s2] :: []",            "[Bool ((String.compare s1 s2) >= 0)]"));
-        putb(bld, "#STRING:chrChar",         toSBs("[Int i] :: []",                               "[String (String.make 1 (Char.chr (Z.to_int i)))]"));
-        putb(bld, "#STRING:findString",      toSBs("[String s1] :: [String s2] :: [Int i] :: []", "try [Int (Z.of_int (Str.search_forward (Str.regexp_string s2) s1 (Z.to_int i)))] with Not_found -> [Int (Z.of_int (-1))]"));
-        putb(bld, "#STRING:rfindString",     toSBs("[String s1] :: [String s2] :: [Int i] :: []", "try [Int (Z.of_int (Str.search_backward (Str.regexp_string s2) s1 (Z.to_int i)))] with Not_found -> [Int (Z.of_int (-1))]"));
-        putb(bld, "#STRING:lengthString",    toSBs("[String s] :: []",                            "[Int (Z.of_int (String.length s))]"));
-        putb(bld, "#STRING:substrString",    toSBs("[String s] :: [Int i1] :: [Int i2] :: []",    "[String (String.sub s (Z.to_int i1) (Z.to_int (Z.add i1 i2)))]"));
-        putb(bld, "#STRING:ordChar",         toSBs("[String s] :: []",                            "[Int (Z.of_int (Char.code (String.get s 0)))]"));
-        putb(bld, "#INT:_%Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.rem a b)]"));
-        putb(bld, "#INT:_+Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.add a b)]"));
-        putb(bld, "#INT:_<=Int_",            toSBs("[Int a] :: [Int b] :: []",                    "[Bool (Z.leq a b)]"));
-        putb(bld, "#INT:_&Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.logand a b)]"));
-        putb(bld, "#INT:_*Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.mul a b)]"));
-        putb(bld, "#INT:_-Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.sub a b)]"));
-        putb(bld, "#INT:_/Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.div a b)]"));
-        putb(bld, "#INT:_<<Int_",            toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.shift_left a (Z.to_int b))]"));
-        putb(bld, "#INT:_<Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Bool (Z.lt a b)]"));
-        putb(bld, "#INT:_>=Int_",            toSBs("[Int a] :: [Int b] :: []",                    "[Bool (Z.geq a b)]"));
-        putb(bld, "#INT:_>>Int_",            toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.shift_right a (Z.to_int b))]"));
-        putb(bld, "#INT:_>Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Bool (Z.gt a b)]"));
-        putb(bld, "#INT:_^Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.pow a (Z.to_int b))]"));
-        putb(bld, "#INT:_xorInt_",           toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.logxor a b)]"));
-        putb(bld, "#INT:_|Int_",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.logor a b)]"));
-        putb(bld, "#INT:absInt",             toSBs("[Int a] :: []",                               "[Int (Z.abs a)]"));
-        putb(bld, "#INT:maxInt",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.max a b)]"));
-        putb(bld, "#INT:minInt",             toSBs("[Int a] :: [Int b] :: []",                    "[Int (Z.min a b)]"));
-        putb(bld, "#CONVERSION:int2string",  toSBs("[Int i] :: []",                               "[String (Z.to_string i)]"));
-        putb(bld, "#CONVERSION:string2int",  toSBs("[String s] :: []",                            "[Int (Z.of_string s)]"));
-        putb(bld, "#CONVERSION:string2base", toSBs("[String s] :: [Int i] :: []",                 "[Int (Z.of_string_base (Z.to_int i) s)]"));
-        putb(bld, "#FRESH:fresh",            toSBs("[String sort] :: []",                         "let res = freshFunction sort !freshCounter in freshCounter := Z.add !freshCounter Z.one; res"));
-        putb(bld, "Collection:size",         toSBs("[List l] :: []",                              "[Int (Z.of_int (List.length l))]",
-                                                   "[Map m] :: []",                               "[Int (Z.of_int (KMap.cardinal m))]",
-                                                   "[Set s] :: []",                               "[Int (Z.of_int (KSet.cardinal s))]"));
-        putb(bld, "MetaK:#sort",             toSBs("[KToken (sort, s)] :: []",                    "[String (print_sort(sort))] ",
-                                                   "[Int _] :: []",                               "[String \"Int\"] ",
-                                                   "[String _] :: []",                            "[String \"String\"] ",
-                                                   "[Bool _] :: []",                              "[String \"Bool\"] ",
-                                                   "[Map _] :: []",                               "[String \"Map\"] ",
-                                                   "[List _] :: []",                              "[String \"List\"] ",
-                                                   "[Set _] :: []",                               "[String \"Set\"] ",
-                                                   "_",                                           "[String \"\"]"));
-
-        hooks = bld.build();
-    }
-
-    private static SyntaxBuilder[] toSBs(String... strings) {
-        SyntaxBuilder[] res = new SyntaxBuilder[strings.length];
-        for(int i = 0; i < res.length; i++) {
-            res[i] = newsbv(strings[i]);
-        }
-        return res;
-    }
-
-    private static void putb(ImmutableMap.Builder<String, SyntaxBuilder> builder,
-                             String hook,
-                             SyntaxBuilder... sbs) {
-        if(sbs.length % 2 != 0) {
-            throw new ExceptionInInitializerError("OCamlIncludes.putme was passed an odd number of arguments");
-        }
+    private static SyntaxBuilder toM(SyntaxBuilder... sbs) {
         SyntaxBuilder eqns = newsb();
-        for(int i = 0; (i + 1) < sbs.length; i += 2) {
-            eqns.addMatchEquation(sbs[i], sbs[i + 1]);
+        for(Pair<SyntaxBuilder, SyntaxBuilder> pair : toPairsA(sbs)) {
+            eqns.addMatchEquation(pair.getLeft(), pair.getRight());
         }
-        builder.put(hook, eqns);
+        return eqns;
     }
 
+    // UP TO DATE
     static {
         ImmutableSet.Builder<String> bld = ImmutableSet.builder();
         bld.add("BOOL");
@@ -334,34 +240,47 @@ public final class OCamlIncludes {
         hookNamespaces = bld.build();
     }
 
+    // UP TO DATE
     static {
         ImmutableMap.Builder<String, Function<Sort, SyntaxBuilder>> bld;
         bld = ImmutableMap.builder();
-        bld.put("BOOL.Bool",     s -> newsb("Bool _"));
-        bld.put("INT.Int",       s -> newsb("Int _"));
-        bld.put("FLOAT.Float",   s -> newsb("Float _"));
-        bld.put("STRING.String", s -> newsb("String _"));
-        bld.put("LIST.List",     s -> newsb("List (" + encodeStringToIdentifier(s) + ",_,_)"));
-        bld.put("MAP.Map",       s -> newsb("Map (" + encodeStringToIdentifier(s) + ",_,_)"));
-        bld.put("SET.Set",       s -> newsb("Set (" + encodeStringToIdentifier(s) + ",_,_)"));
+        bld.put("BOOL.Bool",     s -> newsbf("Bool _"));
+        bld.put("INT.Int",       s -> newsbf("Int _"));
+        bld.put("FLOAT.Float",   s -> newsbf("Float _"));
+        bld.put("STRING.String", s -> newsbf("String _"));
+        bld.put("LIST.List",     s -> newsbf("List (%s,_,_)",
+                                             encodeStringToIdentifier(s)));
+        bld.put("MAP.Map",       s -> newsbf("Map (%s,_,_)",
+                                             encodeStringToIdentifier(s)));
+        bld.put("SET.Set",       s -> newsbf("Set (%s,_,_)",
+                                             encodeStringToIdentifier(s)));
         sortVarHooks = bld.build();
     }
 
+    // UP TO DATE
     static {
-        final ImmutableMap.Builder<String, Function<String, SyntaxBuilder>> bld;
-        bld = ImmutableMap.builder();
+        Function<ImmutableMap.Builder<String, Function<String, SyntaxBuilder>>,
+                 BiConsumer<String, Function<String, SyntaxBuilder>>> funGen;
 
-        BiConsumer<String, Function<String, SyntaxBuilder>> fun = (str, f) -> {
+        funGen = b -> (str, f) -> {
             String upper = str.toUpperCase(new Locale("en"));
-            bld.put(String.format("%s.%s", upper, str), f);
+            b.put(String.format("%s.%s", upper, str), f);
         };
+
+        ImmutableMap.Builder<String, Function<String, SyntaxBuilder>>
+            common, build1, build2;
+        common = ImmutableMap.builder();
+        build1 = ImmutableMap.builder();
+        build2 = ImmutableMap.builder();
+
+        BiConsumer<String, Function<String, SyntaxBuilder>>
+            putFunC, putFun1, putFun2;
+        putFunC = funGen.apply(common);
+        putFun1 = funGen.apply(build1);
+        putFun2 = funGen.apply(build2);
 
         Function<String, SyntaxBuilder> renderBool = s -> {
             return newsbApp("Bool", newsbv(s));
-        };
-
-        Function<String, SyntaxBuilder> renderInt = s -> {
-            return newsbApp("Int", newsbApp("Z.of_string", newsbStr(s)));
         };
 
         Function<String, SyntaxBuilder> renderFloat = s -> {
@@ -369,7 +288,7 @@ public final class OCamlIncludes {
             BigFloat left = f.getLeft();
             Integer right = f.getRight();
             int prec = left.precision();
-            SyntaxBuilder val = newsbApp("FR.from_string_prec_base",
+            SyntaxBuilder val = newsbApp("Gmp.FR.from_string_prec_base",
                                          newsbInt(prec),
                                          newsbn("GMP_RNDN"),
                                          newsbInt(10),
@@ -386,24 +305,46 @@ public final class OCamlIncludes {
             return newsbApp("String", newsbStr(unquoted));
         };
 
-        fun.accept("Bool",   renderBool);
-        fun.accept("Float",  renderFloat);
-        fun.accept("Int",    renderInt);
-        fun.accept("String", renderString);
-        sortHooks = bld.build();
+        Function<String, SyntaxBuilder> renderInt = s -> {
+            return newsbApp("Int", newsbApp("Z.of_string", newsbStr(s)));
+        };
+
+        Function<String, SyntaxBuilder> renderIntLazy = s -> {
+            return newsbApp("Int", newsbv(encodeStringToIntConst(s)));
+        };
+
+        putFunC.accept("Bool",   renderBool);
+        putFunC.accept("Float",  renderFloat);
+        putFunC.accept("String", renderString);
+        putFun1.accept("Int",    renderInt);
+        putFun2.accept("Int",    renderIntLazy);
+
+        build1.putAll(common.build());
+        build2.putAll(common.build());
+
+        userSortHooks = build1.build();
+        defSortHooks  = build2.build();
     }
 
+    // UP TO DATE
     static {
-        ImmutableMap.Builder<String, SyntaxBuilder> bld;
+        ImmutableMap.Builder<String, Function<Sort, SyntaxBuilder>> bld;
         bld = ImmutableMap.builder();
-        putb(bld, "isK",      toSBs("k1 :: []",         "[Bool true]"));
-        putb(bld, "isKItem",  toSBs("[k1] :: []",       "[Bool true]"));
-        putb(bld, "isInt",    toSBs("[Int _] :: []",    "[Bool true]"));
-        putb(bld, "isString", toSBs("[String _] :: []", "[Bool true]"));
-        putb(bld, "isBool",   toSBs("[Bool _] :: []",   "[Bool true]"));
-        putb(bld, "isMap",    toSBs("[Map _] :: []",    "[Bool true]"));
-        putb(bld, "isSet",    toSBs("[Set _] :: []",    "[Bool true]"));
-        putb(bld, "isList",   toSBs("[List _] :: []",   "[Bool true]"));
+        SyntaxBuilder trueSB = newsbv("[Bool true]");
+        bld.put("K.K",           s -> toM(newsbp("k1"),         trueSB));
+        bld.put("K.KItem",       s -> toM(newsbp("[k1]"),       trueSB));
+        bld.put("INT.Int",       s -> toM(newsbp("[Int _]"),    trueSB));
+        bld.put("STRING.String", s -> toM(newsbp("[String _]"), trueSB));
+        bld.put("BOOL.Bool",     s -> toM(newsbp("[Bool _]"),   trueSB));
+        bld.put("MAP.Map",       s -> toM(newsbf("[Map (s,_,_)] when (s = %s)",
+                                                 encodeStringToIdentifier(s)),
+                                          trueSB));
+        bld.put("SET.Set",       s -> toM(newsbf("[Set (s,_,_)] when (s = %s)",
+                                                 encodeStringToIdentifier(s)),
+                                          trueSB));
+        bld.put("LIST.List",     s -> toM(newsbf("[List (s,_,_)] when (s = %s)",
+                                                 encodeStringToIdentifier(s)),
+                                          trueSB));
         predicateRules = bld.build();
     }
 
@@ -424,8 +365,8 @@ public final class OCamlIncludes {
         return "Sort" + encodeStringToAlphanumeric(name.name());
     }
 
-    public static String encodeStringToFunction(String name) {
-        return "eval" + encodeStringToAlphanumeric(name);
+    public static String encodeStringToFunction(KLabel name) {
+        return "eval" + encodeStringToAlphanumeric(name.name());
     }
 
     public static String encodeStringToVariable(String name) {
@@ -455,6 +396,13 @@ public final class OCamlIncludes {
                 sb.append(String.format("%04x", (int) name.charAt(i)));
             }
         }
+        return sb.toString();
+    }
+
+    public static String encodeStringToIntConst(String integer) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("int");
+        sb.append(encodeStringToAlphanumeric(integer));
         return sb.toString();
     }
 

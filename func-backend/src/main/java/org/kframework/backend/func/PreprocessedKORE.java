@@ -27,17 +27,25 @@ import com.google.common.collect.Lists;
 import org.kframework.definition.Production;
 import org.kframework.utils.algorithms.SCCTarjan;
 
+import javax.annotation.Nullable;
+
 import java.io.Serializable;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.UnaryOperator;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.ImmutableMap;
+
+import org.kframework.POSet;
+
 import org.kframework.definition.Rule;
 import org.kframework.kil.Attribute;
 import org.kframework.attributes.Att;
@@ -47,6 +55,8 @@ import org.kframework.kore.KSequence;
 import org.kframework.kore.Sort;
 import org.kframework.kore.compile.RewriteToTop;
 import org.kframework.kore.compile.VisitKORE;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import static org.kframework.Collections.*;
 import static org.kframework.kore.KORE.*;
@@ -72,6 +82,9 @@ import static scala.compat.java8.JFunction.*;
  */
 public final class PreprocessedKORE {
     public static final boolean fastCompilation = false;
+
+    public final ImmutableMap<String, Function<String, SyntaxBuilder>>
+        sortHooks = OCamlIncludes.userSortHooks;
 
 
     /** Set of KLabels that are functions */
@@ -143,6 +156,9 @@ public final class PreprocessedKORE {
     public Map<Rule, Set<String>> indexedRules;
 
     public Module mainModule;
+
+    public FuncOptions options;
+
     public final Map<KLabel, Att> attributesFor;
 
     private Set<String> initialized;
@@ -152,9 +168,11 @@ public final class PreprocessedKORE {
     private final Module     executionModule;
     private final Definition kompiledDefinition;
 
-    private final Set<Rule> rules;
-    private final Map<Sort, Att> sortAttributesFor;
+    public final Set<Rule> rules;
+    public final Map<Sort, Att> sortAttributesFor;
 
+    public final Map<KLabel, Sort> sortFor;
+    public final POSet<Sort> subsorts;
 
     private static final String convertLookupsStr
         = "Convert data structures to lookups";
@@ -176,8 +194,11 @@ public final class PreprocessedKORE {
                             KExceptionManager kem,
                             FileUtil files,
                             GlobalOptions globalOptions,
-                            KompileOptions kompileOptions) {
+                            KompileOptions kompileOptions,
+                            @Nullable FuncOptions options) {
         executionModule       = def.executionModule();
+
+        this.options = options;
 
         kompiledDefinition    = def.kompiledDefinition;
 
@@ -196,7 +217,9 @@ public final class PreprocessedKORE {
         rules             = stream(mainModule.rules()).collect(toSetC());
         attributesFor     = scalaMapAsJava(mainModule.attributesFor());
         sortAttributesFor = scalaMapAsJava(mainModule.sortAttributesFor());
+        sortFor           = scalaMapAsJava(mainModule.sortFor());
         freshFunctionFor  = scalaMapAsJava(mainModule.freshFunctionFor());
+        subsorts          = mainModule.subsorts();
 
         initializeFinal();
     }
@@ -358,11 +381,14 @@ public final class PreprocessedKORE {
 
         functionRules = HashMultimap.create();
 
-        for(Rule r : rules) {
-            getKLabelIfFunctionRule(r).ifPresent(x -> {
-                    functionRules.put(x, r);
-                });
-        }
+        Consumer<Rule> process = r -> {
+            Optional<KLabel> kl = getKLabelIfFunctionRule(r);
+            kl.ifPresent(x -> functionRules.put(x, r));
+        };
+
+        rules.stream()
+             .filter(r -> !r.att().contains(Attribute.MACRO_KEY))
+            .forEach(process);
 
         initialized.add("functionRules");
     }
@@ -373,11 +399,14 @@ public final class PreprocessedKORE {
 
         anywhereRules = HashMultimap.create();
 
-        for(Rule r : rules) {
-            getKLabelIfAnywhereRule(r).ifPresent(x -> {
-                    anywhereRules.put(x, r);
-                });
-        }
+        Consumer<Rule> process = r -> {
+            Optional<KLabel> kl = getKLabelIfAnywhereRule(r);
+            kl.ifPresent(x -> anywhereRules.put(x, r));
+        };
+
+        rules.stream()
+             .filter(r -> !r.att().contains(Attribute.MACRO_KEY))
+             .forEach(process);
 
         initialized.add("anywhereRules");
     }
@@ -536,19 +565,18 @@ public final class PreprocessedKORE {
     // Return the KLabel of a rule if it meets a predicate
     private Optional<KLabel> getKLabelIfPredicate(Rule r, Predicate<Att> pred) {
         K left = RewriteToTop.toLeft(r.body());
-        boolean is = false;
-        KSequence kseq;
-        KApply kapp = null;
 
-        if(left instanceof KSequence) {
-            kseq = (KSequence) left;
-            if(kseq.items().size() == 1 && kseq.items().get(0) instanceof KApply) {
-                kapp = (KApply) kseq.items().get(0);
-                is = pred.test(mainModule.attributesFor().apply(kapp.klabel()));
+        Optional<KLabel> res = Optional.empty();
+        if(   left instanceof KSequence
+           && ((KSequence) left).items().size() == 1
+           && ((KSequence) left).items().get(0) instanceof KApply) {
+            KApply kapp = (KApply) ((KSequence) left).items().get(0);
+            if(pred.test(mainModule.attributesFor().apply(kapp.klabel()))) {
+                res = Optional.of(kapp.klabel());
             }
         }
 
-        return is ? Optional.ofNullable(kapp.klabel()) : Optional.empty();
+        return res;
     }
 
     // Sort comparator on function rules, where [owise] rules go last
