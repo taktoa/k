@@ -643,7 +643,7 @@ public class DefinitionToFunc {
 
         private List<Integer>[] initPredecessors() {
             List<Integer>[] res = new List[faLabels.size() + 1];
-            for(List<Integer> l : res) { l = newArrayList(); }
+            for(int i = 0; i < res.length; i++) { res[i] = newArrayList(); }
 
             traversal
                 .stream()
