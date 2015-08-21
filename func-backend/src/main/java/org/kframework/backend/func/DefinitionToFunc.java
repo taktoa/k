@@ -140,7 +140,7 @@ import static org.kframework.backend.func.OCamlIncludes.*;
  */
 public class DefinitionToFunc {
     public static final boolean ocamlopt = false;
-    public static final boolean commentsEnabled = false;
+    public static final boolean commentsEnabled = true;
     public static final Pattern identChar = Pattern.compile("[A-Za-z0-9_]");
 
     private final KExceptionManager kem;
@@ -221,7 +221,7 @@ public class DefinitionToFunc {
 
         //compute fixed point. The only hook that actually requires this argument is KREFLECTION.fresh, so we will automatically
         //add the real definition of this function before we declare any function that requires it.
-        sb.append("let freshFunction (sort: string) (config: k) (counter: Z.t) : k = [Bottom]");
+        sb.appendf("%s%n", "let freshFunction (sort: string) (config: k) (counter: Z.t) : k = [Bottom]");
 
         Predicate<KLabel> isImpure = kl -> ppk.attributesFor
                                               .get(kl)
@@ -284,14 +284,14 @@ public class DefinitionToFunc {
                                     .<String>getOptional(Attribute.HOOK_KEY)
                                     .orElse(".");
                 if(hook.equals("KREFLECTION.fresh")) {
-                    sb.append("let freshFunction (sort: string) (config: k) (counter: Z.t) : k = match sort with \n");
+                    sb.appendf("%s%n", "let freshFunction (sort: string) (config: k) (counter: Z.t) : k = match sort with ");
                     for(Sort sort : ppk.freshFunctionFor.keySet()) {
                         sb.append("| \"");
                         sb.append(sort.name());
                         sb.append("\" -> (");
                         KLabel freshFunction = ppk.freshFunctionFor.get(sort);
                         sb.append(encodeStringToFunction(freshFunction));
-                        sb.append(" ([Int counter]) config (-1))\n");
+                        sb.appendf("%s%n", " ([Int counter]) config (-1))");
                     }
                 }
                 if(ppk.functionSet.contains(functionLabel)) {
@@ -340,10 +340,8 @@ public class DefinitionToFunc {
                                                  .<String>getOptional("hook")
                                                  .orElse("");
                             if(predicateRules.containsKey(sortHook)) {
-                                sb.append("| ");
                                 sb.append(predicateRules.get(sortHook)
                                                         .apply(sort));
-                                sb.append("\n");
                             }
                         });
                     }
@@ -513,7 +511,7 @@ public class DefinitionToFunc {
         return arities.iterator().next();
     }
 
-    private SyntaxBuilder printFunctionParams(long arity) {
+    public static SyntaxBuilder printFunctionParams(long arity) {
         SyntaxBuilder sb = newsb();
         if(arity == 0) {
             sb.append(" (c: unit)");
@@ -556,7 +554,7 @@ public class DefinitionToFunc {
         new VisitKORE() {
             @Override
             public Void apply(KApply k) {
-                h.b |= isLookupKLabel(k);
+                h.b |= isLookupKLabel(k.klabel());
                 return super.apply(k);
             }
         }.apply(r.requires());
@@ -996,7 +994,7 @@ public class DefinitionToFunc {
             @Override
             public Void apply(KApply k) {
                 if(h.i > idx) { return null; }
-                if(isLookupKLabel(k)) {
+                if(isLookupKLabel(k.klabel())) {
                     h.lookup = k;
                     h.i++;
                 }
@@ -1300,14 +1298,14 @@ public class DefinitionToFunc {
     }
 
     /**
-     * Does the given KApply have a lookup-related label?
-     * @param k     The KApply to test
-     * @return      Whether or not the given KApply has a lookup-related label
+     * Is the given KLabel lookup-related?
+     * @param k     The KLabel to test
+     * @return      Whether or not the given KLabel is lookup-related
      */
-    private static boolean isLookupKLabel(KApply k) {
-        return k.klabel().name().equals("#match")
-            || k.klabel().name().equals("#mapChoice")
-            || k.klabel().name().equals("#setChoice");
+    public static boolean isLookupKLabel(KLabel kl) {
+        return kl.name().equals("#match")
+            || kl.name().equals("#mapChoice")
+            || kl.name().equals("#setChoice");
     }
 
     private static SBPair newSBPair(SyntaxBuilder pre,

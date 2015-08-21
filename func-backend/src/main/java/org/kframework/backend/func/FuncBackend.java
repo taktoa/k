@@ -36,8 +36,6 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     private final ProcessBuilder processBuilder;
     private final FuncOptions options;
 
-    private static final String ocamlPackages = "gmp,zarith";
-
     private static final String
         definitionFileName,    constantsFileName,
         lexerInputFileName,    parserInputFileName,
@@ -70,13 +68,16 @@ public class FuncBackend implements Consumer<CompiledDefinition> {
     private static final String[] ocamlCmd = new String[]{
         "ocamlfind",
         "ocamlopt",
-        "-dllpath-all",
-        "-linkpkg",
-        "-package", ocamlPackages,
-        "-w", "-26-11",
+        // "-dllpath-all",
+        // "-linkpkg",
         "-inline", "20",
+        "-nodynlink",
         "-c",
         "-g",
+        "-package", "gmp",
+        "-package", "zarith",
+        "-safe-string",
+        "-w", "-26-11",
         constantsFileName,
         preludeFileName,
         definitionFileName,
